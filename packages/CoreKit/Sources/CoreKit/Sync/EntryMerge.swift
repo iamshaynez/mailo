@@ -23,7 +23,7 @@ public struct TombstoneRecord: Equatable, Hashable, Codable, Sendable {
 }
 
 /// CRDT 合并后的状态。
-public struct MergeState: Equatable, Sendable, Codable {
+public struct MergeState: Equatable, Hashable, Sendable, Codable {
     /// messageKey → 记录，first-writer-wins（SYNC-002）。
     public var classifications: [String: ClassificationRecord] = [:]
     /// ruleKey → 生效规则（LWW，SYNC-003）。
