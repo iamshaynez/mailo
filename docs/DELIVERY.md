@@ -32,14 +32,18 @@ apps/(iOS, macOS) ── XcodeGen
 
 | 项 | 原因 | 接入点已备 |
 |---|---|---|
-| 真实 TCP/TLS 传输（Network.framework） | 需真机/真实账号联调 | `ImapTransport`/`SmtpTransport` 端口，Fake 实现同构替换 |
+| 真实邮箱联调（TcpImap/SmtpTransport 打真服务器） | 需真实邮箱账号/授权码；**传输实现已交付**（TLS/XOAUTH2/LOGIN，MAIL-016~019）并编译级验证 | `TcpImapTransport` / `TcpSmtpTransport` |
 | Foundation Models 真实调用 | 需 iOS/macOS 26+ 真机 | `MlGateway` 端口 |
 | Core ML embedding 模型接入 | 模型文件（首启 CDN 下载）+ 转换 | `EmbeddingProvider` 端口 |
-| AppAuth 授权 UI 流 | 需正式 client id（见下） | `OAuthClientInfo` 注入位 |
-| Keychain 生产实现 | 需 app target 链接 | `CredentialVault` 端口（Security.framework） |
-| 预置名单库数据 | 运营内容（域名→桶种子数据） | `Roster` 数据结构 |
-| IDLE 长连接/后台调度 | 需真机验证生命周期 | 引擎 sync 循环外层 |
+| AppAuth 授权 UI 流 | 需正式 client id（见下）；XOAUTH2 SASL 载荷与 Keychain 保管**已交付**（MAIL-017/OAUTH-004） | `OAuthClientInfo` 注入位 |
+| IDLE 长连接协议增强 | 轮询编排 v1 **已交付**（PollingPolicy/SyncRunner，SYNC-011）；IDLE 长连接需真机验证生命周期 | `SyncRunner` 外层 |
 | golden 评测集真机跑批 | 真机 + 真实模型 | `GoldenEvaluator` |
+
+### v0.1 追加交付（PR #13/#14，回应完成度审计）
+- **生产传输层**：`NetworkTransport.swift`（TLS 连接/行读取器/字面量分片容错）+ `TcpTransports.swift`（Imap XOAUTH2·LOGIN、SMTP AUTH LOGIN、多行应答归并）——MAIL-016~019
+- **Keychain 凭证保管**：`KeychainVault`（SecItem 真实路径，CI 实测读写）——OAUTH-004
+- **预置名单库种子**：`RosterSeed`（42 域名 v1 种子 + CDN 热更覆盖解析，银行等歧义域不收）——CLS-009
+- **轮询编排**：`PollingPolicy`（成功复位/指数退避封顶）+ `SyncRunner`——SYNC-011
 
 ## 4. 用户侧注册/准备清单（goal 要求的最终清单）
 

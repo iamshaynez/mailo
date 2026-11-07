@@ -59,3 +59,10 @@
 - **Then** 直接返回 `.frozen` 判定，不再进入模型路径
 - **Status**: green
 - **Tests**: `cls_008_synced_result_skips_model`
+
+## CLS-009 预置名单库种子与热更覆盖
+- **Given** 内置种子（v1：高置信无歧义域名）与 CDN 热更覆盖表
+- **When** 组装 Roster 后对种子域名分类
+- **Then** 种子命中正确桶（订阅/通知→feed、收据/账单→paperTrail）；覆盖表优先于种子；银行等歧义域名**不在种子**（宁缺勿滥，交 Screener）
+- **Status**: draft
+- **Tests**: `cls_009_roster_seed_and_overrides`
