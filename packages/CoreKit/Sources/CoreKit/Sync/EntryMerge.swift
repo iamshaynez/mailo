@@ -1,11 +1,35 @@
-/// CRDT 合并后的状态（含 tuple 字段，Equatable 可合成、Hashable 不可，够用）。
+/// 分类合并记录（SYNC-002 决胜所需三元组）。
+public struct ClassificationRecord: Equatable, Sendable {
+    public var ts: Int64
+    public var deviceId: String
+    public var bucket: Bucket
+
+    public init(ts: Int64, deviceId: String, bucket: Bucket) {
+        self.ts = ts
+        self.deviceId = deviceId
+        self.bucket = bucket
+    }
+}
+
+/// 规则删除标记记录（SYNC-004）。
+public struct TombstoneRecord: Equatable, Sendable {
+    public var ts: Int64
+    public var deviceId: String
+
+    public init(ts: Int64, deviceId: String) {
+        self.ts = ts
+        self.deviceId = deviceId
+    }
+}
+
+/// CRDT 合并后的状态。
 public struct MergeState: Equatable, Sendable {
-    /// messageKey → (ts, deviceId, bucket)，first-writer-wins（SYNC-002）。
-    public var classifications: [String: (ts: Int64, deviceId: String, bucket: Bucket)] = [:]
+    /// messageKey → 记录，first-writer-wins（SYNC-002）。
+    public var classifications: [String: ClassificationRecord] = [:]
     /// ruleKey → 生效规则（LWW，SYNC-003）。
     public var rules: [String: UserRule] = [:]
-    /// ruleKey → (ts, deviceId) 删除标记（SYNC-004）。
-    public var tombstones: [String: (ts: Int64, deviceId: String)] = [:]
+    /// ruleKey → 删除标记（SYNC-004）。
+    public var tombstones: [String: TombstoneRecord] = [:]
 
     public init() {}
 }
