@@ -149,3 +149,10 @@
 - **Then** personal→consumers 租户 + outlook.office.com 资源主机；organizational→organizations 租户 + outlook.office365.com 主机（2026-11-07 实测：office365.com 主机在 consumers 端点为 AADSTS70011）
 - **Status**: green
 - **Tests**: `mail_021_dual_account_endpoints_and_scopes`
+
+## MAIL-022 SELECT 状态解析（EXISTS/UIDNEXT）
+- **Given** 真实 SELECT 响应字节（含 * OK [UIDNEXT n] 与 * n EXISTS）
+- **When** SelectState.parse
+- **Then** 提取 exists 与 uidNext（探针据此只拉最近 N 封，不再全量 FETCH）
+- **Status**: draft
+- **Tests**: `mail_022_select_state_parse`

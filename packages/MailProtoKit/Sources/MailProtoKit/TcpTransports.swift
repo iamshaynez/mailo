@@ -52,6 +52,7 @@ public final class TcpImapTransport: ImapTransport, @unchecked Sendable {
     }
 
     /// 端口实现：发送命令，收集到 tagged 终结行为止的完整响应字节（含字面量整体）。
+    /// 大响应（FETCH 流）以原始字节块直读 → ImapLineReader 组装，不做中间切行（MAIL-022 关联修复）。
     public func send(_ command: ImapCommand) throws -> [UInt8] {
         guard let conn = connection else { throw TransportError.closed }
         let tag = nextTag
@@ -64,19 +65,13 @@ public final class TcpImapTransport: ImapTransport, @unchecked Sendable {
         var out: [UInt8] = []
         let reader = ImapLineReader()
         while true {
-            let line = try conn.receiveLine()
-            var pending: [[UInt8]] = reader.feed(line + [13, 10])
-            while let logical = pending.first {
+            let chunk = try conn.receiveRaw()
+            for logical in reader.feed(chunk) {
                 out += logical
                 if String(decoding: logical, as: UTF8.self).hasPrefix(tag) {
                     return out
                 }
-                pending.removeFirst()
-                // 行读取器可能已缓冲后续，重新灌入
-                pending = reader.feed([])
             }
-            // 单行未凑齐逻辑行（字面量数据未到）：继续收
-            if pending.isEmpty && out.isEmpty { continue }
         }
     }
 }
