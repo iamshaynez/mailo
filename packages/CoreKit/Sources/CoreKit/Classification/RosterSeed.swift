@@ -42,13 +42,15 @@ public enum RosterSeed {
     }
 
     /// 从 JSON（CDN 热更格式 `{"domain":"bucket"}`）加载覆盖表；坏行跳过、未知桶忽略。
+    /// 桶名大小写不敏感（CDN 侧常见 "papertrail" 小写写法）。
     public static func parseOverrides(_ json: Data) -> [String: Bucket] {
         guard let raw = try? JSONSerialization.jsonObject(with: json) as? [String: String] else {
             return [:]
         }
         var out: [String: Bucket] = [:]
         for (domain, bucketRaw) in raw {
-            if let bucket = Bucket(rawValue: bucketRaw.trimmingCharacters(in: .whitespaces).lowercased()) {
+            let name = bucketRaw.trimmingCharacters(in: .whitespaces).lowercased()
+            if let bucket = Bucket.allCases.first(where: { $0.rawValue.lowercased() == name }) {
                 out[domain.normalized] = bucket
             }
         }
