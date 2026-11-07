@@ -91,3 +91,27 @@ struct SyncEngineTests {
         #expect(events.map(\.uid).sorted() == [101, 102]) // 但 UID 已更新
     }
 }
+
+// MARK: SYNC-012
+
+struct InitialWindowTests {
+    @Test("SYNC-012 首轮同步最近窗口")
+    func sync_012_initial_recent_window() throws {
+        let messages = (1...1000).map { uid in
+            Message(uid: uid, raw: Array("Message-ID: <w\(uid)@x.t>\r\nFrom: a@b.c\r\nSubject: s\r\n\r\nx".utf8))
+        }
+        let server = FakeImapServer(mailboxes: ["INBOX": .init(uidValidity: 5, messages: messages)])
+        let engine = ImapSyncEngine(accountFingerprint: "acct", initialWindow: 50)
+        let outcome = try engine.sync(folder: "INBOX", snapshot: nil, transport: server)
+        guard case .synced(let events, let snap) = outcome else {
+            Issue.record("expected .synced"); return
+        }
+        // 只拉了最近 50 封（UID 951..1000）
+        #expect(events.count == 50)
+        #expect(events.map(\.uid).min() == 951)
+        #expect(snap.highestUid == 1000)
+        // FETCH 区间确为窗口（非 1:*）
+        let lastFetch = server.sentCommands.last(where: { if case .fetchUid = $0 { return true }; return false })
+        #expect(lastFetch == .fetchUid(range: "951:*", items: "(UID FLAGS BODY[])"))
+    }
+}

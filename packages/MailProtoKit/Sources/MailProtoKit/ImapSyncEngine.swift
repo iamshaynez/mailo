@@ -44,33 +44,23 @@ public enum SyncOutcome: Equatable, Sendable {
 /// 生产 TCP 或 FakeImapServer）。纯同步逻辑，UI/存储层不在此处。
 public struct ImapSyncEngine: Sendable {
     public var accountFingerprint: String
+    /// 首次同步（无快照/重置重拉）的最近窗口：只拉最近 N 封，绝不全量
+    /// （SYNC-012，基线 §5 回填策略"最近优先"；历史回填由后台分批任务负责）。
+    public var initialWindow: Int
 
-    public init(accountFingerprint: String) {
+    public init(accountFingerprint: String, initialWindow: Int = 200) {
         self.accountFingerprint = accountFingerprint
+        self.initialWindow = initialWindow
     }
 
     public func sync(folder: String, snapshot: SyncSnapshot?, transport: any ImapTransport) throws -> SyncOutcome {
-        // 1. SELECT：聚合 EXISTS 与 UIDVALIDITY
-        let selectLines = try ImapParser.parse(try transport.send(.select(folder: folder)))
-        var exists = 0, uidValidity = 0
-        for line in selectLines {
-            // * 3 EXISTS
-            if line.atoms.count == 3, case .string(let star) = line.atoms[0], star == "*",
-               case .string(let n) = line.atoms[1], let e = Int(n),
-               case .string(let verb) = line.atoms[2], verb.uppercased() == "EXISTS" {
-                exists = e
-            }
-            // * OK [UIDVALIDITY 7] ... —— 方括号在 tokenizer 中保持裸 token（"[UIDVALIDITY" / "7]"）
-            if line.atoms.count >= 4, case .string(let star) = line.atoms[0], star == "*",
-               case .string(let okv) = line.atoms[1], okv.uppercased() == "OK",
-               case .string(let code) = line.atoms[2], code.uppercased() == "[UIDVALIDITY",
-               case .string(let v) = line.atoms[3],
-               let uv = Int(v.trimmingCharacters(in: CharacterSet(charactersIn: "]"))) {
-                uidValidity = uv
-            }
-        }
+        // 1. SELECT：状态聚合（EXISTS/UIDVALIDITY/UIDNEXT 经 SelectState 统一解析）
+        let selectBytes = try transport.send(.select(folder: folder))
+        let info = SelectState.parse(selectBytes)
+        let uidValidity = Self.uidValidity(from: selectBytes)
+        let exists = info.exists
 
-        // 2. 重置检测（MAIL-006/MAIL/SYNC-008）
+        // 2. 重置检测（MAIL-006/SYNC-008）
         let previousState = snapshot.map { MailboxState(folder: $0.folder, uidValidity: $0.uidValidity, exists: 0) }
         let current = MailboxState(folder: folder, uidValidity: uidValidity, exists: exists)
         var isReset = false
@@ -78,8 +68,15 @@ public struct ImapSyncEngine: Sendable {
             isReset = true
         }
 
-        // 3. 区间 FETCH：全量（首次/重置）或高水位增量
-        let range = (snapshot == nil || isReset) ? "1:*" : "\(snapshot!.highestUid + 1):*"
+        // 3. 区间 FETCH：最近窗口（首次/重置）或高水位增量（SYNC-012）
+        let range: String
+        if snapshot == nil || isReset {
+            range = info.uidNext > 0
+                ? info.recentRange(count: initialWindow)
+                : "1:*"
+        } else {
+            range = "\(snapshot!.highestUid + 1):*"
+        }
         let fetchLines = try ImapParser.parse(try transport.send(.fetchUid(range: range, items: "(UID FLAGS BODY[])")))
 
         var events: [MailEvent] = []
@@ -102,5 +99,16 @@ public struct ImapSyncEngine: Sendable {
             return .resetDetected(old: old, new: uidValidity, events: events, snapshot: snap)
         }
         return .synced(events: events, snapshot: snap)
+    }
+
+    /// UIDVALIDITY 提取（tokenizer 中方括号为裸 token，按文本扫描稳健）。
+    static func uidValidity(from bytes: [UInt8]) -> Int {
+        let text = String(decoding: bytes, as: UTF8.self)
+        for line in text.components(separatedBy: "\r\n") {
+            if let r = line.range(of: "[UIDVALIDITY "), let end = line.range(of: "]", range: r.upperBound..<line.endIndex) {
+                return Int(line[r.upperBound..<end.lowerBound]) ?? 0
+            }
+        }
+        return 0
     }
 }
