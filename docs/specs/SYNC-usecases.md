@@ -79,3 +79,10 @@
 - **Then** 成功后回到基准间隔；失败后指数翻倍封顶 300s；恢复成功立即复位
 - **Status**: draft
 - **Tests**: `sync_011_polling_policy_backoff`
+
+## SYNC-012 首轮同步最近窗口（大邮箱保护）
+- **Given** 邮箱 1000 封（UID 1..1000），引擎无快照，initialWindow=50
+- **When** 首次 sync
+- **Then** FETCH 区间锚定 UIDNEXT 只拉最近 50 封（NOT 1:* 全量；基线 §5 回填策略"最近优先"）；增量轮次不受影响
+- **Status**: draft
+- **Tests**: `sync_012_initial_recent_window`
