@@ -54,11 +54,15 @@ public struct AccountSetupView: View {
             TextField("邮箱（you@outlook.com）", text: $email)
                 .textFieldStyle(.roundedBorder)
                 .autocorrectionDisabled()
+            #if os(iOS)
                 .textInputAutocapitalization(.never)
+            #endif
             TextField("Entra Client ID", text: $clientId)
                 .textFieldStyle(.roundedBorder)
                 .autocorrectionDisabled()
+            #if os(iOS)
                 .textInputAutocapitalization(.never)
+            #endif
             Button {
                 busy = true
                 Task {
