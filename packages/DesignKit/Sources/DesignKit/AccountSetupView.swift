@@ -1,4 +1,5 @@
 import CoreKit
+import MailProtoKit
 import SwiftUI
 
 /// 账户添加向导（真实 Outlook 设备码授权，JOURNEY-002 的 UI 面）。
