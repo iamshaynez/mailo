@@ -1,9 +1,0 @@
-Target dependency graph (4 targets)
-Target 'MailoProbe-product' in project 'MailProtoKit'
-➜ Explicit dependency on target 'MailProtoKit' in project 'MailProtoKit'
-➜ Explicit dependency on target 'CoreKit-product' in project 'CoreKit'
-Target 'MailProtoKit' in project 'MailProtoKit'
-➜ Explicit dependency on target 'CoreKit-product' in project 'CoreKit'
-Target 'CoreKit-product' in project 'CoreKit'
-➜ Explicit dependency on target 'CoreKit' in project 'CoreKit'
-Target 'CoreKit' in project 'CoreKit' (no dependencies)

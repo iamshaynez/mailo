@@ -1,4 +1,0 @@
-module MailProtoKit {
-header "MailProtoKit-Swift.h"
-export *
-}
