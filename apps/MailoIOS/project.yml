@@ -25,4 +25,5 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: true
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: true
         CODE_SIGNING_ALLOWED: false
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: false
         SWIFT_STRICT_CONCURRENCY: minimal
