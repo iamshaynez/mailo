@@ -117,9 +117,9 @@ public final class TcpSmtpTransport: SmtpTransport, @unchecked Sendable {
         if case .authLogin(let user, let passRef) = command {
             // AUTH LOGIN：334 → base64(user) → 334 → base64(passRef)
             _ = try readReply() // 334 user prompt
-            try conn.send(Array(Data(user.utf8).base64EncodedString() + "\r\n".utf8))
+            try conn.send(Array((Data(user.utf8).base64EncodedString() + "\r\n").utf8))
             _ = try readReply() // 334 pass prompt
-            try conn.send(Array(Data(passRef.utf8).base64EncodedString() + "\r\n".utf8))
+            try conn.send(Array((Data(passRef.utf8).base64EncodedString() + "\r\n").utf8))
         }
         return try readReply()
     }
