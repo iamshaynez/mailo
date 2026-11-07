@@ -43,6 +43,13 @@ public struct UserRule: Hashable, Sendable, Codable {
         self.deviceId = deviceId
     }
 
+    /// 手动纠正：把某发件人的邮件归入某桶 → 生成 senderExact 规则（CLS-006）。
+    public static func correction(senderAddress: String, bucket: Bucket, deviceId: String, ts: Int64) -> UserRule {
+        UserRule(matcher: .senderExact(senderAddress.normalized), bucket: bucket, ts: ts, deviceId: deviceId)
+    }
+}
+
+extension RuleMatcher {
     /// 匹配优先级：sender(0) > domain(1) > subject(2)（CLS-007）。
     public var rank: Int {
         switch self {
@@ -50,10 +57,5 @@ public struct UserRule: Hashable, Sendable, Codable {
         case .domainExact: return 1
         case .subjectContains: return 2
         }
-    }
-
-    /// 手动纠正：把某发件人的邮件归入某桶 → 生成 senderExact 规则（CLS-006）。
-    public static func correction(senderAddress: String, bucket: Bucket, deviceId: String, ts: Int64) -> UserRule {
-        UserRule(matcher: .senderExact(senderAddress.normalized), bucket: bucket, ts: ts, deviceId: deviceId)
     }
 }
