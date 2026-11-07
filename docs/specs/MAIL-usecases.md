@@ -86,3 +86,24 @@
 - **Then** 按 GB18030 超集正确解码中文；charset 缺省按 UTF-8 容错
 - **Status**: green
 - **Tests**: `mail_012_body_charset_gbk`
+
+## MAIL-013 SMTP 会话状态机
+- **Given** FakeSmtpServer（可注入失败码）
+- **When** `SmtpClient.send` 走完整会话（EHLO→AUTH→MAIL FROM→RCPT→DATA→dot→QUIT）
+- **Then** 命令序列与协议一致；任一步非 2xx/3xx 即抛错并中止
+- **Status**: draft
+- **Tests**: `mail_013_smtp_session_flow`
+
+## MAIL-014 DATA 内容构造与点填充
+- **Given** 正文含以 `.` 开头的行（`.hidden`）
+- **When** 构造 DATA 块
+- **Then** 头齐全（Message-ID/From/To/Subject/Date/MIME-Version/CTE）、点填充生效（`.` 行变 `..`）、以 `CRLF.CRLF` 终止
+- **Status**: draft
+- **Tests**: `mail_014_data_dot_stuffing`
+
+## MAIL-015 账户配置与指纹
+- **Given** 两个授权码账户（host+user 大小写/空白不一致 vs 完全不同的账户）
+- **When** 派生账号指纹、做 JSON 编解码
+- **Then** 规范化后同账户指纹相同；不同账户不同；**JSON 编码中不含授权码明文**（仅含 Keychain 引用）
+- **Status**: draft
+- **Tests**: `mail_015_account_fingerprint_and_secret_isolation`
