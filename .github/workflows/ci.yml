@@ -17,6 +17,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Toolchain
         run: swift --version
+      - name: Build ${{ matrix.package }}（含 executable）
+        run: swift build --package-path packages/${{ matrix.package }}
       - name: Test ${{ matrix.package }}
         run: swift test --package-path packages/${{ matrix.package }}
 

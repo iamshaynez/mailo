@@ -10,6 +10,11 @@ let package = Package(
     ],
     targets: [
         .target(name: "MailProtoKit", dependencies: ["CoreKit"]),
+        .executableTarget(
+            name: "MailoProbe",
+            dependencies: ["MailProtoKit"],
+            path: "Sources/MailoProbe"
+        ),
         .testTarget(name: "MailProtoKitTests", dependencies: ["MailProtoKit", "CoreKit"]),
     ]
 )

@@ -135,3 +135,10 @@
 - **Then** 类型符合 ImapTransport/SmtpTransport 端口、连接超时可配（真实联调需用户环境，CI 验证编译与构造）
 - **Status**: draft
 - **Tests**: `mail_019_production_transports_instantiate`
+
+## MAIL-020 设备码流响应解析（本地联调授权）
+- **Given** Microsoft device code 端点的三类 JSON 响应（下发码 / 轮询等待 / 授权成功或拒绝）
+- **When** 解析
+- **Then** 下发码解析出 device_code/user_code/URI/interval；`authorization_pending` 归为 pending；有 access_token 归为 granted；显式 error 归为 denied（含描述）；坏 JSON 抛错
+- **Status**: draft
+- **Tests**: `mail_020_device_code_flow_parsing`
