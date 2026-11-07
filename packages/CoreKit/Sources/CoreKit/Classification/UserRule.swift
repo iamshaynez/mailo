@@ -15,14 +15,14 @@ public enum RuleMatcher: Hashable, Sendable, Codable {
         }
     }
 
-    public static func ~= (matcher: RuleMatcher, signal: MailSignal): Bool {
-        switch matcher {
+    public static func ~= (lhs: RuleMatcher, rhs: MailSignal) -> Bool {
+        switch lhs {
         case .senderExact(let s):
-            return s.normalized == signal.senderAddress || s.normalized == signal.senderLocalPart
+            return s.normalized == rhs.senderAddress || s.normalized == rhs.senderLocalPart
         case .domainExact(let d):
-            return d.normalized == signal.senderDomain
+            return d.normalized == rhs.senderDomain
         case .subjectContains(let t):
-            return signal.subject.normalized.contains(t.normalized)
+            return rhs.subject.normalized.contains(t.normalized)
         }
     }
 }

@@ -1,3 +1,5 @@
+import Foundation
+
 /// 管线判定原因（可解释、可持久化、可同步）。
 public enum ClassificationReason: Hashable, Sendable {
     case userRule(UUID)

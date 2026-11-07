@@ -1,5 +1,5 @@
-/// CRDT 合并后的状态。
-public struct MergeState: Hashable, Sendable {
+/// CRDT 合并后的状态（含 tuple 字段，Equatable 可合成、Hashable 不可，够用）。
+public struct MergeState: Equatable, Sendable {
     /// messageKey → (ts, deviceId, bucket)，first-writer-wins（SYNC-002）。
     public var classifications: [String: (ts: Int64, deviceId: String, bucket: Bucket)] = [:]
     /// ruleKey → 生效规则（LWW，SYNC-003）。
