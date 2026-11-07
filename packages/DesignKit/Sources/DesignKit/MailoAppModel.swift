@@ -178,33 +178,14 @@ public extension MailoAppModel {
             Message(uid: 4, raw: Array("Message-ID: <d4@x.t>\r\nFrom: stranger@unknown.co\r\nSubject: hello?\r\nDate: Fri, 7 Nov 2026 13:00:00 +0000\r\n\r\nfirst time".utf8)),
         ])])
         let demoAccount = AccountConfig(displayName: "Demo", imapHost: "demo.local",
-                                        smtpHost: "demo.local", username: "demo@local")
+                                        smtpHost: "demo.local", username: "demo@local",
+                                        secretRef: "demo")
         try? model.attach(account: demoAccount, transport: server)
         model.phase = .demo
         return model
     }
 }
 
-public extension MailoAppModel {
-    /// Demo 装配：进程内假服务器 + 内存库，App 壳直接可用（JOURNEY-001 的生产化形态）。
-    @MainActor
-    static func bootstrapDemo() -> MailoAppModel {
-        let store: MirrorStore
-        do { store = try MirrorStore() } catch { fatalError("in-memory store cannot fail") }
-        let roster = Roster(domainBuckets: [
-            "netflix.com": .feed, "amzn.com": .paperTrail, "wave.co": .imbox,
-        ])
-        let model = MailoAppModel(store: store, pipeline: ClassificationPipeline(roster: roster))
-        let server = FakeImapServer(mailboxes: ["INBOX": .init(uidValidity: 7, messages: [
-            Message(uid: 1, raw: Array("Message-ID: <d1@x.t>\r\nFrom: alerts@netflix.com\r\nSubject: New season\r\nDate: Fri, 7 Nov 2026 10:00:00 +0000\r\n\r\nWatch now".utf8)),
-            Message(uid: 2, raw: Array("Message-ID: <d2@x.t>\r\nFrom: receipt@amzn.com\r\nSubject: Your order shipped\r\nDate: Fri, 7 Nov 2026 11:00:00 +0000\r\n\r\nOn the way".utf8)),
-            Message(uid: 3, raw: Array("Message-ID: <d3@x.t>\r\nFrom: sarah@wave.co\r\nSubject: Re: contract\r\nDate: Fri, 7 Nov 2026 12:00:00 +0000\r\n\r\nClause 4 updated".utf8)),
-            Message(uid: 4, raw: Array("Message-ID: <d4@x.t>\r\nFrom: stranger@unknown.co\r\nSubject: hello?\r\nDate: Fri, 7 Nov 2026 13:00:00 +0000\r\n\r\nfirst time".utf8)),
-        ])])
-        try? model.syncAndClassify(transport: server)
-        return model
-    }
-}
 
 public extension MailoAppModel {
     /// 生产工厂：app support 文件库（跨启动持久）+ 内置种子名单库。
