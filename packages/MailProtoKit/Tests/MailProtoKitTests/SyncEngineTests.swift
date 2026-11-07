@@ -5,8 +5,8 @@ import Foundation
 
 // MARK: - 用例库：docs/specs/SYNC-usecases.md（SYNC-006 ~ 008）
 
-private func mail(_ uid: Int, _ mid: String, from: String = "a@b.co", subject: String = "s\(uid)") -> Message {
-    Message(uid: uid, raw: Array("Message-ID: \(mid)\r\nFrom: \(from)\r\nSubject: \(subject)\r\n\r\nbody \(uid)".utf8))
+private func mail(_ uid: Int, _ mid: String, from: String = "a@b.co", subject: String? = nil) -> Message {
+    Message(uid: uid, raw: Array("Message-ID: \(mid)\r\nFrom: \(from)\r\nSubject: \(subject ?? "s\(mid)")\r\n\r\nbody \(uid)".utf8))
 }
 
 struct SyncEngineTests {
@@ -25,7 +25,7 @@ struct SyncEngineTests {
         }
         #expect(events.count == 3)
         #expect(events.map(\.uid).sorted() == [1, 2, 3])
-        #expect(events.first { $0.uid == 2 }?.subject == "s2")
+        #expect(events.first { $0.uid == 2 }?.subject == "s<m2@x.t>")
         #expect(events.first { $0.uid == 2 }?.raw.contains(Array("body 2".utf8)) == true)
         #expect(snap.uidValidity == 7)
         #expect(snap.highestUid == 3)
@@ -40,7 +40,10 @@ struct SyncEngineTests {
         let engine = ImapSyncEngine(accountFingerprint: fp)
 
         let first = try engine.sync(folder: "INBOX", snapshot: nil, transport: server)
-        guard case .synced(_, let snap) = first else { return Issue.record("first sync failed") }
+        guard case .synced(_, let snap) = first else {
+            Issue.record("first sync failed")
+            return
+        }
 
         box.messages.append(mail(4, "<m4@x.t>"))
         server.mailboxes["INBOX"] = box
@@ -64,7 +67,10 @@ struct SyncEngineTests {
             mail(1, "<keep1@x.t>"), mail(2, "<keep2@x.t>"),
         ])])
         let first = try engine.sync(folder: "INBOX", snapshot: nil, transport: server)
-        guard case .synced(let beforeEvents, let snap) = first else { return Issue.record("first sync failed") }
+        guard case .synced(let beforeEvents, let snap) = first else {
+            Issue.record("first sync failed")
+            return
+        }
 
         // 服务器重建：UID 全变、原文相同
         server.mailboxes["INBOX"] = .init(uidValidity: 99, messages: [
