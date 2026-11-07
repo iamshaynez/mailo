@@ -1,6 +1,7 @@
 import Testing
 import CoreKit
 import Foundation
+import MailProtoKit
 @testable import DesignKit
 
 // MARK: - 用例库：docs/specs/JOURNEY-usecases.md（JOURNEY-002）
@@ -17,7 +18,8 @@ struct Journey002Tests {
         let model = MailoAppModel.createLive(storeDirectory: dir)
 
         let account = AccountConfig(displayName: "Outlook", imapHost: "outlook.office365.com",
-                                     smtpHost: "smtp.office365.com", username: "me@outlook.com")
+                                     smtpHost: "smtp.office365.com", username: "me@outlook.com",
+                                     secretRef: "test")
         let transport = FakeImapServer(mailboxes: ["INBOX": .init(uidValidity: 3, messages: [
             Message(uid: 10, raw: Array("Message-ID: <r1@x.t>\r\nFrom: news@netflix.com\r\nSubject: S1\r\nDate: Fri, 6 Nov 2026 10:00:00 +0000\r\n\r\nb".utf8)),
             Message(uid: 11, raw: Array("Message-ID: <r2@x.t>\r\nFrom: pay@stripe.com\r\nSubject: receipt\r\nDate: Fri, 6 Nov 2026 11:00:00 +0000\r\n\r\nb".utf8)),
