@@ -37,3 +37,24 @@
 - **Then** 两者的最终状态等价
 - **Status**: draft（v2 实现，防文件夹无限膨胀）
 - **Tests**: —
+
+## SYNC-006 首次全量同步
+- **Given** 假服务器 INBOX 有 3 封邮件，引擎无快照
+- **When** `sync(folder: "INBOX", snapshot: nil)`
+- **Then** 产出 3 个 MailEvent（含稳定主键/原始字节/主题/发件人），返回新快照（uidValidity + 最高 UID）
+- **Status**: draft
+- **Tests**: `sync_006_initial_full_sync`
+
+## SYNC-007 增量同步（UID 高水位）
+- **Given** 引擎已有快照（最高 UID=3），服务器此后新增第 4 封
+- **When** 再次 `sync`
+- **Then** 只产出 1 个 MailEvent（uid=4）；前 3 封不重发
+- **Status**: draft
+- **Tests**: `sync_007_incremental_highwater`
+
+## SYNC-008 UIDVALIDITY 重置：重拉全量但分类不丢
+- **Given** 引擎已有快照（uidValidity=7），服务器重建 INBOX（uidValidity=99，UID 全变但邮件原文相同）
+- **When** 再次 `sync`
+- **Then** 产出 `.resetDetected(old:7, new:99)` 且携带重拉的全量事件；**重拉事件中每封邮件的稳定主键与重置前相同**（分类标注按主键存活）
+- **Status**: draft
+- **Tests**: `sync_008_uidvalidity_reset_keeps_stable_ids`

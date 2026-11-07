@@ -124,18 +124,18 @@ public struct FetchData: Equatable, Sendable {
     public var subject: String?
     public var fromAddress: String?
     public var messageId: String?
-    public var rawHeader: [UInt8]?
+    public var rawBody: [UInt8]?
 
     public init(uid: Int, flags: [String], internalDate: String,
                 subject: String? = nil, fromAddress: String? = nil,
-                messageId: String? = nil, rawHeader: [UInt8]? = nil) {
+                messageId: String? = nil, rawBody: [UInt8]? = nil) {
         self.uid = uid
         self.flags = flags
         self.internalDate = internalDate
         self.subject = subject
         self.fromAddress = fromAddress
         self.messageId = messageId
-        self.rawHeader = rawHeader
+        self.rawBody = rawBody
     }
 
     /// 从 `* n FETCH (...)` 的 atoms 提取。ENVELOPE 顺序（RFC3501）：
@@ -148,7 +148,7 @@ public struct FetchData: Equatable, Sendable {
               case .list(let items) = line.atoms[3] else { return nil }
 
         var uid = 0, flags: [String] = [], date = ""
-        var subject: String?, from: String?, mid: String?
+        var subject: String?, from: String?, mid: String?, body: [UInt8]?
 
         var k = 0
         while k + 1 < items.count + 1, k < items.count {
@@ -181,11 +181,13 @@ public struct FetchData: Equatable, Sendable {
                     }
                     if env.count > 9, case .string(let m) = env[9] { mid = m }
                 }
+            case "BODY[]":
+                if case .literal(let bytes) = value { body = bytes }
             default: break
             }
             k += 2
         }
         return FetchData(uid: uid, flags: flags, internalDate: date,
-                         subject: subject, fromAddress: from, messageId: mid, rawHeader: header)
+                         subject: subject, fromAddress: from, messageId: mid, rawBody: body ?? header)
     }
 }

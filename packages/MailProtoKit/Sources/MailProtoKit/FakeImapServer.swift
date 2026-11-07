@@ -74,10 +74,12 @@ public final class FakeImapServer: ImapTransport, @unchecked Sendable {
                 break
             }
             let wanted = uids(matching: range, in: box)
+            var fetchBytes: [UInt8] = []
             for (seq, msg) in box.messages.enumerated() where wanted.contains(msg.uid) {
-                out += fetchLine(seq: seq + 1, message: msg, items: items)
+                fetchBytes += fetchLine(seq: seq + 1, message: msg, items: items)
             }
-            out += "\(tag) OK FETCH completed\r\n"
+            fetchBytes += Array("\(tag) OK FETCH completed\r\n".utf8)
+            return Array(out.utf8) + fetchBytes
 
         case .noop:
             out += "\(tag) OK NOOP completed\r\n"
@@ -88,6 +90,10 @@ public final class FakeImapServer: ImapTransport, @unchecked Sendable {
     // MARK: - 响应构造（真实形态，供 ImapParser 消费）
 
     private func uids(matching range: String, in box: Mailbox) -> Set<Int> {
+        let maxUid = box.messages.map(\.uid).max() ?? 0
+        if range.hasSuffix(":*"), let low = Int(range.dropLast(2)) {
+            return Set(box.messages.map(\.uid).filter { $0 >= low }) // "N:*" = N..maxUid
+        }
         if range == "1:*" { return Set(box.messages.map(\.uid)) }
         // 形如 "2,5:9" 的 UID 集合
         var result = Set<Int>()
@@ -105,8 +111,9 @@ public final class FakeImapServer: ImapTransport, @unchecked Sendable {
         return result
     }
 
-    private func fetchLine(seq: Int, message: Message, items: String) -> String {
+    private func fetchLine(seq: Int, message: Message, items: String) -> [UInt8] {
         let upper = items.uppercased()
+        var out: [UInt8] = Array("* \(seq) FETCH (".utf8)
         var parts: [String] = []
         if upper.contains("UID") { parts.append("UID \(message.uid)") }
         if upper.contains("FLAGS") {
@@ -118,7 +125,14 @@ public final class FakeImapServer: ImapTransport, @unchecked Sendable {
         if upper.contains("ENVELOPE") {
             parts.append("ENVELOPE \(envelope(of: message))")
         }
-        return "* \(seq) FETCH (\(parts.joined(separator: " ")))\r\n"
+        out += Array(parts.joined(separator: " ").utf8)
+        if upper.contains("BODY[]") {
+            if !parts.isEmpty { out += [UInt8(ascii: " ")] }
+            out += Array("BODY[] {\(message.raw.count)}\r\n".utf8) // 字面量头
+            out += message.raw
+        }
+        out += Array(")\r\n".utf8)
+        return out
     }
 
     /// ENVELOPE 10 项（RFC3501 顺序）：date subject from sender reply-to to cc bcc in-reply-to message-id
