@@ -46,7 +46,7 @@ struct MimeParserTests {
         let email = MimeParser.parse(Array(raw.utf8))
         #expect(email.textBody?.contains("plain body") == true)
         #expect(email.htmlBody?.contains("<p>html body</p>") == true)
-        #expect(email.attachments.count == 1)
+        #expect(email.attachments.count == 1, "dump=\(email)")
         #expect(email.attachments.first?.filename == "doc.pdf")
         #expect(email.attachments.first?.body == Array("foo".utf8))
     }
