@@ -90,6 +90,10 @@ public final class FakeImapServer: ImapTransport, @unchecked Sendable {
     // MARK: - 响应构造（真实形态，供 ImapParser 消费）
 
     private func uids(matching range: String, in box: Mailbox) -> Set<Int> {
+        let maxUid = box.messages.map(\.uid).max() ?? 0
+        if range.hasSuffix(":*"), let low = Int(range.dropLast(2)) {
+            return Set(box.messages.map(\.uid).filter { $0 >= low }) // "N:*" = N..maxUid
+        }
         if range == "1:*" { return Set(box.messages.map(\.uid)) }
         // 形如 "2,5:9" 的 UID 集合
         var result = Set<Int>()

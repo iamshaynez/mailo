@@ -60,12 +60,12 @@ public struct ImapSyncEngine: Sendable {
                case .string(let verb) = line.atoms[2], verb.uppercased() == "EXISTS" {
                 exists = e
             }
-            // * OK [UIDVALIDITY 7] ...
-            if line.atoms.count >= 3, case .string(let star) = line.atoms[0], star == "*",
+            // * OK [UIDVALIDITY 7] ... —— 方括号在 tokenizer 中保持裸 token（"[UIDVALIDITY" / "7]"）
+            if line.atoms.count >= 4, case .string(let star) = line.atoms[0], star == "*",
                case .string(let okv) = line.atoms[1], okv.uppercased() == "OK",
-               case .list(let resp) = line.atoms[2], resp.count >= 2,
-               case .string(let code) = resp[0], code.uppercased() == "UIDVALIDITY",
-               case .string(let v) = resp[1], let uv = Int(v) {
+               case .string(let code) = line.atoms[2], code.uppercased() == "[UIDVALIDITY",
+               case .string(let v) = line.atoms[3],
+               let uv = Int(v.trimmingCharacters(in: CharacterSet(charactersIn: "]"))) {
                 uidValidity = uv
             }
         }
