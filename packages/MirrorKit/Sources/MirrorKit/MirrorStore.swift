@@ -99,10 +99,11 @@ public final class MirrorStore: @unchecked Sendable {
                 t.column("bucket", .text).notNull()
                 t.column("reason", .text).notNull()
             }
-            try db.create(virtualTable: "mail_fts", using: .fts5(
-                ["subject", "fromAddress", "snippet"],
-                tokenize: .trigram
-            )) { t in
+            try db.create(virtualTable: "mail_fts", using: FTS5()) { t in
+                t.tokenizer = .trigram
+                t.column("subject")
+                t.column("fromAddress")
+                t.column("snippet")
                 t.synchronize(withTable: "mail")
             }
         }
