@@ -6,12 +6,16 @@ on:
   pull_request:
 
 jobs:
-  corekit:
-    name: CoreKit · swift test
+  swift-test:
+    name: swift-test (${{ matrix.package }})
     runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [CoreKit, MailProtoKit]
     steps:
       - uses: actions/checkout@v4
       - name: Toolchain
         run: swift --version
-      - name: Test
-        run: swift test --package-path packages/CoreKit
+      - name: Test ${{ matrix.package }}
+        run: swift test --package-path packages/${{ matrix.package }}
