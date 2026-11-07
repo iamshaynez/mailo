@@ -107,3 +107,31 @@
 - **Then** 规范化后同账户指纹相同；不同账户不同；**JSON 编码中不含授权码明文**（仅含 Keychain 引用）
 - **Status**: draft
 - **Tests**: `mail_015_account_fingerprint_and_secret_isolation`
+
+## MAIL-016 IMAP 行读取器（TCP 分片容错）
+- **Given** TLS 字节流以任意分片到达（半行/半字面量/多行粘连）
+- **When** 逐片喂入 ImapLineReader
+- **Then** 每凑齐一条完整逻辑行（含 RFC3501 字面量整体）即吐出，字节精确无损
+- **Status**: draft
+- **Tests**: `mail_016_line_reader_fragmented`
+
+## MAIL-017 XOAUTH2 SASL 载荷构造
+- **Given** 用户名与 OAuth access token
+- **When** 构造 XOAUTH2 初始响应
+- **Then** base64(`user=<u>\x01auth=Bearer <t>\x01\x01`) 精确生成；服务器拒绝后的空响应构造正确
+- **Status**: draft
+- **Tests**: `mail_017_xoauth2_sasl`
+
+## MAIL-018 SMTP 多行应答解析
+- **Given** `250-line1` / `250-line2` / `250 final` 序列
+- **When** 解析
+- **Then** 归并为单一 SmtpReply（code=250，lines=3）；`250-` 为续行、`250 ` 为终行
+- **Status**: draft
+- **Tests**: `mail_018_smtp_multiline_reply`
+
+## MAIL-019 生产传输类型就位（编译级门禁）
+- **Given** Network.framework 可用（Apple 平台）
+- **When** 实例化 TcpImapTransport / TcpSmtpTransport（993/465 TLS）
+- **Then** 类型符合 ImapTransport/SmtpTransport 端口、连接超时可配（真实联调需用户环境，CI 验证编译与构造）
+- **Status**: draft
+- **Tests**: `mail_019_production_transports_instantiate`
