@@ -11,18 +11,17 @@ public struct FlushScheduler: Sendable, Equatable {
         self.maxDelayMs = maxDelayMs
     }
 
-    /// 入队一条；返回是否应立即 flush（满 maxEntries）。
+    /// 入队一条；返回是否应立即 flush（满 maxEntries，SYNC-009）。
     @discardableResult
     public mutating func enqueue(_ entry: SyncEntry) -> Bool {
-        // PLACEHOLDER (red phase)
         pending.append(entry)
-        return false
+        return pending.count >= maxEntries
     }
 
-    /// 定时器触发；最老 pending 超过 maxDelayMs 则 flush。
+    /// 定时器触发；最老 pending 超过 maxDelayMs 则 flush（SYNC-009）。
     public mutating func timerFired(now: Int64) -> Bool {
-        // PLACEHOLDER (red phase)
-        return false
+        guard let oldest = pending.first else { return false }
+        return now - oldest.ts >= maxDelayMs
     }
 
     /// 取走全部 pending（flush 时调用）。
