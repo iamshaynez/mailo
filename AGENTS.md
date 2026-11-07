@@ -11,18 +11,22 @@
 ## 仓库结构
 
 ```
-packages/CoreKit        # 纯 Swift 域核心（零 UI/IO 依赖）——测试主战场
-  Sources/CoreKit/
-    Classification/     # 分类管线（CLS-*）
-    Sync/               # Mailo/Sync 条目与 CRDT 合并（SYNC-*）
-    Mail/               # 稳定主键等协议域（MAIL-*）
-  Tests/CoreKitTests/
-docs/specs/             # 业务用例库（单一事实来源；测试必须引用用例 ID）
-docs/{plan,launch,design}/
+packages/
+  CoreKit/        # 纯 Swift 域核心：分类管线/CRDT/稳定主键/MIME/账户（CLS/SYNC/MAIL）
+  MailProtoKit/   # IMAP/SMTP 解析+引擎+假服务器（MAIL/SYNC/PERF）
+  MirrorKit/      # GRDB+FTS5 本地镜像（STORE/PERF）
+  MlKit/          # 模型网关端口+原型向量+golden（ML）
+  AuthKit/        # OAuth 常量+凭证保管端口（OAUTH）
+  DesignKit/      # 设计 token+三栏壳+装配模型（JOURNEY/DESIGN）
+apps/
+  MailoIOS/ MailoMac/   # XcodeGen 工程（禁手改 pbxproj）
+docs/
+  specs/          # 业务用例库（单一事实来源；测试必须引用用例 ID）
+  plan/ launch/ design/ DELIVERY.md
 ```
 
-规划中（勿提前创建）：`packages/MailProtoKit`（IMAP + 假服务器）、`packages/SyncKit`、
-`packages/MlKit`、`apps/MailoIOS`、`apps/MailoMac`（XcodeGen 生成，禁手改 pbxproj）。
+CI：8 项必需检查（6 包 swift-test 矩阵 + 双端 app-build）。新包必须加入 ci.yml 矩阵
+**并同步更新 branch protection 的 required contexts**（顺序错会卡死 main）。
 
 ## 开发铁律（严格 TDD，D11）
 
