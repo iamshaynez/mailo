@@ -32,6 +32,30 @@ docs/{plan,launch,design}/
 3. **再实现**，测试全绿后把用例 Status 翻 green
 4. 一条用例 ≥ 一个测试引用；禁止无用例ID 的行为测试；禁止为过测试发明用例外行为
 
+## 分支与 PR 流程（main 受保护，2026-11-07 起）
+
+**main 禁止直接 push（含管理员与 Agent，enforce_admins 已开启）**；
+唯一进入方式：PR 合并，且 `CoreKit · swift test` CI 必须通过；合并方式仅 squash。
+
+标准流程：
+
+```
+1. git checkout main && git pull              # 从最新 main 起步
+2. git checkout -b feat/<域>-<短描述>          # 或 fix/<域>-<短描述> / docs/<短描述>
+3. 开发（遵循 TDD 铁律），分支内可多个小 commit
+4. git push -u origin <分支>
+5. gh pr create --fill                        # PR 描述写清：动了哪些用例 ID / 决策依据
+6. gh pr checks --watch                       # 等 CI 绿
+7. gh pr merge --squash --delete-branch       # squash 进 main，删远端分支
+8. git checkout main && git pull
+```
+
+约定：
+- 分支命名：`feat/`（新功能）、`fix/`（修缺陷）、`docs/`（纯文档）、`ci/`（流水线）
+- **一个 PR 一个主题**（一个 spec 域或一个 feature 目录），评审与回滚的最小单元
+- PR 必须在描述中列出触及的用例 ID（如 `CLS-004, SYNC-002`）；纯文档/CI 可豁免
+- 本地 main 只用来同步，不直接提交（保护规则会拒绝，别试）
+
 ## 常用命令
 
 ```bash
