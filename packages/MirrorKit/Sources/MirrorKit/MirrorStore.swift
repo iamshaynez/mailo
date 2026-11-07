@@ -160,14 +160,21 @@ public final class MirrorStore: @unchecked Sendable {
         }
     }
 
-    /// FTS5 trigram 子串搜索（STORE-003）。
+    /// 子串搜索（STORE-003）：≥3 字符走 FTS5 trigram；更短的查询 trigram 无法成组，LIKE 兜底。
     public func search(_ query: String, limit: Int = 50) throws -> [MailRow] {
         try dbQueue.read { db in
-            let pattern = "\"\(query.replacingOccurrences(of: "\"", with: "\"\""))\""
+            if query.count >= 3 {
+                let pattern = "\"\(query.replacingOccurrences(of: "\"", with: "\"\""))\""
+                return try MailRow.fetchAll(
+                    db,
+                    sql: "SELECT * FROM mail WHERE rowid IN (SELECT rowid FROM mail_fts WHERE mail_fts MATCH ?) LIMIT ?",
+                    arguments: [pattern, limit])
+            }
+            let like = "%\(query)%"
             return try MailRow.fetchAll(
                 db,
-                sql: "SELECT * FROM mail WHERE stableId IN (SELECT rowid FROM mail_fts WHERE mail_fts MATCH ?) LIMIT ?",
-                arguments: [pattern, limit])
+                sql: "SELECT * FROM mail WHERE subject LIKE ? OR fromAddress LIKE ? OR snippet LIKE ? LIMIT ?",
+                arguments: [like, like, like, limit])
         }
     }
 

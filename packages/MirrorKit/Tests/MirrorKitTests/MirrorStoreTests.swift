@@ -50,8 +50,11 @@ struct MirrorStoreTests {
         try store.upsert(row("<zh@x.t>", uid: 1, subject: "合同修订通知"))
         try store.upsert(row("<en@x.t>", uid: 2, subject: "quarterly report"))
 
-        let hits = try store.search("同修")
+        let hits = try store.search("同修")   // 2 字：LIKE 兜底路径
         #expect(hits.map(\.stableId) == ["<zh@x.t>"])
+
+        let hits3 = try store.search("同修订") // 3 字：trigram 路径
+        #expect(hits3.map(\.stableId) == ["<zh@x.t>"])
 
         let none = try store.search("zebra")
         #expect(none.isEmpty)
