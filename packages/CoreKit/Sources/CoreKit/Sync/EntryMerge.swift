@@ -1,5 +1,5 @@
 /// 分类合并记录（SYNC-002 决胜所需三元组）。
-public struct ClassificationRecord: Equatable, Sendable {
+public struct ClassificationRecord: Equatable, Hashable, Codable, Sendable {
     public var ts: Int64
     public var deviceId: String
     public var bucket: Bucket
@@ -12,7 +12,7 @@ public struct ClassificationRecord: Equatable, Sendable {
 }
 
 /// 规则删除标记记录（SYNC-004）。
-public struct TombstoneRecord: Equatable, Sendable {
+public struct TombstoneRecord: Equatable, Hashable, Codable, Sendable {
     public var ts: Int64
     public var deviceId: String
 
