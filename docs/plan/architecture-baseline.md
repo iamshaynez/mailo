@@ -28,6 +28,7 @@
 | D11 | 研发流程 | 严格 TDD：specs 用例库 → 失败测试 → 实现 | 详见 §8 |
 | D12 | 主体与分发 | 中国大陆公司主体；iOS/macOS 上 App Store **海外区（不含中国大陆）**；macOS 亦可 Developer ID+公证（v3 修订：删 Android apk 直发） | 备案义务仅由"上架国区"触发，不勾选即无义务；TestFlight 内测不需要备案（大陆测试者正规通道） |
 | ~~D13~~ | ~~GMS 零依赖~~ | **已删除**（v3：无 Android，约束不再存在） | — |
+| D14 | 设计语言 | **Blue Box Classic**（v3.1 增补）：运通蓝 `#006FCF` 即身份，白底卡片、规整克制；token 化规范见 docs/design/design-system.md；mockup A 为视觉基线，B 留作 dark mode 候选 | 深色模式 M3 后再做；动画只表达归类语义 |
 
 ## 3. 架构分层
 

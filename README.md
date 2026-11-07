@@ -15,7 +15,8 @@
 
 | 路径 | 内容 |
 |---|---|
-| [docs/plan/architecture-baseline.md](docs/plan/architecture-baseline.md) | **方案基线 v2**：全部架构决策、分类管线、同步设计、TDD 规范、路线图、风险清单 |
+| [docs/plan/architecture-baseline.md](docs/plan/architecture-baseline.md) | **方案基线 v3**：全部架构决策、分类管线、同步设计、TDD 规范、路线图、风险清单 |
+| [docs/design/design-system.md](docs/design/design-system.md) | **设计规范 v1 · Blue Box Classic**：色板 token / 排版 / 布局 / 组件 / 动效 / UX 约定（mockup 在 docs/design/mockups/） |
 | [docs/launch/00-overview.md](docs/launch/00-overview.md) | 上架前置四条线的并行时间线与依赖 |
 | [docs/launch/01-apple-developer-program.md](docs/launch/01-apple-developer-program.md) | Apple 开发者账号（组织主体）注册手册 |
 | [docs/launch/02-google-oauth-casa.md](docs/launch/02-google-oauth-casa.md) | Gmail OAuth 验证 + CASA Tier 2 自扫手册 |
