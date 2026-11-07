@@ -37,7 +37,7 @@ public final class DeviceCodeClient: @unchecked Sendable {
     public func authorize(
         clientId: String,
         account: DeviceCodeFlow.MicrosoftAccount,
-        onPrompt: @escaping @Sendable (Prompt) -> Void
+        onPrompt: @escaping @MainActor @Sendable (Prompt) -> Void
     ) async throws -> Grant {
         let codeData = try await post(DeviceCodeFlow.deviceCodeURL(account: account), form: [
             "client_id": clientId,
@@ -48,7 +48,7 @@ public final class DeviceCodeClient: @unchecked Sendable {
         }
         let prompt = Prompt(userCode: req.userCode, verificationURI: req.verificationURI,
                             expiresInSeconds: req.expiresIn)
-        await MainActor.run { onPrompt(prompt) }
+        await onPrompt(prompt)
 
         let deadline = Date().addingTimeInterval(TimeInterval(req.expiresIn))
         while Date() < deadline {
