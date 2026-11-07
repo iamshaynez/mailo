@@ -58,3 +58,17 @@
 - **Then** 产出 `.resetDetected(old:7, new:99)` 且携带重拉的全量事件；**重拉事件中每封邮件的稳定主键与重置前相同**（分类标注按主键存活）
 - **Status**: draft
 - **Tests**: `sync_008_uidvalidity_reset_keeps_stable_ids`
+
+## SYNC-009 写节流（30s / 20 条）
+- **Given** 本地产生条目的队列
+- **When** 入队第 19 条 / 第 20 条；或 1 条入队 31 秒后定时器触发
+- **Then** 19 条不 flush；满 20 条立即 flush；超时路径同样 flush（避免高频 APPEND 触碰服务器限额）
+- **Status**: draft
+- **Tests**: `sync_009_flush_throttle`
+
+## SYNC-010 wire 编解码往返
+- **Given** 一组条目
+- **When** `SyncCodec.encode` 为一封 MIME 邮件字节（JSON lines body）再 `decode`
+- **Then** 条目集合往返相等；邮件头带 Message-ID（可被 IMAP 文件夹正常收纳与去重）
+- **Status**: draft
+- **Tests**: `sync_010_codec_roundtrip`

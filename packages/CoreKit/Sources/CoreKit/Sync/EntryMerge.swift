@@ -1,5 +1,5 @@
 /// 分类合并记录（SYNC-002 决胜所需三元组）。
-public struct ClassificationRecord: Equatable, Sendable {
+public struct ClassificationRecord: Equatable, Hashable, Codable, Sendable {
     public var ts: Int64
     public var deviceId: String
     public var bucket: Bucket
@@ -12,7 +12,7 @@ public struct ClassificationRecord: Equatable, Sendable {
 }
 
 /// 规则删除标记记录（SYNC-004）。
-public struct TombstoneRecord: Equatable, Sendable {
+public struct TombstoneRecord: Equatable, Hashable, Codable, Sendable {
     public var ts: Int64
     public var deviceId: String
 
@@ -23,7 +23,7 @@ public struct TombstoneRecord: Equatable, Sendable {
 }
 
 /// CRDT 合并后的状态。
-public struct MergeState: Equatable, Sendable {
+public struct MergeState: Equatable, Hashable, Sendable, Codable {
     /// messageKey → 记录，first-writer-wins（SYNC-002）。
     public var classifications: [String: ClassificationRecord] = [:]
     /// ruleKey → 生效规则（LWW，SYNC-003）。
@@ -73,8 +73,41 @@ public enum EntryMerge {
                 }
                 state.tombstones[key] = incoming
                 state.rules[key] = nil
+
+            case .snapshot(let payload):
+                // 快照逐项按决胜比较器合并：乱序安全（旧快照/旧写不会回退状态，SYNC-005）
+                for (key, rec) in payload.state.classifications {
+                    let incoming = ClassificationRecord(ts: rec.ts, deviceId: rec.deviceId, bucket: rec.bucket)
+                    if let current = state.classifications[key] {
+                        if (incoming.ts, incoming.deviceId) < (current.ts, current.deviceId) {
+                            state.classifications[key] = incoming
+                        }
+                    } else {
+                        state.classifications[key] = incoming
+                    }
+                }
+                for (key, rule) in payload.state.rules {
+                    var synthetic = entry
+                    synthetic.kind = .ruleUpsert(rule)
+                    merge(&state, entries: [synthetic])
+                }
+                for (key, t) in payload.state.tombstones {
+                    // 墓碑的 ts/deviceId 用快照记录的，而不是快照条目本身的
+                    mergeTombstone(&state, key: key, record: TombstoneRecord(ts: t.ts, deviceId: t.deviceId))
+                }
             }
         }
+    }
+
+    private static func mergeTombstone(_ state: inout MergeState, key: String, record: TombstoneRecord) {
+        if let r = state.rules[key], (r.ts, r.deviceId) >= (record.ts, record.deviceId) {
+            return // 现有规则更新，墓碑无效
+        }
+        if let t = state.tombstones[key], (t.ts, t.deviceId) >= (record.ts, record.deviceId) {
+            return // 已有更新的墓碑
+        }
+        state.tombstones[key] = record
+        state.rules[key] = nil
     }
 
     public static func merged(_ entries: some Sequence<SyncEntry>) -> MergeState {
