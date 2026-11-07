@@ -26,7 +26,8 @@
 ## 状态
 
 - 方案：基线 v3 定稿（2026-11-07）；设计基因 Blue Box Classic
-- 开发：**M0 进行中** —— specs 用例库 15 条已登记，CoreKit 域核心首批实现中（分类管线 / CRDT 合并 / 稳定主键）
+- 开发：**M0 进行中** —— CoreKit 域核心首批已全绿（CLS/SYNC/MAIL 14 条用例，CI macos-26）；
+  下一步：假 IMAP 服务器（MailProtoKit）
 - 开发入口：[AGENTS.md](AGENTS.md)（TDD 流程与常用命令）
 
 > 本仓库为 private：包含上架流程、主体与费用规划等运营信息。
