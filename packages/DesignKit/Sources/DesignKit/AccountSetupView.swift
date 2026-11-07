@@ -40,9 +40,7 @@ public struct AccountSetupView: View {
             }
 
             Button("先看看 Demo（无需账户）") {
-                // Demo 数据写入共享 store 后刷新当前模型
-                let demo = MailoAppModel.bootstrapDemo(store: model.store)
-                model.adopt(other: demo)
+                model.switchToDemo()
             }
             .font(.system(size: 12))
             .foregroundColor(DesignTokens.inkMuted)
@@ -101,13 +99,3 @@ public struct AccountSetupView: View {
     }
 }
 
-public extension MailoAppModel {
-    /// Demo 切换：把 demo 模型的已装配状态搬到当前实例（共享 store 前提下）。
-    @MainActor
-    func adopt(other: MailoAppModel) {
-        entries = other.entries
-        screenerCount = other.screenerCount
-        phase = .demo
-        try? load(bucket: selectedBucket)
-    }
-}

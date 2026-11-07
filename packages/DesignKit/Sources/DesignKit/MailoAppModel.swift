@@ -110,6 +110,14 @@ public final class MailoAppModel: ObservableObject {
         pollTask = nil
     }
 
+    /// Demo 模式切换：Demo 数据写入共享 store 后切换呈现（UI"先看看"入口）。
+    public func switchToDemo() {
+        let demo = MailoAppModel.bootstrapDemo(store: store)
+        screenerCount = demo.screenerCount
+        phase = .demo
+        try? load(bucket: selectedBucket)
+    }
+
     // MARK: - 事件应用（入库 + 分类 + 冻结，JOURNEY-001 核心）
 
     public func apply(_ events: [MailEvent]) throws {
