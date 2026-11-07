@@ -100,7 +100,7 @@ public final class MirrorStore: @unchecked Sendable {
                 t.column("reason", .text).notNull()
             }
             try db.create(virtualTable: "mail_fts", using: FTS5()) { t in
-                t.tokenizer = .trigram
+                t.tokenizer = "trigram" // SQLite 内建 trigram（3.34+），中文子串可搜（STORE-003）
                 t.column("subject")
                 t.column("fromAddress")
                 t.column("snippet")
