@@ -21,33 +21,68 @@
 - **Given** 假服务器返回 `* 3 FETCH (UID 42 FLAGS (\Seen) INTERNALDATE "07-Nov-2026 10:00:00 +0000" ENVELOPE ("Wed, 7 Nov 2026 10:00:00 +0000" "Re: Contract" (("Sarah" NIL "sarah" "wave.co")) ...))`
 - **When** 解析该 untagged 响应
 - **Then** 得出 uid=42、flags 含 \Seen、subject="Re: Contract"、from 地址 sarah@wave.co、INTERNALDATE 可读
-- **Status**: draft
+- **Status**: green
 - **Tests**: `mail_003_fetch_envelope_parse`
 
 ## MAIL-004 字面量跨行续传
 - **Given** 响应含 IMAP 字面量（如 `BODY[HEADER] {29}\r\nMessage-ID: <a@b.c>\r\n`）
 - **When** 解析
 - **Then** 字面量字节精确拼接进结构，后续 token 继续正确解析
-- **Status**: draft
+- **Status**: green
 - **Tests**: `mail_004_literal_continuation`
 
 ## MAIL-005 RFC2047 encoded-word（含 GBK）
 - **Given** 主题 `=?UTF-8?B?5L2g5aW9?=` 与 `=?GBK?B?083Tqg==?=`（GBK 编码的中文）
 - **When** 解码
 - **Then** 分别得到正确中文文本；未知编码时原样返回（不崩溃）
-- **Status**: draft
+- **Status**: green
 - **Tests**: `mail_005_encoded_word_gbk`
 
 ## MAIL-006 UIDVALIDITY 重置检测
 - **Given** 会话曾以 uidValidity=7 SELECT 过 INBOX，再次 SELECT 时服务器返回 uidValidity=99
 - **When** 同步引擎收到新状态
 - **Then** 报告 `.uidValidityReset(folder:)` 事件（触发按稳定主键重拉，分类标注不丢失）
-- **Status**: draft
+- **Status**: green
 - **Tests**: `mail_006_uidvalidity_reset_event`
 
 ## MAIL-007 能力协商降级（QRESYNC→CONDSTORE→全量）
 - **Given** 三个假服务器实例：CAPABILITY 分别含 QRESYNC、仅含 CONDSTORE、两者皆无
 - **When** 同步引擎协商同步模式
 - **Then** 分别选定 .qresync / .condstore / .full 模式
-- **Status**: draft
+- **Status**: green
 - **Tests**: `mail_007_capability_negotiation_fallback`
+
+## MAIL-008 MIME 头解析（折叠续行/大小写）
+- **Given** 头区含折叠续行（`Subject: foo\r\n bar`）与任意大小写键名（`MESSAGE-ID:`）
+- **When** 解析头区
+- **Then** 键统一小写、续行以单空格拼接、取值可查
+- **Status**: green
+- **Tests**: `mail_008_mime_header_folding`
+
+## MAIL-009 multipart 遍历（含嵌套）
+- **Given** multipart/mixed，内含 multipart/alternative（text/plain + text/html）与一个附件部分
+- **When** 解析整个 MIME 树
+- **Then** 叶子部分正确归类：plain/html 各一、附件一；嵌套结构被递归展开
+- **Status**: green
+- **Tests**: `mail_009_multipart_traversal`
+
+## MAIL-010 传输编码解码（base64 / quoted-printable）
+- **Given** CTE 为 base64 与 quoted-printable 的两个正文部分
+- **When** 解码
+- **Then** 字节精确还原（QP 含 =XX 与软换行 =）
+- **Status**: green
+- **Tests**: `mail_010_transfer_decoding`
+
+## MAIL-011 邮件结构摘要（ParsedEmail）
+- **Given** 一封完整邮件（头 + multipart 体 + 附件）
+- **When** `MimeParser.parse`
+- **Then** 得到 ParsedEmail：subject/from/date/messageId（缺头为 nil）、textBody、htmlBody、attachments（文件名+字节）；text/plain 优先于 html 作为 textBody
+- **Status**: green
+- **Tests**: `mail_011_parsed_email_summary`
+
+## MAIL-012 正文字符集解码（GBK body）
+- **Given** Content-Type 带 `charset=gbk` 的 base64 正文
+- **When** 解析为文本
+- **Then** 按 GB18030 超集正确解码中文；charset 缺省按 UTF-8 容错
+- **Status**: green
+- **Tests**: `mail_012_body_charset_gbk`

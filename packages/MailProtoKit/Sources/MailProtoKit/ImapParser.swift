@@ -1,3 +1,4 @@
+import CoreKit
 import Foundation
 
 /// IMAP 响应 token：字符串 / 字面量字节 / 括号列表（递归）。
