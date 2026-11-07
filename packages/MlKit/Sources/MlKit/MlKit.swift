@@ -105,11 +105,22 @@ public struct GoldenCase: Codable, Hashable, Sendable {
     }
 }
 
+/// 分桶统计。
+public struct BucketStats: Equatable, Sendable, Codable {
+    public var expected: Int
+    public var correct: Int
+
+    public init(expected: Int = 0, correct: Int = 0) {
+        self.expected = expected
+        self.correct = correct
+    }
+}
+
 /// 评测报告：发版门禁的计算内核。
 public struct GoldenReport: Equatable, Sendable {
     public var total: Int
     public var correct: Int
-    public var perBucket: [String: (expected: Int, correct: Int)]
+    public var perBucket: [String: BucketStats]
 
     public var accuracy: Double {
         total == 0 ? 1 : Double(correct) / Double(total)
@@ -134,10 +145,10 @@ public enum GoldenEvaluator {
 
     /// 评估：网关输出桶 == 期望桶 计正确（ML-005，发版门禁的计算内核）。
     public static func evaluate(_ cases: [GoldenCase], gateway: any MlGateway) async -> GoldenReport {
-        var perBucket: [String: (expected: Int, correct: Int)] = [:]
+        var perBucket: [String: BucketStats] = [:]
         var correct = 0
         for c in cases {
-            var stats = perBucket[c.expected.rawValue] ?? (expected: 0, correct: 0)
+            var stats = perBucket[c.expected.rawValue] ?? BucketStats()
             stats.expected += 1
             if let guess = try? await gateway.classify(c.input), guess.bucket == c.expected {
                 correct += 1
