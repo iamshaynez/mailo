@@ -23,7 +23,7 @@ public enum DeviceCodeFlow {
 
     public enum TokenPollResult: Equatable, Sendable {
         case pending
-        case granted(accessToken: String)
+        case granted(accessToken: String, refreshToken: String?)
         case denied(error: String, description: String)
     }
 
@@ -51,7 +51,8 @@ public enum DeviceCodeFlow {
             return .denied(error: "bad_json", description: "unparseable token response")
         }
         if let token = obj["access_token"] as? String, !token.isEmpty {
-            return .granted(accessToken: token)
+            let refresh = obj["refresh_token"] as? String
+            return .granted(accessToken: token, refreshToken: refresh)
         }
         if let error = obj["error"] as? String {
             if error == "authorization_pending" || error == "slow_down" {
@@ -69,6 +70,7 @@ public enum DeviceCodeFlow {
     }
 
     /// Microsoft 端点与 scope 的双账户形态（实测结论，2026-11-07）：
+    /// 通用 token 端点（刷新走同租户）。
     /// - 个人 MSA（@outlook.com 等）：consumers 租户 + **outlook.office.com** 资源主机
     ///   （office365.com 主机在 consumers 端点报 AADSTS70011 invalid_scope）
     /// - 组织账户（M365）：organizations/common 租户 + outlook.office365.com 主机

@@ -3,7 +3,7 @@ import SwiftUI
 
 @main
 struct MailoIOSApp: App {
-    @StateObject private var model = MailoAppModel.bootstrapDemo()
+    @StateObject private var model = MailoAppModel.createLive()
 
     var body: some Scene {
         WindowGroup {

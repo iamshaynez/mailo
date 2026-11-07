@@ -13,6 +13,15 @@ public struct MailoShell: View {
     }
 
     public var body: some View {
+        switch model.phase {
+        case .demo, .connected:
+            mainInterface
+        case .empty, .connecting, .failed:
+            AccountSetupView(model: model)
+        }
+    }
+
+    private var mainInterface: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
             sidebar
                 .navigationSplitViewColumnWidth(DesignTokens.sidebarWidth)
