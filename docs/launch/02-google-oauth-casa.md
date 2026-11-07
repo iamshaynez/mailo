@@ -70,6 +70,14 @@
 - 首页是 404 或"建设中" → 退回
 - scope justification 写"未来可能用于 AI 功能" → 退回（只写当前实际用途）
 
+## 大陆主体注意事项（中国公司注册 Google 全线可用，摩擦在付款与网络）
+
+1. **Google Cloud 付款**：账号结算需要**国际信用卡**（Visa/Mastercard，公司双币卡通常可行；失败案例不少，备选：公司外币卡 / 香港卡。提前测，这是本线最现实的摩擦点）
+2. **CASA lab 付款**：美元计价（$500-4500/年），走公司外汇/国际卡；小额费用可评估 Payoneer/Wise 等企业渠道，提前留出付款周期
+3. **网络**：console.cloud.google.com 与验证往来邮件都在墙外可达性正常，但国内办公室操作需自备出海网络；所有验证邮件别漏（退回重审会重置周期）
+4. **主体一致性**：Google 账号的公司资料（英文名/地址）与邓白氏/Apple 注册保持同一套翻译，年审交叉核对时会省事
+5. **Android 二期注意**：OAuth client 届时加 Android 类型（包名 + SHA1）；大陆无 GMS 设备上 Gmail 登录走 AppAuth 方案（不用 Google Sign-In SDK），见 05 文档 §5
+
 ## 参考
 
 - [Google: restricted scope 验证要求](https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification)

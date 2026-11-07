@@ -1,7 +1,7 @@
 # Mailo 架构方案基线 v2（零后端版）
 
 > 定稿日期：2026-11-07。本文件是全部技术决策的单一事实来源（SSOT）。
-> 决策演进：v1（轻量云元数据服务）→ v2（纯本地客户端，避免服务器合规成本）。
+> 决策演进：v1（轻量云元数据服务）→ v2（纯本地客户端，避免服务器合规成本）→ **v2.1（明确中国大陆公司主体 + 分发策略：iOS 海外区、Android apk 直发）**。
 > 修改本文件 = 变更决策，需在「决策记录」表追加一行并说明理由。
 
 ## 1. 项目定位
@@ -16,7 +16,7 @@
 | # | 决策项 | 定案 | 备注 |
 |---|---|---|---|
 | D1 | 技术栈 | Flutter 单代码库 | iOS/Android/macOS/Windows/Linux 可达；IMAP 库薄弱 = 自建协议核心，恰好落在 TDD 域核心层 |
-| D2 | 首发平台 | iOS + macOS | 共享 Keychain/APNs/沙箱经验；Android/Windows 二期复用核心零改动 |
+| D2 | 首发平台 | iOS + macOS；Android 二期 **apk 直发**（v2.1 修订：不上架任何安卓商店） | 共享 Keychain/APNs/沙箱经验；Android 直发砍掉全部商店流程，核心零改动 |
 | D3 | 后端 | **无**（v2 修订，原为轻量云元数据服务） | 规避服务器开发/运维/数据处理合规；代价见 D7 |
 | D4 | 账号体系 | 无（v2 修订，原为独立账号） | 无服务器即无账号 |
 | D5 | 归类模型 | 派生视图层：不移动邮件，本地标注；可选写回服务端 label **默认关** | 保"不破坏"承诺 |
@@ -26,6 +26,8 @@
 | D9 | 本地模型 | 平台原生优先（Apple Foundation Models）+ 多语言 embedding 兜底（首启下载） | 结果冻结幂等；一端推理全端共享 |
 | D10 | 服务商 | Gmail（IMAP+XOAUTH2）+ Outlook（IMAP+XOAUTH2）+ 标准 IMAP 授权码 | ⚠ Gmail scope 决策点见 §4.1 |
 | D11 | 研发流程 | 严格 TDD：specs 用例库 → 失败测试 → 实现 | 详见 §8 |
+| D12 | 运营主体与分发 | **中国大陆公司主体**（v2.1 修订）；iOS/macOS 上 App Store **海外区（不含中国大陆）**；Android 官网/CDN 直发 apk；macOS 亦可 Developer ID+公证 | 避开中国区 App Store 的 ICP/App 备案硬要求与零后端理念冲突；大陆分发备案义务见 docs/launch/05 §6（默认暂不面向大陆分发） |
+| D13 | 安卓工程约束 | **GMS 零依赖**：Gmail OAuth 走 AppAuth（不用 Google Sign-In SDK），推送本来就无（前台服务 IDLE） | 兼容大陆无 Google 服务设备；详见 docs/launch/05 §5 |
 
 ## 3. 架构分层
 
@@ -131,7 +133,7 @@ docs/            # plan / launch 文档
 - **M1（~6 周，单端打穿）**：iOS+macOS，授权码账号全旅程——收发、分类呈现、Screener、手动纠正生成规则、FTS 搜索、embedding 兜底。M1 末：Gmail consent 屏复核（§4.1）
 - **M2（~5 周，多端成体）**：`Mailo/Sync` 同步落地 + Gmail/Outlook XOAUTH2 接入（测试模式内测）+ 提交 Google 验证/CASA、视核实结果决定 MS publisher 验证
 - **M3（~4 周，打磨上架）**：动画门禁、大邮箱性能门禁、golden 评测集门禁、Apple 审核提交
-- Android/Windows：M2 后启动，核心零改动
+- Android/Windows：M2 后启动，核心零改动；Android 发布 = apk 直发（签名密钥管理建议 M0 顺手完成，见 docs/launch/05 §7），无商店流程，发布成本低
 
 ## 11. 风险清单
 
@@ -144,3 +146,6 @@ docs/            # plan / launch 文档
 | R5 | HTML 邮件渲染工时黑洞 | 独立契约测试面，M1 提前验证 |
 | R6 | Foundation Models 非确定性 | 结果冻结 + golden 门禁 |
 | R7 | 假 IMAP 服务器基建被砍 | 明确为 M0 交付物，先于同步引擎本身 |
+| R8 | 大陆 App 备案义务（若面向大陆分发 apk） | 首版仅海外分发；若选路径 B 则走云服务商备案（成本已知，见 docs/launch/05 §6） |
+| R9 | 无 GMS 设备上 Gmail OAuth | AppAuth + Custom Tab/浏览器退化流程，e2e 必须覆盖（docs/launch/05 §5） |
+| R10 | 大陆主体的国际付款摩擦（Google Cloud 结算、CASA 美元） | M0 第一周实测国际卡；备选外币卡/香港卡；CASA 付款预留周期 |

@@ -21,6 +21,7 @@
 | [docs/launch/02-google-oauth-casa.md](docs/launch/02-google-oauth-casa.md) | Gmail OAuth 验证 + CASA Tier 2 自扫手册 |
 | [docs/launch/03-microsoft-entra-outlook.md](docs/launch/03-microsoft-entra-outlook.md) | Microsoft Entra 应用注册 + 政策核实手册 |
 | [docs/launch/04-privacy-policy-github-pages.md](docs/launch/04-privacy-policy-github-pages.md) | 隐私政策模板与部署 |
+| [docs/launch/05-distribution-android-apk.md](docs/launch/05-distribution-android-apk.md) | Android apk 直发：签名/更新/GMS 零依赖/备案决策 |
 
 ## 状态
 

@@ -64,6 +64,12 @@
 |---|---|---|
 | 2026-11-07 | 初步搜索：未见强制 identity verification 的公开公告；见第三方客户端限流/迁移 Graph 的第三方支持文档信号 | 待工单确认 |
 
+## 大陆主体注意事项
+
+1. Entra 应用注册对大陆公司零门槛（免费层，无需特殊资质）
+2. Partner Center 组织验证支持中国公司主体（微软中国渠道），按注册流程提交营业执照等信息即可；涉及费用以流程页面明示为准
+3. MSAL Android **不依赖 GMS**，与 05 文档的 GMS 零依赖约束兼容 ✓
+
 ## 参考
 
 - [Microsoft 标识平台概述](https://learn.microsoft.com/entra/identity-platform/v2-overview)
