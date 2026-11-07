@@ -1,0 +1,10 @@
+/Users/xiaowenz/Development/mailo/packages/MailProtoKit/Sources/MailProtoKit/DeviceCodeFlow.swift
+/Users/xiaowenz/Development/mailo/packages/MailProtoKit/Sources/MailProtoKit/FakeImapServer.swift
+/Users/xiaowenz/Development/mailo/packages/MailProtoKit/Sources/MailProtoKit/ImapParser.swift
+/Users/xiaowenz/Development/mailo/packages/MailProtoKit/Sources/MailProtoKit/ImapSyncEngine.swift
+/Users/xiaowenz/Development/mailo/packages/MailProtoKit/Sources/MailProtoKit/ImapTransport.swift
+/Users/xiaowenz/Development/mailo/packages/MailProtoKit/Sources/MailProtoKit/NetworkTransport.swift
+/Users/xiaowenz/Development/mailo/packages/MailProtoKit/Sources/MailProtoKit/Smtp.swift
+/Users/xiaowenz/Development/mailo/packages/MailProtoKit/Sources/MailProtoKit/SyncNegotiation.swift
+/Users/xiaowenz/Development/mailo/packages/MailProtoKit/Sources/MailProtoKit/SyncRunner.swift
+/Users/xiaowenz/Development/mailo/packages/MailProtoKit/Sources/MailProtoKit/TcpTransports.swift

@@ -1,0 +1,4 @@
+module CoreKit {
+header "CoreKit-Swift.h"
+export *
+}
