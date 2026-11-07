@@ -1,0 +1,25 @@
+name: MailoMac
+options:
+  bundleIdPrefix: com.xiaowenz
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+packages:
+  DesignKit:
+    path: ../../packages/DesignKit
+targets:
+  MailoMac:
+    type: application
+    platform: macOS
+    sources:
+      - Sources
+    dependencies:
+      - package: DesignKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.xiaowenz.mailo
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: true
+        CODE_SIGNING_ALLOWED: false
+        SWIFT_STRICT_CONCURRENCY: minimal
