@@ -30,4 +30,5 @@
   下一步：假 IMAP 服务器（MailProtoKit）
 - 开发入口：[AGENTS.md](AGENTS.md)（TDD 流程与常用命令）
 
-> 本仓库为 private：包含上架流程、主体与费用规划等运营信息。
+> 仓库已公开（2026-11-07）。上架运营文档保留在 `docs/launch/`（含主体名与费用量级，均为非密级信息）；
+> 密钥与证书永不入库（见 .gitignore 与 AGENTS.md 约定）。

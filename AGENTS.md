@@ -44,4 +44,4 @@ swift test --package-path packages/CoreKit     # 全部测试
 - Swift 值类型优先；域核心零 IO（端口协议注入）；Sendable 全覆盖
 - 公共 API 都要 doc comment，注明对应用例 ID 或基线章节
 - 提交信息格式：`<scope>: <做了什么>`（scope ∈ core/spec/docs/ci/launch…）
-- 本仓库为 private：文档含运营信息，禁止外发内容
+- 本仓库已公开：**密钥、凭证、证书、真实服务器会话数据永不入库**；契约测试 cassette 必须脱敏
