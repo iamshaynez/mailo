@@ -72,3 +72,10 @@
 - **Then** 条目集合往返相等；邮件头带 Message-ID（可被 IMAP 文件夹正常收纳与去重）
 - **Status**: draft
 - **Tests**: `sync_010_codec_roundtrip`
+
+## SYNC-011 轮询编排策略（成功复位/失败退避）
+- **Given** PollingPolicy（基准 30s，封顶 300s）
+- **When** 连续成功；连续失败
+- **Then** 成功后回到基准间隔；失败后指数翻倍封顶 300s；恢复成功立即复位
+- **Status**: draft
+- **Tests**: `sync_011_polling_policy_backoff`
