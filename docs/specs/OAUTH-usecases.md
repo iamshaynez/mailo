@@ -23,3 +23,10 @@
 - **Then** 过期前 60s 内即需刷新（提前量避免竞态）；过期已久必刷
 - **Status**: draft
 - **Tests**: `oauth_003_session_refresh_window`
+
+## OAUTH-004 Keychain 生产实现（真实读写）
+- **Given** Security.framework Keychain（CI macOS runner 的解锁 keychain）
+- **When** KeychainVault 存/取/删/枚举
+- **Then** 语义与端口契约一致（OAUTH-002 同款断言，真实 SecItem 路径）
+- **Status**: draft
+- **Tests**: `oauth_004_keychain_vault_real`
