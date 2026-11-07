@@ -25,9 +25,9 @@
 
 ## 状态
 
-- 方案：基线 v3 定稿（2026-11-07）；设计基因 Blue Box Classic
-- 开发：**M0 进行中** —— CoreKit 域核心首批已全绿（CLS/SYNC/MAIL 14 条用例，CI macos-26）；
-  下一步：假 IMAP 服务器（MailProtoKit）
+- **v0.1 已交付（2026-11-07）**：6 个 SwiftPM 包 + 双端 App 骨架，42 条用例，CI 8 项必需检查全绿
+- 完成度与用户侧待办总账：[docs/DELIVERY.md](docs/DELIVERY.md)
+- 方案：基线 v3 · 设计规范 v1（Blue Box Classic）
 - 开发入口：[AGENTS.md](AGENTS.md)（TDD 流程与常用命令）
 
 > 仓库已公开（2026-11-07）。上架运营文档保留在 `docs/launch/`（含主体名与费用量级，均为非密级信息）；
