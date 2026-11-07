@@ -94,6 +94,6 @@ public enum DeviceCodeFlow {
         case personal // consumers 租户，@outlook.com/@hotmail.com
         case organizational // organizations 租户，M365 工作账户
 
-        var tenant: String { self == .personal ? "consumers" : "organizations" }
+        public var tenant: String { self == .personal ? "consumers" : "organizations" }
     }
 }
