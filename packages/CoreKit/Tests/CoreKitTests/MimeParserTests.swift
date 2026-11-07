@@ -43,7 +43,11 @@ struct MimeParserTests {
         Zm9v\r
         --OUT--\r
         """
-        let email = MimeParser.parse(Array(raw.utf8))
+        let rawBytes = Array(raw.utf8)
+        let (hdr, body) = MimeParser.splitHeaderBody(rawBytes)
+        let segs = MimeParser.splitMultipart(body, boundary: "OUT")
+        print("DIAG segs=\(segs.map { String(decoding: $0, as: UTF8.self) })")
+        let email = MimeParser.parse(rawBytes)
         #expect(email.textBody?.contains("plain body") == true)
         #expect(email.htmlBody?.contains("<p>html body</p>") == true)
         #expect(email.attachments.count == 1, "dump=\(email)")
