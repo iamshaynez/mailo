@@ -29,16 +29,16 @@ struct ImapParserTests {
     @Test("MAIL-004 字面量跨行续传")
     func mail_004_literal_continuation() throws {
         let header = "Message-ID: <a@b.c>\r\n"
-        let wire = "* 1 FETCH (UID 7 BODY[HEADER] {\(header.utf8.count)})\r\n\(header))\r\n"
+        // 真实 IMAP 形态：{N}\r\n 之后立即跟 N 字节数据，然后才轮到 ')' 收尾
+        let wire = "* 1 FETCH (UID 7 BODY[HEADER] {\(header.utf8.count)}\r\n\(header))\r\n"
         let lines = try ImapParser.parse(Array(wire.utf8))
-        // 期望：FETCH 行的列表里，字面量作为 literal 原样携带，右括号作为独立 token 收尾
+        #expect(lines.count == 1, "字面量与其后的 ')' 属于同一逻辑行，got \(lines)")
         let fetch = lines[0]
         guard case .list(let items) = fetch.atoms[3] else {
             Issue.record("atoms[3] 应为列表: \(fetch)"); return
         }
         #expect(items.contains(.string("UID")))
         #expect(items.contains(.literal(Array(header.utf8))))
-        #expect(lines.count == 1, "字面量后的 ')' 应并入同一逻辑行")
     }
 
     @Test("MAIL-005 RFC2047 encoded-word（含 GBK）")

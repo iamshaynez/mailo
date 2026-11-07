@@ -8,7 +8,9 @@ public enum SyncMode: Equatable, Sendable {
 
     /// 协商：QRESYNC > CONDSTORE > 全量。
     public static func negotiate(capabilities: [String]) -> SyncMode {
-        // PLACEHOLDER (red phase)
+        let caps = Set(capabilities.map { $0.uppercased() })
+        if caps.contains("QRESYNC") { return .qresync }
+        if caps.contains("CONDSTORE") { return .condstore }
         return .full
     }
 }
@@ -31,9 +33,11 @@ public enum SyncEvent: Equatable, Sendable {
     case uidValidityReset(folder: String, old: Int, new: Int)
     case mailboxReady(MailboxState)
 
-    /// 对比前后两次 SELECT 状态；uidValidity 变化即重置事件。
+    /// 对比前后两次 SELECT 状态；uidValidity 变化即重置事件（首次 SELECT 不算）。
     public static func diff(previous: MailboxState?, current: MailboxState) -> SyncEvent {
-        // PLACEHOLDER (red phase)
+        if let prev = previous, prev.uidValidity != current.uidValidity {
+            return .uidValidityReset(folder: current.folder, old: prev.uidValidity, new: current.uidValidity)
+        }
         return .mailboxReady(current)
     }
 }
