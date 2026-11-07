@@ -35,10 +35,46 @@ public struct MergeState: Equatable, Sendable {
 }
 
 /// 条目合并器：顺序无关、结果确定（SYNC-001）。
+/// 决胜比较器统一为 (ts, deviceId) 元组字典序：
+/// - 分类条目取**小者**（first-writer-wins，SYNC-002）
+/// - 规则/墓碑取**大者**（LWW，SYNC-003/004）
 public enum EntryMerge {
     public static func merge(_ state: inout MergeState, entries: some Sequence<SyncEntry>) {
-        // PLACEHOLDER (red phase)
-        for _ in entries {}
+        for entry in entries {
+            switch entry.kind {
+            case .classification(let key, let bucket):
+                let incoming = ClassificationRecord(ts: entry.ts, deviceId: entry.deviceId, bucket: bucket)
+                if let current = state.classifications[key] {
+                    if (incoming.ts, incoming.deviceId) < (current.ts, current.deviceId) {
+                        state.classifications[key] = incoming
+                    }
+                } else {
+                    state.classifications[key] = incoming
+                }
+
+            case .ruleUpsert(let rule):
+                let key = rule.matcher.key
+                if let t = state.tombstones[key], (t.ts, t.deviceId) >= (rule.ts, rule.deviceId) {
+                    continue // 被更新的墓碑压制（SYNC-004）
+                }
+                if let r = state.rules[key], (r.ts, r.deviceId) >= (rule.ts, rule.deviceId) {
+                    continue // 已有更新版本（LWW）
+                }
+                state.rules[key] = rule
+                state.tombstones[key] = nil // 新版本复活规则，旧墓碑退役
+
+            case .ruleTombstone(let key):
+                let incoming = TombstoneRecord(ts: entry.ts, deviceId: entry.deviceId)
+                if let r = state.rules[key], (r.ts, r.deviceId) >= (incoming.ts, incoming.deviceId) {
+                    continue // 现有规则更新，墓碑无效
+                }
+                if let t = state.tombstones[key], (t.ts, t.deviceId) >= (incoming.ts, incoming.deviceId) {
+                    continue // 已有更新的墓碑
+                }
+                state.tombstones[key] = incoming
+                state.rules[key] = nil
+            }
+        }
     }
 
     public static func merged(_ entries: some Sequence<SyncEntry>) -> MergeState {

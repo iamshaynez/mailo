@@ -13,19 +13,37 @@ public struct ClassificationPipeline: Hashable, Sendable {
         self.frozen = frozen
     }
 
-    /// 前段：冻结 → 规则 → 名单库；都未命中交给模型（调用方执行后经 applyModel 回填）。
+    /// 前段：冻结 → 规则（sender>domain>subject，CLS-007）→ 名单库；
+    /// 都未命中交给模型（调用方经 MlEngine 端口执行后用 applyModel 回填，CLS-003）。
     public func decide(_ signal: MailSignal) -> PipelineVerdict {
-        // PLACEHOLDER (red phase)
+        if let bucket = frozen[signal.messageID] {
+            return .classified(bucket, .frozen)
+        }
+        for rank in 0..<3 {
+            if let rule = rules.first(where: { $0.matcher.rank == rank && $0.matcher ~= signal }) {
+                return .classified(rule.bucket, .userRule(rule.id))
+            }
+        }
+        if let hit = roster.hit(signal) {
+            return .classified(hit.bucket, .roster(hit.key))
+        }
         return .needsModel
     }
 
-    /// 后段：应用模型建议；置信度不足 → Screener 待定（CLS-004）。
+    /// 后段：前段已定则模型意见不得覆盖；置信度不足 → Screener 待定（CLS-004）。
     public static func applyModel(
         _ verdict: PipelineVerdict,
         guess: ModelGuess,
         threshold: Double = 0.60
     ) -> FinalDecision {
-        // PLACEHOLDER (red phase)
-        return .bucket(guess.bucket, .model(confidence: guess.confidence))
+        switch verdict {
+        case .classified(let bucket, let reason):
+            return .bucket(bucket, reason)
+        case .needsModel:
+            if guess.confidence >= threshold {
+                return .bucket(guess.bucket, .model(confidence: guess.confidence))
+            }
+            return .screener(.belowThreshold(confidence: guess.confidence))
+        }
     }
 }

@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 /// 邮件的稳定关联主键：规范化 Message-ID + 账号指纹。
@@ -7,8 +8,16 @@ public struct StableMessageID: Hashable, Codable, Sendable {
     public let value: String
 
     public init(messageId: String?, accountFingerprint: String, fallback: FallbackInputs? = nil) {
-        // PLACEHOLDER (red phase)
-        self.value = (messageId ?? "") + accountFingerprint
+        let fp = accountFingerprint.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let normalized = messageId?.normalizedMessageID, !normalized.isEmpty {
+            self.value = "\(fp)|\(normalized)"
+        } else if let f = fallback {
+            self.value = "\(fp)|fb:\(Self.contentDigest(f))"
+        } else {
+            // 退化：无 Message-ID 也无 fallback 输入。保持确定性（空串），
+            // 由调用方契约保证不该走到（MIME 解析层兜底生成 fallback）。
+            self.value = "\(fp)|"
+        }
     }
 
     /// Message-ID 缺失时的确定性 fallback 输入（MAIL-002）。
@@ -22,5 +31,20 @@ public struct StableMessageID: Hashable, Codable, Sendable {
             self.date = date
             self.subject = subject
         }
+    }
+
+    private static func contentDigest(_ f: FallbackInputs) -> String {
+        let joined = "from|\(f.from)|date|\(f.date)|subject|\(f.subject)"
+        let digest = SHA256.hash(data: Data(joined.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+private extension String {
+    var normalizedMessageID: String {
+        var s = self
+        if s.hasPrefix("<") { s.removeFirst() }
+        if s.hasSuffix(">") { s.removeLast() }
+        return s.components(separatedBy: .whitespacesAndNewlines).joined().lowercased()
     }
 }
