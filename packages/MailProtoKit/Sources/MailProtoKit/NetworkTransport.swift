@@ -33,9 +33,8 @@ public final class ImapLineReader: @unchecked Sendable {
             line += [13, 10]
             line += Array(buffer[consumed..<(consumed + count)])
             consumed += count
-            // 字面量后的行剩余，到下一 CRLF
+            // 字面量数据直接接行剩余（无额外 CRLF，RFC3501）；剩余到下一 CRLF
             guard let c2 = findCRLF(from: consumed) else { return nil }
-            line += [13, 10]
             line += Array(buffer[consumed..<c2])
             consumed = c2 + 2
         }
