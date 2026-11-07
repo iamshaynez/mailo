@@ -52,7 +52,8 @@ public struct PrototypeEngine: Sendable, Equatable {
     }
 
     /// 余弦 Top-1 投票 + 区分度置信度（ML-001/002）。
-    /// 置信度 = softmax(余弦相似度) 的 top1 概率：一边倒 → 高；近平票 → 低。
+    /// 置信度 = 0.5 + (top1 − top2)/2：一边倒 → →1.0；近平票 → →0.5；
+    /// 单桶无竞争 → 1.0；无原型 → 0（Screener 待定）。
     public func classify(embedding: [Double]) -> ModelGuess {
         var scored: [(bucket: Bucket, cosine: Double)] = []
         for (bucket, vectors) in prototypes {
@@ -62,10 +63,15 @@ public struct PrototypeEngine: Sendable, Equatable {
         guard let top = scored.max(by: { $0.cosine < $1.cosine }) else {
             return ModelGuess(bucket: .screener, confidence: 0) // 无原型：待定
         }
-        // softmax（温度 1）计算 top1 概率作为置信度
-        let exps = scored.map { exp($0.cosine) }
-        let sum = exps.reduce(0, +)
-        let confidence = sum > 0 ? (exp(top.cosine) / sum) : 0
+        let runnerUp = scored
+            .filter { $0.bucket != top.bucket }
+            .map(\.cosine).max()
+        let confidence: Double
+        if let second = runnerUp {
+            confidence = min(1, max(0, 0.5 + (top.cosine - second) / 2))
+        } else {
+            confidence = 1.0 // 无竞争者
+        }
         return ModelGuess(bucket: top.bucket, confidence: confidence)
     }
 
