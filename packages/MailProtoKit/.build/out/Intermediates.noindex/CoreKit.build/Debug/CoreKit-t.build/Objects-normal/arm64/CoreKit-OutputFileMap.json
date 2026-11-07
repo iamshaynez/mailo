@@ -1,0 +1,169 @@
+{
+  "" : {
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/CoreKit-primary.dia",
+    "emit-module-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/CoreKit-primary-emit-module.d",
+    "emit-module-diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/CoreKit-primary-emit-module.dia",
+    "pch" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/CoreKit-primary-Bridging-header.pch",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/CoreKit-primary.swiftdeps"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Classification/Bucket.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Bucket.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Bucket.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Bucket.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Bucket.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Bucket.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Bucket.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Bucket.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Bucket~partial.swiftmodule"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Classification/ClassificationPipeline.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationPipeline.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationPipeline.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationPipeline.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationPipeline.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationPipeline.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationPipeline.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationPipeline.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationPipeline~partial.swiftmodule"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Classification/ClassificationVerdict.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationVerdict.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationVerdict.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationVerdict.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationVerdict.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationVerdict.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationVerdict.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationVerdict.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ClassificationVerdict~partial.swiftmodule"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Classification/MailSignal.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/MailSignal.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/MailSignal.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/MailSignal.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/MailSignal.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/MailSignal.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/MailSignal.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/MailSignal.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/MailSignal~partial.swiftmodule"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Classification/ModelGuess.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ModelGuess.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ModelGuess.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ModelGuess.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ModelGuess.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ModelGuess.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ModelGuess.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ModelGuess.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/ModelGuess~partial.swiftmodule"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Classification/Roster.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Roster.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Roster.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Roster.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Roster.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Roster.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Roster.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Roster.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Roster~partial.swiftmodule"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Classification/RosterSeed.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/RosterSeed.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/RosterSeed.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/RosterSeed.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/RosterSeed.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/RosterSeed.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/RosterSeed.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/RosterSeed.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/RosterSeed~partial.swiftmodule"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Classification/UserRule.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/UserRule.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/UserRule.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/UserRule.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/UserRule.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/UserRule.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/UserRule.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/UserRule.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/UserRule~partial.swiftmodule"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Mail/Account.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Account.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Account.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Account.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Account.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Account.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Account.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Account.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Account~partial.swiftmodule"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Mail/EncodedWord.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EncodedWord.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EncodedWord.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EncodedWord.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EncodedWord.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EncodedWord.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EncodedWord.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EncodedWord.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EncodedWord~partial.swiftmodule"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Mail/Mime.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Mime.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Mime.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Mime.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Mime.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Mime.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Mime.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Mime.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/Mime~partial.swiftmodule"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Mail/StableMessageID.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/StableMessageID.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/StableMessageID.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/StableMessageID.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/StableMessageID.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/StableMessageID.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/StableMessageID.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/StableMessageID.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/StableMessageID~partial.swiftmodule"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Sync/EntryMerge.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EntryMerge.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EntryMerge.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EntryMerge.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EntryMerge.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EntryMerge.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EntryMerge.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EntryMerge.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/EntryMerge~partial.swiftmodule"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Sync/FlushScheduler.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/FlushScheduler.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/FlushScheduler.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/FlushScheduler.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/FlushScheduler.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/FlushScheduler.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/FlushScheduler.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/FlushScheduler.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/FlushScheduler~partial.swiftmodule"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Sync/SyncCodec.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncCodec.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncCodec.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncCodec.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncCodec.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncCodec.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncCodec.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncCodec.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncCodec~partial.swiftmodule"
+  },
+  "/Users/xiaowenz/Development/mailo/packages/CoreKit/Sources/CoreKit/Sync/SyncEntry.swift" : {
+    "const-values" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncEntry.swiftconstvalues",
+    "dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncEntry.d",
+    "diagnostics" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncEntry.dia",
+    "index-unit-output-path" : "/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncEntry.o",
+    "llvm-bc" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncEntry.bc",
+    "object" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncEntry.o",
+    "swift-dependencies" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncEntry.swiftdeps",
+    "swiftmodule" : "/Users/xiaowenz/Development/mailo/packages/MailProtoKit/.build/out/Intermediates.noindex/CoreKit.build/Debug/CoreKit-t.build/Objects-normal/arm64/SyncEntry~partial.swiftmodule"
+  }
+}

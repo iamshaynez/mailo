@@ -68,9 +68,32 @@ public enum DeviceCodeFlow {
         case missingField
     }
 
-    /// Microsoft 个人账户（MSA）的设备码与令牌端点（consumers 租户，launch/03 Phase 1 受众）。
-    public static let microsoftDeviceCodeURL = URL(string: "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode")!
-    public static let microsoftTokenURL = URL(string: "https://login.microsoftonline.com/consumers/oauth2/v2.0/token")!
-    /// IMAP XOAUTH2 + SMTP 发信 + 离线刷新（AuthKit 同源常量，探针独立持有避免跨包依赖方向反转）。
-    public static let microsoftMailScope = "https://outlook.office365.com/IMAP.AccessAsUser.All https://outlook.office365.com/SMTP.Send offline_access"
+    /// Microsoft 端点与 scope 的双账户形态（实测结论，2026-11-07）：
+    /// - 个人 MSA（@outlook.com 等）：consumers 租户 + **outlook.office.com** 资源主机
+    ///   （office365.com 主机在 consumers 端点报 AADSTS70011 invalid_scope）
+    /// - 组织账户（M365）：organizations/common 租户 + outlook.office365.com 主机
+    /// IMAP 服务器 outlook.office365.com 同时接受两种 audience 的 token。
+    public static func deviceCodeURL(account: MicrosoftAccount) -> URL {
+        URL(string: "https://login.microsoftonline.com/\(account.tenant)/oauth2/v2.0/devicecode")!
+    }
+
+    public static func tokenURL(account: MicrosoftAccount) -> URL {
+        URL(string: "https://login.microsoftonline.com/\(account.tenant)/oauth2/v2.0/token")!
+    }
+
+    public static func mailScope(account: MicrosoftAccount) -> String {
+        switch account {
+        case .personal:
+            return "https://outlook.office.com/IMAP.AccessAsUser.All https://outlook.office.com/SMTP.Send offline_access"
+        case .organizational:
+            return "https://outlook.office365.com/IMAP.AccessAsUser.All https://outlook.office365.com/SMTP.Send offline_access"
+        }
+    }
+
+    public enum MicrosoftAccount: String, Sendable {
+        case personal // consumers 租户，@outlook.com/@hotmail.com
+        case organizational // organizations 租户，M365 工作账户
+
+        var tenant: String { self == .personal ? "consumers" : "organizations" }
+    }
 }

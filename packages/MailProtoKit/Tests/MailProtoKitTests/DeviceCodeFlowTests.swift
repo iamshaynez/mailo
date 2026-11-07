@@ -43,4 +43,19 @@ struct DeviceCodeFlowTests {
             _ = try DeviceCodeFlow.parseDeviceCodeResponse(Data("not json".utf8))
         }
     }
+
+    @Test("MAIL-021 双账户形态端点与 scope")
+    func mail_021_dual_account_endpoints_and_scopes() {
+        // 个人 MSA：consumers 租户 + outlook.office.com 主机（2026-11-07 实测：
+        // office365.com 主机在 consumers 端点报 AADSTS70011）
+        #expect(DeviceCodeFlow.deviceCodeURL(account: .personal).absoluteString
+                == "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode")
+        #expect(DeviceCodeFlow.mailScope(account: .personal).contains("https://outlook.office.com/IMAP.AccessAsUser.All"))
+        #expect(!DeviceCodeFlow.mailScope(account: .personal).contains("outlook.office365.com"))
+
+        // 组织账户：organizations 租户 + outlook.office365.com 主机
+        #expect(DeviceCodeFlow.deviceCodeURL(account: .organizational).absoluteString
+                == "https://login.microsoftonline.com/organizations/oauth2/v2.0/devicecode")
+        #expect(DeviceCodeFlow.mailScope(account: .organizational).contains("https://outlook.office365.com/IMAP.AccessAsUser.All"))
+    }
 }

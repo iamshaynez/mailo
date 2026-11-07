@@ -142,3 +142,10 @@
 - **Then** 下发码解析出 device_code/user_code/URI/interval；`authorization_pending` 归为 pending；有 access_token 归为 granted；显式 error 归为 denied（含描述）；坏 JSON 抛错
 - **Status**: draft
 - **Tests**: `mail_020_device_code_flow_parsing`
+
+## MAIL-021 双账户形态端点与 scope
+- **Given** 个人 MSA 与组织 M365 两类 Outlook 账户
+- **When** 选择设备码端点与 mail scope
+- **Then** personal→consumers 租户 + outlook.office.com 资源主机；organizational→organizations 租户 + outlook.office365.com 主机（2026-11-07 实测：office365.com 主机在 consumers 端点为 AADSTS70011）
+- **Status**: green
+- **Tests**: `mail_021_dual_account_endpoints_and_scopes`

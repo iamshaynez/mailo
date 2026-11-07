@@ -20,9 +20,13 @@ swift --version   # 需要 6.x；若 manifest 报错 → 本机 CLT 损坏，先
 3. 名称 `MailoProbe`；**受支持的账户类型选第 3 项**
    （"任何组织目录中的账户 + 个人 Microsoft 账户"——多租户 + MSA）
 4. 重定向 URI **不填**（设备码流不需要）
-5. 注册后复制 **应用程序(客户端) ID**——这就是 `--client` 参数
+5. **关键开关**：进入应用 → 左侧 **身份验证** → 拉到底 **"允许公共客户端流（Allow public
+   client flows）"** → **是** → 保存。（不开会报 `AADSTS70002: client must be marked as 'mobile'`；
+   若提示需先加平台：添加平台 → 移动和桌面应用程序 → 勾任意 URI 即可）
+6. 复制 **应用程序(客户端) ID**——这就是 `--client` 参数
 
 > 权限无需预配置：IMAP.AccessAsUser.All 属委托权限，用户在设备码登录时现场同意。
+> 个人账户（@outlook.com）默认 personal 形态；M365 工作账户加 `--account organizational`。
 
 ## 第 2 步 · 一条命令跑通全链路
 
@@ -61,6 +65,8 @@ swift run --package-path packages/MailProtoKit MailoProbe \
 | 症状 | 原因与处理 |
 |---|---|
 | `AADSTS700016`（应用未找到） | client id 抄错，或应用注册在别的租户 |
+| `AADSTS70011`（invalid_scope） | 账户形态与 scope 主机不匹配：个人账户须用 personal（outlook.office.com），组织账户用 `--account organizational` |
+| `AADSTS70002`（must be marked as 'mobile'） | 应用注册未开"允许公共客户端流"→ 身份验证页开启 |
 | `AADSTS7000215`（无效客户端密钥） | 用了 client secret 流——探针不需要，检查是否填错参数 |
 | `AADSTS65001`（未同意权限） | 登录时未勾选同意；重跑，或 Entra 应用"API 权限"里手动加 IMAP.AccessAsUser.All |
 | 认证后 FETCH 报 `AUTHENTICATE failed` | token audience 不对：确认走的是本工具（consumers 端点 + office365 scope） |

@@ -15,6 +15,7 @@ struct ProbeArgs {
     var folder: String = "INBOX"
     var count: Int = 3
     var imapHost: String = "outlook.office365.com"
+    var account: DeviceCodeFlow.MicrosoftAccount = .personal
 
     static func parse(_ argv: [String]) -> ProbeArgs? {
         var a = ProbeArgs()
@@ -29,6 +30,9 @@ struct ProbeArgs {
             case "--folder": a.folder = value
             case "--count": a.count = Int(value) ?? 3
             case "--imap-host": a.imapHost = value
+            case "--account":
+                guard let acc = DeviceCodeFlow.MicrosoftAccount(rawValue: value.lowercased()) else { return nil }
+                a.account = acc
             default: return nil
             }
             i += 2
@@ -55,13 +59,18 @@ func httpPost(_ url: URL, form: [String: String]) throws -> Data {
     return out ?? Data()
 }
 
-func acquireToken(clientId: String) throws -> String {
-    print("① 请求设备码 …")
-    let codeData = try httpPost(DeviceCodeFlow.microsoftDeviceCodeURL, form: [
+func acquireToken(clientId: String, account: DeviceCodeFlow.MicrosoftAccount) throws -> String {
+    print("① 请求设备码（租户 \(account.tenant)）…")
+    let codeData = try httpPost(DeviceCodeFlow.deviceCodeURL(account: account), form: [
         "client_id": clientId,
-        "scope": DeviceCodeFlow.microsoftMailScope,
+        "scope": DeviceCodeFlow.mailScope(account: account),
     ])
-    let req = try DeviceCodeFlow.parseDeviceCodeResponse(codeData)
+    // 失败时把微软原始响应打出来（AADSTS 错误码直接可见，不再吞成 missingField）
+    guard let req = try? DeviceCodeFlow.parseDeviceCodeResponse(codeData) else {
+        FileHandle.standardError.write(Data(
+            "✗ 设备码下发失败，服务器原始响应:\n\(String(data: codeData, encoding: .utf8) ?? "<binary>")\n".utf8))
+        exit(2)
+    }
     print("")
     print("  ┌──────────────────────────────────────────────────┐")
     print("  │  在浏览器打开: \(req.verificationURI)")
@@ -71,11 +80,11 @@ func acquireToken(clientId: String) throws -> String {
     print("")
 
     let deadline = Date().addingTimeInterval(TimeInterval(req.expiresIn))
-    var interval = req.interval
+    let interval = req.interval
     while Date() < deadline {
         sleep(UInt32(max(1, interval)))
         print("② 轮询令牌 …")
-        let tokenData = try httpPost(DeviceCodeFlow.microsoftTokenURL, form: [
+        let tokenData = try httpPost(DeviceCodeFlow.tokenURL(account: account), form: [
             "client_id": clientId,
             "device_code": req.deviceCode,
             "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
@@ -138,16 +147,17 @@ let args = ProbeArgs.parse(Array(CommandLine.arguments.dropFirst())) ?? {
     MailoProbe — Outlook 本地联调探针
 
     用法:
-      swift run MailoProbe --client <ENTRA_CLIENT_ID> --user <you@outlook.com> [--folder INBOX] [--count 3] [--imap-host outook.office365.com]
+      swift run MailoProbe --client <ENTRA_CLIENT_ID> --user <you@outlook.com> \
+        [--account personal|organizational] [--folder INBOX] [--count 3] [--imap-host outlook.office365.com]
 
-    前置: 先按 docs/launch/03 注册 Entra 应用拿 client id（免费，5 分钟）。
-    流程: docs/launch/OUTLOOK-LOCAL-TEST.md
+    个人账户(@outlook/@hotmail)默认 personal；M365 工作账户用 --account organizational。
+    前置: docs/launch/OUTLOOK-LOCAL-TEST.md（注册应用 + 开启"允许公共客户端流"）
     """)
     exit(1)
 }()
 
 do {
-    let token = try acquireToken(clientId: args.clientId)
+    let token = try acquireToken(clientId: args.clientId, account: args.account)
     try probe(user: args.user, token: token, host: args.imapHost, folder: args.folder, count: args.count)
 } catch let e as TransportError {
     FileHandle.standardError.write(Data("✗ 传输错误: \(e)\n".utf8)); exit(4)
