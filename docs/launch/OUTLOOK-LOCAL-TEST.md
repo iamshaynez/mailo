@@ -71,3 +71,13 @@ swift run --package-path packages/MailProtoKit MailoProbe \
 
 - Client ID 不是机密（公开 client），但**设备码页务必只输探针显示的代码**；
 - token 只在进程内存；探针永不写文件；仓库规则照旧：任何凭证不入库。
+
+## FAQ：我的最终用户也要注册应用吗？
+
+**不需要。** 应用注册是**开发者一次性**的动作：client id 是"应用的身份"（全员共用、
+打包进安装包的公开信息），token 才是"用户的凭证"（每人登录各自邮箱、各自授权、
+各自存自己的 Keychain）。用户的全过程 = 官方登录页 → 点同意 → 完成。
+
+本手册的这次注册未来会演进为生产应用身份：M2 补配 redirect URI 切换到 AppAuth
+应用内登录页；上线前换正式名称并过 publisher 验证（launch/03 Phase 2）。
+Gmail 侧同理（Google Cloud 项目一次注册，全员共用）。
