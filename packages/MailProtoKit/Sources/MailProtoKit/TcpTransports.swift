@@ -112,7 +112,7 @@ public final class TcpSmtpTransport: SmtpTransport, @unchecked Sendable {
         case .dotData(let bytes):
             try conn.send(bytes)
         default:
-            try conn.send(Array((command.wire ?? "") + "\r\n".utf8))
+            try conn.send(Array(((command.wire ?? "") + "\r\n").utf8))
         }
         if case .authLogin(let user, let passRef) = command {
             // AUTH LOGIN：334 → base64(user) → 334 → base64(passRef)
