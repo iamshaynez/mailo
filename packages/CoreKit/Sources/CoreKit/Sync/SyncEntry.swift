@@ -5,6 +5,18 @@ public enum SyncEntryKind: Hashable, Sendable, Codable {
     case classification(messageKey: String, bucket: Bucket)
     case ruleUpsert(UserRule)
     case ruleTombstone(ruleKey: String)
+    /// 快照：历史条目的预合并状态（SYNC-005，防文件夹无限膨胀）。
+    /// 载入语义 = 每条记录按同一决胜比较器逐项合并（乱序安全，旧快照不会回退状态）。
+    case snapshot(SyncSnapshotPayload)
+}
+
+/// 快照载荷：MergeState 的 Codable 包装。
+public struct SyncSnapshotPayload: Hashable, Sendable, Codable {
+    public var state: MergeState
+
+    public init(state: MergeState) {
+        self.state = state
+    }
 }
 
 public struct SyncEntry: Hashable, Sendable, Codable {

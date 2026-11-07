@@ -23,7 +23,7 @@ public struct TombstoneRecord: Equatable, Sendable {
 }
 
 /// CRDT 合并后的状态。
-public struct MergeState: Equatable, Sendable {
+public struct MergeState: Equatable, Sendable, Codable {
     /// messageKey → 记录，first-writer-wins（SYNC-002）。
     public var classifications: [String: ClassificationRecord] = [:]
     /// ruleKey → 生效规则（LWW，SYNC-003）。
@@ -73,6 +73,10 @@ public enum EntryMerge {
                 }
                 state.tombstones[key] = incoming
                 state.rules[key] = nil
+
+            case .snapshot(let payload):
+                // PLACEHOLDER (red phase)
+                _ = payload
             }
         }
     }
