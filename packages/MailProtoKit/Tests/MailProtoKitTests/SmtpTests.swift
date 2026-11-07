@@ -31,7 +31,7 @@ struct SmtpAccountTests {
         // 注入 RCPT 失败：中止且不出现 DATA
         let bad = FakeSmtpServer()
         bad.failAt["RCPT TO"] = 550
-        await #expect(throws: SmtpError.self) {
+        #expect(throws: SmtpError.self) {
             try SmtpClient().send(from: "me@x.co", to: "you@y.co", subject: "hi", body: "x",
                                   user: "me", passRef: "k", transport: bad)
         }
