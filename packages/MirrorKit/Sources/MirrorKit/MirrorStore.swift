@@ -99,13 +99,31 @@ public final class MirrorStore: @unchecked Sendable {
                 t.column("bucket", .text).notNull()
                 t.column("reason", .text).notNull()
             }
-            try db.create(virtualTable: "mail_fts", using: FTS5()) { t in
-                t.tokenizer = "trigram" // SQLite 内建 trigram（3.34+），中文子串可搜（STORE-003）
-                t.column("subject")
-                t.column("fromAddress")
-                t.column("snippet")
-                t.synchronize(withTable: "mail")
-            }
+            // FTS5 外部内容表 + trigram（SQLite 3.34+，中文子串可搜，STORE-003）。
+            // 用原始 SQL + 手写触发器，避免对 GRDB FTS5 DSL 的版本耦合。
+            try db.execute(sql: """
+            CREATE VIRTUAL TABLE mail_fts USING fts5(
+                subject, fromAddress, snippet,
+                tokenize='trigram',
+                content='mail', content_rowid='rowid'
+            )
+            """)
+            try db.execute(sql: """
+            CREATE TRIGGER mail_ai AFTER INSERT ON mail BEGIN
+                INSERT INTO mail_fts(rowid, subject, fromAddress, snippet)
+                VALUES (new.rowid, new.subject, new.fromAddress, new.snippet);
+            END;
+            CREATE TRIGGER mail_ad AFTER DELETE ON mail BEGIN
+                INSERT INTO mail_fts(mail_fts, rowid, subject, fromAddress, snippet)
+                VALUES ('delete', old.rowid, old.subject, old.fromAddress, old.snippet);
+            END;
+            CREATE TRIGGER mail_au AFTER UPDATE ON mail BEGIN
+                INSERT INTO mail_fts(mail_fts, rowid, subject, fromAddress, snippet)
+                VALUES ('delete', old.rowid, old.subject, old.fromAddress, old.snippet);
+                INSERT INTO mail_fts(rowid, subject, fromAddress, snippet)
+                VALUES (new.rowid, new.subject, new.fromAddress, new.snippet);
+            END;
+            """)
         }
         try migrator.migrate(db)
     }
