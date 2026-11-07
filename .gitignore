@@ -1,0 +1,23 @@
+# 本机环境产物
+.video_agent/
+.zcode/
+.DS_Store
+
+# 通用
+*.log
+*.tmp
+
+# Flutter / Dart（M0 起生效）
+.dart_tool/
+.flutter-plugins*
+.pub-cache/
+.pub/
+build/
+*.iml
+.idea/
+
+# 密钥与证书（只允许记录"位置说明"，不允许记录内容）
+*.p8
+*.p12
+*.mobileprovision
+env.secrets/
