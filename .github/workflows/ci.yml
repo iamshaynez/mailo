@@ -12,10 +12,34 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [CoreKit, MailProtoKit, MirrorKit, MlKit]
+        package: [CoreKit, MailProtoKit, MirrorKit, MlKit, DesignKit]
     steps:
       - uses: actions/checkout@v4
       - name: Toolchain
         run: swift --version
       - name: Test ${{ matrix.package }}
         run: swift test --package-path packages/${{ matrix.package }}
+
+  app-build:
+    name: app-build (${{ matrix.target }})
+    runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: MailoIOS
+            destination: "generic/platform=iOS Simulator"
+          - target: MailoMac
+            destination: "platform=macOS"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate & Build ${{ matrix.target }}
+        working-directory: apps/${{ matrix.target }}
+        run: |
+          xcodegen -s project.yml
+          xcodebuild -project ${{ matrix.target }}.xcodeproj \
+            -scheme ${{ matrix.target }} \
+            -destination "${{ matrix.destination }}" \
+            CODE_SIGNING_ALLOWED=NO build

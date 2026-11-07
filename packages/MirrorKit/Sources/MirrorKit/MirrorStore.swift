@@ -53,7 +53,7 @@ public struct ClassificationRow: Codable, Equatable, FetchableRecord, Persistabl
 }
 
 /// bucket 视图行：邮件 + 归类（UI 列表消费的形态）。
-public struct BucketEntry: Codable, Equatable, FetchableRecord {
+public struct BucketEntry: Codable, Equatable, Hashable, FetchableRecord {
     public var stableId: String
     public var subject: String?
     public var fromAddress: String?
