@@ -52,14 +52,43 @@ public struct PrototypeEngine: Sendable, Equatable {
     }
 
     /// 余弦 Top-1 投票 + 区分度置信度（ML-001/002）。
+    /// 置信度 = softmax(余弦相似度) 的 top1 概率：一边倒 → 高；近平票 → 低。
     public func classify(embedding: [Double]) -> ModelGuess {
-        // PLACEHOLDER (red phase)
-        return ModelGuess(bucket: .screener, confidence: 0)
+        var scored: [(bucket: Bucket, cosine: Double)] = []
+        for (bucket, vectors) in prototypes {
+            let best = vectors.map { Self.cosine($0, embedding) }.max() ?? 0
+            scored.append((bucket, best))
+        }
+        guard let top = scored.max(by: { $0.cosine < $1.cosine }) else {
+            return ModelGuess(bucket: .screener, confidence: 0) // 无原型：待定
+        }
+        // softmax（温度 1）计算 top1 概率作为置信度
+        let exps = scored.map { exp($0.cosine) }
+        let sum = exps.reduce(0, +)
+        let confidence = sum > 0 ? (exp(top.cosine) / sum) : 0
+        return ModelGuess(bucket: top.bucket, confidence: confidence)
     }
 
-    /// 原型滚动更新：纠正即时生效（ML-003）。
+    /// 原型滚动更新：纠正即时生效（ML-003）。满窗丢最旧。
     public mutating func update(bucket: Bucket, embedding: [Double]) {
-        // PLACEHOLDER (red phase)
+        var window = prototypes[bucket] ?? []
+        window.append(embedding)
+        if window.count > windowSize {
+            window.removeFirst(window.count - windowSize)
+        }
+        prototypes[bucket] = window
+    }
+
+    static func cosine(_ a: [Double], _ b: [Double]) -> Double {
+        guard a.count == b.count, !a.isEmpty else { return 0 }
+        var dot = 0.0, na = 0.0, nb = 0.0
+        for i in 0..<a.count {
+            dot += a[i] * b[i]
+            na += a[i] * a[i]
+            nb += b[i] * b[i]
+        }
+        guard na > 0, nb > 0 else { return 0 }
+        return dot / (na.squareRoot() * nb.squareRoot())
     }
 }
 
@@ -88,20 +117,34 @@ public struct GoldenReport: Equatable, Sendable {
 }
 
 public enum GoldenEvaluator {
-    /// JSONL 编解码（一 case 一行）。
+    /// JSONL 编解码（一 case 一行，ML-005）。
     public static func encodeJSONL(_ cases: [GoldenCase]) -> String {
-        // PLACEHOLDER (red phase)
-        return ""
+        cases.compactMap { c in
+            guard let data = try? JSONEncoder().encode(c) else { return nil }
+            return String(data: data, encoding: .utf8)
+        }.joined(separator: "\n")
     }
 
     public static func decodeJSONL(_ text: String) -> [GoldenCase] {
-        // PLACEHOLDER (red phase)
-        return []
+        text.split(separator: "\n").compactMap { line in
+            guard let data = String(line).data(using: .utf8) else { return nil }
+            return try? JSONDecoder().decode(GoldenCase.self, from: data)
+        }
     }
 
-    /// 评估：网关输出桶 == 期望桶 计正确。
+    /// 评估：网关输出桶 == 期望桶 计正确（ML-005，发版门禁的计算内核）。
     public static func evaluate(_ cases: [GoldenCase], gateway: any MlGateway) async -> GoldenReport {
-        // PLACEHOLDER (red phase)
-        return GoldenReport(total: 0, correct: 0, perBucket: [:])
+        var perBucket: [String: (expected: Int, correct: Int)] = [:]
+        var correct = 0
+        for c in cases {
+            var stats = perBucket[c.expected.rawValue] ?? (expected: 0, correct: 0)
+            stats.expected += 1
+            if let guess = try? await gateway.classify(c.input), guess.bucket == c.expected {
+                correct += 1
+                stats.correct += 1
+            }
+            perBucket[c.expected.rawValue] = stats
+        }
+        return GoldenReport(total: cases.count, correct: correct, perBucket: perBucket)
     }
 }
