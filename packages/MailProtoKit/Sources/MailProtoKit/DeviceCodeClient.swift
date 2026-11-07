@@ -15,6 +15,17 @@ public final class DeviceCodeClient: @unchecked Sendable {
         public var expiresInSeconds: Int
     }
 
+    /// 授权产物：access token（短命，仅内存）+ refresh token（可持久化，offline_access）。
+    public struct Grant: Equatable, Sendable {
+        public var accessToken: String
+        public var refreshToken: String?
+
+        public init(accessToken: String, refreshToken: String?) {
+            self.accessToken = accessToken
+            self.refreshToken = refreshToken
+        }
+    }
+
     private let session: URLSession
 
     public init() {
@@ -22,13 +33,12 @@ public final class DeviceCodeClient: @unchecked Sendable {
     }
 
     /// 发起设备码并开始轮询。`onPrompt` 在主线程回调（UI 显示 user_code）。
-    /// 返回 access token（只存在调用方内存；持久化是调用方经 CredentialVault 的职责）。
     @discardableResult
     public func authorize(
         clientId: String,
         account: DeviceCodeFlow.MicrosoftAccount,
         onPrompt: @escaping @Sendable (Prompt) -> Void
-    ) async throws -> String {
+    ) async throws -> Grant {
         let codeData = try await post(DeviceCodeFlow.deviceCodeURL(account: account), form: [
             "client_id": clientId,
             "scope": DeviceCodeFlow.mailScope(account: account),
@@ -49,8 +59,8 @@ public final class DeviceCodeClient: @unchecked Sendable {
                 "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
             ])
             switch DeviceCodeFlow.parseTokenResponse(tokenData) {
-            case .granted(let token):
-                return token
+            case .granted(let accessToken, let refreshToken):
+                return Grant(accessToken: accessToken, refreshToken: refreshToken)
             case .pending:
                 continue
             case .denied(let error, let description):
