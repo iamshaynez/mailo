@@ -13,3 +13,10 @@
 - **Then** brand 蓝 #006FCF、五 bucket 语义色、三栏宽 212/392、选中蓝条 3pt 与规范一致（防漂移）
 - **Status**: draft
 - **Tests**: `design_001_tokens_match_spec`
+
+## JOURNEY-002 真实账户装配路径（注入传输）
+- **Given** AppModel.connect(account:transport:) 以 FakeImapServer 为注入传输（CI 可测，生产注入 TcpImapTransport）
+- **When** 走完整装配：设备码授权（生产）→ 连接 → 同步 → 入库 → RosterSeed 分类 → 冻结 → 列表
+- **Then** feed/paperTrail/imbox 各桶正确呈现；未知发件人低置信进 Screener 计数；本地库为文件路径模式（跨启动持久）
+- **Status**: draft
+- **Tests**: `journey_002_real_account_assembly`

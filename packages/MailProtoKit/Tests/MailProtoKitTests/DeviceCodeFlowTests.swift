@@ -31,7 +31,7 @@ struct DeviceCodeFlowTests {
         // granted
         let granted = DeviceCodeFlow.parseTokenResponse(
             #"{"token_type":"Bearer","access_token":"EwAo..."}"#.data(using: .utf8)!)
-        #expect(granted == .granted(accessToken: "EwAo..."))
+        #expect(granted == .granted(accessToken: "EwAo...", refreshToken: nil))
 
         // denied
         let denied = DeviceCodeFlow.parseTokenResponse(

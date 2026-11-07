@@ -90,7 +90,7 @@ func acquireToken(clientId: String, account: DeviceCodeFlow.MicrosoftAccount) th
             "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
         ])
         switch DeviceCodeFlow.parseTokenResponse(tokenData) {
-        case .granted(let token):
+        case .granted(let token, _):
             print("✓ 授权成功（token 已入内存，不入盘）")
             return token
         case .pending:
