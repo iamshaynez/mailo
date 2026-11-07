@@ -10,13 +10,11 @@ public enum SyncCodec {
                 return String(data: data, encoding: .utf8)
             }
             .joined(separator: "\n")
-        let head = """
-        Message-ID: <mailo-sync-\(UUID().uuidString)@sync.mailo.local>\r
-        X-Mailo-Sync: 1\r
-        Content-Type: application/json; charset=utf-8\r
-        Content-Transfer-Encoding: 8bit\r
-
-        """
+        var head = "Message-ID: <mailo-sync-\(UUID().uuidString)@sync.mailo.local>\r\n"
+        head += "X-Mailo-Sync: 1\r\n"
+        head += "Content-Type: application/json; charset=utf-8\r\n"
+        head += "Content-Transfer-Encoding: 8bit\r\n"
+        head += "\r\n"
         return Array((head + lines + "\r\n").utf8)
     }
 
