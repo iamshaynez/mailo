@@ -1,4 +1,5 @@
 import Testing
+import CoreKit
 import Foundation
 @testable import MailProtoKit
 
