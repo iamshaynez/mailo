@@ -22,61 +22,50 @@ public final class ImapLineReader: @unchecked Sendable {
     }
 
     private func tryExtractLine() -> [UInt8]? {
-        // 找 CRLF
-        guard let crlf = findCRLF() else { return nil }
-        var line = Array(buffer[0..<crlf])
-        buffer.removeFirst(crlf + 2)
+        // 游标式提取：行(CRLF) [字面量 N 字节 + 行剩余(CRLF)]*
+        // RFC3501：{N}\r\n 后紧跟 N 字节数据，其后直接是行剩余部分（无额外 CRLF）
+        guard let firstCRLF = findCRLF(from: 0) else { return nil }
+        var line = Array(buffer[0..<firstCRLF])
+        var consumed = firstCRLF + 2
 
-        // 行尾 {N} → 字面量：需要 N 字节 + CRLF，之后行继续（逻辑行未完）
-        while let openBrace = line.lastIndex(of: UInt8(ascii: "{")),
-              line.last == UInt8(ascii: "}") || literalTail(line, brace: openBrace),
-              let count = literalCount(in: line, brace: openBrace) {
-            let needed = count + 2 // 字面量 + 其 CRLF
-            guard buffer.count >= needed else {
-                // 数据不足：把行放回等待更多分片
-                buffer = line + [13, 10] + buffer
-                return nil
-            }
+        while let count = trailingLiteralCount(in: line) {
+            guard buffer.count >= consumed + count else { return nil } // 数据未到齐，整体不消费
             line += [13, 10]
-            line += Array(buffer[0..<count])
-            line += Array(buffer[(count)..<(count + 2)])
-            buffer.removeFirst(needed)
+            line += Array(buffer[consumed..<(consumed + count)])
+            consumed += count
+            // 字面量后的行剩余，到下一 CRLF
+            guard let c2 = findCRLF(from: consumed) else { return nil }
+            line += [13, 10]
+            line += Array(buffer[consumed..<c2])
+            consumed = c2 + 2
         }
+        buffer.removeFirst(consumed)
         return line
     }
 
-    private func findCRLF() -> Int? {
-        for i in 0..<(buffer.count >= 1 ? buffer.count - 1 : 0) {
+    private func findCRLF(from: Int) -> Int? {
+        var i = from
+        while i + 1 < buffer.count {
             if buffer[i] == 13, buffer[i + 1] == 10 { return i }
+            i += 1
         }
-        // 边界：单个 \r 在末尾也算不完整，继续等
         return nil
     }
 
-    private func literalTail(_ line: [UInt8], brace: Int) -> Bool {
-        // 形如 ...{123}（之后无内容）才算行尾字面量头
-        return line.indices.last == brace + countDigitsSuffix(line, from: brace) + 1
-    }
-
-    private func countDigitsSuffix(_ line: [UInt8], from: Int) -> Int {
-        var n = 0
-        var i = from + 1
-        while i < line.count, line[i] >= 48, line[i] <= 57 { n += 1; i += 1 }
-        return n
-    }
-
-    private func literalCount(in line: [UInt8], brace: Int) -> Int? {
-        var digits = ""
+    /// 行尾是否为 `{N}` 或 `{N+}`（非同步字面量）。
+    private func trailingLiteralCount(in line: [UInt8]) -> Int? {
+        guard let brace = line.lastIndex(of: UInt8(ascii: "{")) else { return nil }
         var i = brace + 1
+        var digits = ""
         while i < line.count, line[i] >= 48, line[i] <= 57 {
             digits.append(Character(UnicodeScalar(line[i])))
             i += 1
         }
-        guard i < line.count, line[i] == UInt8(ascii: "}") else { return nil }
-        // 大括号后有 + 号（非同步字面量）按普通处理
-        if i + 1 < line.count, line[i + 1] == UInt8(ascii: "+") { i += 1 }
-        guard i == line.count - 1 else { return nil } // 必须行尾
-        return Int(digits)
+        guard !digits.isEmpty else { return nil }
+        // {N}：} 为行尾字符；{N+}：} 在倒数第二
+        if i + 1 == line.count, line[i] == UInt8(ascii: "}") { return Int(digits) }
+        if i + 2 == line.count, line[i] == UInt8(ascii: "}"), line[i + 1] == UInt8(ascii: "+") { return Int(digits) }
+        return nil
     }
 }
 
