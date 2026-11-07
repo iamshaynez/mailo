@@ -2,7 +2,7 @@
 
 纯本地（零后端）智能邮件客户端。核心理念来自 hey.com 的邮件归类管理，适配任意邮件服务商。
 
-**一句话定位**：无云、零数据出设备的 hey 式邮件客户端；Flutter 单代码库，首发 iOS + macOS。
+**一句话定位**：无云、零数据出设备的 hey 式邮件客户端；SwiftUI + Swift 6，仅 iOS + macOS（方案基线 v3）。
 
 ## 核心特性路线
 
@@ -21,7 +21,6 @@
 | [docs/launch/02-google-oauth-casa.md](docs/launch/02-google-oauth-casa.md) | Gmail OAuth 验证 + CASA Tier 2 自扫手册 |
 | [docs/launch/03-microsoft-entra-outlook.md](docs/launch/03-microsoft-entra-outlook.md) | Microsoft Entra 应用注册 + 政策核实手册 |
 | [docs/launch/04-privacy-policy-github-pages.md](docs/launch/04-privacy-policy-github-pages.md) | 隐私政策模板与部署 |
-| [docs/launch/05-distribution-android-apk.md](docs/launch/05-distribution-android-apk.md) | Android apk 直发：签名/更新/GMS 零依赖/备案决策 |
 
 ## 状态
 

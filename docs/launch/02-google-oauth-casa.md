@@ -76,7 +76,6 @@
 2. **CASA lab 付款**：美元计价（$500-4500/年），走公司外汇/国际卡；小额费用可评估 Payoneer/Wise 等企业渠道，提前留出付款周期
 3. **网络**：console.cloud.google.com 与验证往来邮件都在墙外可达性正常，但国内办公室操作需自备出海网络；所有验证邮件别漏（退回重审会重置周期）
 4. **主体一致性**：Google 账号的公司资料（英文名/地址）与邓白氏/Apple 注册保持同一套翻译，年审交叉核对时会省事
-5. **Android 二期注意**：OAuth client 届时加 Android 类型（包名 + SHA1）；大陆无 GMS 设备上 Gmail 登录走 AppAuth 方案（不用 Google Sign-In SDK），见 05 文档 §5
 
 ## 参考
 
