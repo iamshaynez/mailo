@@ -150,50 +150,43 @@ public enum MimeParser {
         ))
     }
 
+    /// multipart 切分：按 boundary 分隔行做**原始字节区间切片**（不重建字节，避免行序列化误差）。
+    /// 分隔行自身与其前导 CRLF 属于分隔符，段内容 = 分隔行 CRLF 之后 → 下一分隔行 CRLF 之前。
     static func splitMultipart(_ body: [UInt8], boundary: String) -> [[UInt8]] {
-        let delimiter = "--\(boundary)"
+        let delim = "--\(boundary)"
+        let close = delim + "--"
         var segments: [[UInt8]] = []
-        var current: [UInt8] = []
-        var collecting = false
-        let lines = splitLines(body)
-        for line in lines {
-            let s = String(decoding: line.bytes, as: UTF8.self)
-            if s == delimiter {
-                if collecting { segments.append(current) }
-                current = []
-                collecting = true
-            } else if s == delimiter + "--" {
-                if collecting { segments.append(current) }
+        var contentStart: Int? = nil // 当前段内容起点（开分隔行 CRLF 之后）
+
+        var i = 0
+        let n = body.count
+        while i < n {
+            let lineStart = i
+            while i < n, body[i] != 13, body[i] != 10 { i += 1 }
+            let line = String(decoding: body[lineStart..<i], as: UTF8.self)
+            let lineEnd = i
+            // 越过行终结符
+            if i < n, body[i] == 13, i + 1 < n, body[i + 1] == 10 { i += 2 }
+            else if i < n { i += 1 }
+
+            if line == delim {
+                if let cs = contentStart { appendSegment(body, from: cs, to: lineStart, into: &segments) }
+                contentStart = i // 分隔行 CRLF 之后
+            } else if line == close {
+                if let cs = contentStart { appendSegment(body, from: cs, to: lineStart, into: &segments) }
                 return segments
-            } else if collecting {
-                if !current.isEmpty { current += [13, 10] } // 恢复行间 CRLF（分隔符前的 CRLF 属分隔符）
-                current += line.bytes
             }
         }
+        if let cs = contentStart { appendSegment(body, from: cs, to: n, into: &segments) }
         return segments
     }
 
-    /// 按行切（保留无终结符的末行），返回 (bytes, hadCRLF)。
-    static func splitLines(_ bytes: [UInt8]) -> [(bytes: [UInt8], hadCRLF: Bool)] {
-        var lines: [(bytes: [UInt8], hadCRLF: Bool)] = []
-        var current: [UInt8] = []
-        var i = 0
-        while i < bytes.count {
-            if bytes[i] == 13, i + 1 < bytes.count, bytes[i + 1] == 10 {
-                lines.append((current, true))
-                current = []
-                i += 2
-            } else if bytes[i] == 10 {
-                lines.append((current, true))
-                current = []
-                i += 1
-            } else {
-                current.append(bytes[i])
-                i += 1
-            }
-        }
-        if !current.isEmpty { lines.append((current, false)) }
-        return lines
+    private static func appendSegment(_ body: [UInt8], from: Int, to: Int, into segments: inout [[UInt8]]) {
+        var end = to
+        if end >= from + 2, body[end - 2] == 13, body[end - 1] == 10 { end -= 2 } // 尾部 CRLF 属分隔符
+        else if end >= from + 1, body[end - 1] == 10 { end -= 1 }
+        guard end > from else { return } // 空段（连续分隔行）跳过
+        segments.append(Array(body[from..<end]))
     }
 
     // MARK: - 编码
