@@ -115,16 +115,18 @@ func probe(user: String, token: String, host: String, folder: String, count: Int
     print(caps.split(separator: "\r\n").prefix(2).joined(separator: "\n"))
 
     print("⑤ SELECT \(folder) …")
-    let select = String(decoding: try transport.send(.select(folder: folder)), as: UTF8.self)
+    let selectBytes = try transport.send(.select(folder: folder))
+    let select = String(decoding: selectBytes, as: UTF8.self)
     guard select.contains(" OK ") else {
         FileHandle.standardError.write(Data("✗ SELECT 失败:\n\(select)\n".utf8)); exit(3)
     }
-    if let exists = select.split(whereSeparator: \.isNewline).first(where: { $0.contains("EXISTS") }) {
-        print("✓ \(exists.trimmingCharacters(in: .whitespaces))")
-    }
+    let info = SelectState.parse(selectBytes)
+    print("✓ \(info.exists) EXISTS · UIDNEXT \(info.uidNext)")
 
-    print("⑥ FETCH 最近 \(count) 封（UID FLAGS ENVELOPE）…")
-    let fetchBytes = try transport.send(.fetchUid(range: "1:*", items: "(UID FLAGS ENVELOPE)"))
+    // 只拉最近 N 封（窄区间），绝不全量 FETCH 大邮箱
+    let range = info.recentRange(count: count)
+    print("⑥ UID FETCH \(range)（最近 \(count) 封，UID FLAGS ENVELOPE）…")
+    let fetchBytes = try transport.send(.fetchUid(range: range, items: "(UID FLAGS ENVELOPE)"))
     let lines = try ImapParser.parse(fetchBytes)
     var fetched: [FetchData] = []
     for line in lines {
@@ -132,7 +134,7 @@ func probe(user: String, token: String, host: String, folder: String, count: Int
     }
     let recent = fetched.suffix(count)
     if recent.isEmpty {
-        print("（邮箱为空）")
+        print("（区间无邮件——邮箱可能为空）")
     }
     for fd in recent.reversed() {
         let flags = fd.flags.isEmpty ? "-" : fd.flags.joined(separator: ",")
