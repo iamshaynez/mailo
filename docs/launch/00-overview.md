@@ -14,6 +14,7 @@
 
 | 编号 | 文档 | 首个动作耗时 | 外部等待周期 | 费用量级 |
 |---|---|---|---|---|
+| 00 | [主体与标识记录](identity.md) | — | — | — |
 | 01 | [Apple Developer Program](01-apple-developer-program.md) | 1 小时 | D-U-N-S 最长 2 周 + 电话核实约 5 个工作日 | ¥688/年（人民币） |
 | 02 | [Google OAuth 验证 + CASA](02-google-oauth-casa.md) | 半天（测试模式当天可用） | 验证 4-6 周 + CASA 数周 | $500-4500/年（国际卡支付） |
 | 03 | [Microsoft Entra / Outlook 接入](03-microsoft-entra-outlook.md) | 半天（应用注册当天可用） | publisher 验证数周（可选/待核实） | $0 起步 |
@@ -29,7 +30,7 @@
                 └──> App Store Connect / 02 / 03 三处引用同一 URL
 ```
 
-**第一周必须完成的三件事：(a) 定 bundle id，(b) 定主体资料英文名（邓白氏/Apple/Google/Microsoft 四处一套译文），(c) 隐私政策 URL 上线。**
+**第一周必须完成的三件事：(a) 定 bundle id ✅ `com.xiaowenz.mailo`，(b) 定主体资料英文名 ✅（见 [identity.md](identity.md)），(c) 隐私政策 URL 上线（待办）。**
 
 ## 大陆主体的一页结论
 
