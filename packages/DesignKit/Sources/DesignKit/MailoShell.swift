@@ -1,4 +1,5 @@
 import CoreKit
+import MirrorKit
 import SwiftUI
 
 /// 三栏主壳（设计规范 §4：212 / 392 / flex；Blue Box Classic）。
