@@ -8,7 +8,7 @@ public enum EncodedWord {
         rawValue: CFStringConvertEncodingToNSStringEncoding(
             CFStringEncoding(CFStringEncodings.GB_18030_2000.rawValue)))
 
-    private static let wordPattern = "=?([^?]+)\\?([bBqQ])\\?([^ ?]*)\\?="
+    private static let wordPattern = "=\\?([^?]+)\\?([bBqQ])\\?([^ ?]*)\\?="
 
     public static func decode(_ raw: String) -> String {
         guard let regex = try? NSRegularExpression(pattern: wordPattern) else { return raw }

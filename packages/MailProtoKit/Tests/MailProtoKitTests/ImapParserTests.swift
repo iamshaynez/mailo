@@ -9,7 +9,7 @@ struct ImapParserTests {
     @Test("MAIL-003 FETCH 响应解析（ENVELOPE/FLAGS/UID）")
     func mail_003_fetch_envelope_parse() throws {
         let server = FakeImapServer(mailboxes: ["INBOX": .init(uidValidity: 7, messages: [
-            Message(uid: 42, flags: ["\\Seen"], raw: Array("Message-ID: <m42@x.test>\r\nFrom: sarah@wave.co\r\n\r\nbody".utf8)),
+            Message(uid: 42, flags: ["\\Seen"], raw: Array("Message-ID: <m42@x.test>\r\nFrom: sarah@wave.co\r\nSubject: Re: Contract\r\nDate: Wed, 7 Nov 2026 10:00:00 +0000\r\n\r\nbody".utf8)),
         ])])
         let bytes = try server.send(.fetchUid(range: "1:*", items: "(UID FLAGS INTERNALDATE ENVELOPE)"))
         let lines = try ImapParser.parse(bytes)
