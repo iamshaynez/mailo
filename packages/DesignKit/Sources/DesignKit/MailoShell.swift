@@ -1,4 +1,5 @@
 import CoreKit
+import MirrorKit
 import SwiftUI
 
 /// 三栏主壳（mockup Blue Box Classic 全量还原）：
