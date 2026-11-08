@@ -150,3 +150,11 @@
 - **Then** 对应动效以 token 时长/曲线执行；「减弱动态效果」开启时降级为无动画
 - **Status**: green
 - **Tests**: `design_004_motion_tokens`
+
+## JOURNEY-018 分段成员稳定（阅读不抖动）+ 分段控件命中区域
+- **Given** New 段打开，邮件 X 未读且在列表中
+- **When** 点开 X 阅读触发 markRead（或右键 Mark as Read）
+- **Then** X **仍留在 New 段列表原位**（不消失、不重排）；仅未读点原位清除（entries 原位合并 flags，不整表重查）；直到切换分段/切换桶/新同步（代际变化）才重新过滤——此时 X 归入 Previously seen
+- **And** 分段控件（New / Previously seen / Set aside）与阅读窗格胶囊按钮的点击命中区域为整个胶囊区域，而非文字笔画
+- **Status**: draft
+- **Tests**: `journey_018_segment_membership_stable_on_read`
