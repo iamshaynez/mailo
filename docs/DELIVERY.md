@@ -11,11 +11,11 @@
 | 存储 | `MirrorKit` | GRDB 镜像层：mail/classification 表、FTS5 trigram 外部内容表+触发器、bucket 视图、中文子串搜索（<3 字 LIKE 兜底） | STORE-001~005 |
 | 模型 | `MlKit` | MlGateway 端口、确定性 Mock、原型向量引擎（余弦投票+margin 置信度+滚动自学习）、golden 评测（JSONL+分桶报告） | ML-001~005 |
 | 授权 | `AuthKit` | Gmail/Outlook 配置常量（scope/host/redirect）、CredentialVault 端口（InMemory 实现，Keychain 实现挂 app 层）、token 会话刷新判定 | OAUTH-001~003 |
-| UI | `DesignKit` | 设计规范 token（hex 常量化防漂移）、三栏壳（自绘 HStack 固定三栏 212/392/3pt 选中条；UI 基准线批次 1 迁 NavigationSplitView，见 docs/plan/ui-baseline-audit.md）、AppModel 端到端装配（同步→入库→分类→呈现，进程内零网络） | JOURNEY-001, DESIGN-001 |
+| UI | `DesignKit` | **UI 基准线已完成（v0.2，docs/plan/ui-baseline-audit.md）**：NavigationSplitView 三栏 + 系统 toolbar 运通蓝、List 键盘选择、命令菜单（⌘N/⌘K/⌘R/⌘⇧F/⌘⇧U/⌘S/⌘Z）、Reply/Forward/Set Aside/Block/手动纠正/undo 交互闭环、打开即已读（本地+UID STORE 写回）、Demo 隔离、正文异步加载+重试、搜索防抖、回填进度、日期索引零重复解析、token 全集+源码防漂移扫描、**多语言 en+zh-Hans（默认 en，实机验证）**、动效+减弱动态、Settings ⌘,、Compose 独立窗口（macOS）、App icon、a11y | JOURNEY-001~017, DESIGN-001~004 |
 | App | `apps/MailoIOS` `apps/MailoMac` | XcodeGen 工程，CI 构建（iOS 模拟器 + macOS）通过；bundle id `com.xiaowenz.mailo` | — |
 | 门禁 | CI | 8 项必需检查：6 包 swift-test × 矩阵 + 双端 app-build；main 保护（PR-only、enforce_admins、仅 squash）；PERF 吞吐门禁 | PERF-001/002 |
 
-**用例总计**：97 条（34 green；UI 基准线批次新增 16 条 draft），见 `docs/specs/README.md` 索引。
+**用例总计**：98 条（51 green / 47 draft），见 `docs/specs/README.md` 索引。
 
 ## 2. 架构地图（一屏）
 
@@ -38,6 +38,15 @@ apps/(iOS, macOS) ── XcodeGen
 | AppAuth 授权 UI 流 | 需正式 client id（见下）；XOAUTH2 SASL 载荷与 Keychain 保管**已交付**（MAIL-017/OAUTH-004） | `OAuthClientInfo` 注入位 |
 | IDLE 长连接协议增强 | 轮询编排 v1 **已交付**（PollingPolicy/SyncRunner，SYNC-011）；IDLE 长连接需真机验证生命周期 | `SyncRunner` 外层 |
 | golden 评测集真机跑批 | 真机 + 真实模型 | `GoldenEvaluator` |
+
+## 4. v0.2 · UI 基准线（2026-11-08，PR #35~#39）
+
+五个批次（docs/plan/ui-baseline-audit.md）：0 specs 对账 → 1 骨架原生化 → 2 交互闭环 → 3 反馈与性能 → 4 品味收尾。
+- **原生骨架**：NavigationSplitView（可拖分栏/⌘⇧C 折叠）+ List(selection:) 键盘导航 + 完整命令面；红绿灯 hack/自绘蓝条栏/常驻诊断条全部清除
+- **交互闭环**：阅读窗格四动作全部接通；Block=blocked 桶+显式规则（CLS-011）；打开即已读（本地并集 + MAIL-026 UID STORE 写回）；Demo 独立内存库+水印+退出（不污染生产库）
+- **健壮与性能**：正文后台加载+失败重试；搜索 250ms 防抖+Esc；回填进度条；列表日期一次解析零重复分配（PERF-004）
+- **品味**：token 全集与内联色/字号源码扫描清零；en+zh-Hans 双语（分段文案对齐规范 New/Previously seen/Set aside）；动效 token+减弱动态降级；Settings（断开连接闭环/远程图片开关/诊断）；Compose 独立窗口；App icon；a11y（label/tooltip/行朗读）
+- 每批一个 PR、全程 TDD（先登记用例→红灯→实现→翻绿）；本地 + CI（8 检查）+ 真机视觉冒烟三重验证
 
 ### v0.1 追加交付（PR #13/#14，回应完成度审计）
 - **生产传输层**：`NetworkTransport.swift`（TLS 连接/行读取器/字面量分片容错）+ `TcpTransports.swift`（Imap XOAUTH2·LOGIN、SMTP AUTH LOGIN、多行应答归并）——MAIL-016~019
