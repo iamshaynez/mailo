@@ -1,4 +1,5 @@
 import CoreKit
+import MirrorKit
 import SwiftUI
 
 /// 邮件列表（mockup：标题/分段控件/日期分组/行视觉）。
