@@ -58,3 +58,10 @@
 - **Then** 初始化成功、saveSnapshot/loadSnapshot 正常；邮件与分类数据保留；migration 铁律：已发布迁移永不修改，只新增
 - **Status**: draft
 - **Tests**: `store_008_v2_upgrade_existing_db`
+
+## STORE-009 迁移契约锁定（项目标准）
+- **Given** 本项目标准：schema 与代码版本绑定，每版本一个迁移、自动执行、已发布迁移永不修改（MIGRATIONS.md 登记表为准）
+- **When** MirrorStore 初始化（新库/存量库/二次打开）
+- **Then** 已应用迁移清单与登记表**完全一致**（顺序+内容）；二次打开幂等；schema 版本可查询（诊断可见）；meta 表记录 schema/app 版本
+- **Status**: draft
+- **Tests**: `store_009_migration_contract`

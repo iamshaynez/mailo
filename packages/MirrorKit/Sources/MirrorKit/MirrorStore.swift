@@ -77,7 +77,11 @@ public final class MirrorStore: @unchecked Sendable {
         try Self.migrate(dbQueue)
     }
 
-    static func migrate(_ db: DatabaseQueue) throws {
+    /// 项目标准（STORE-009 / MIGRATIONS.md）：每版本一个迁移、自动执行、
+    /// **已合入的迁移永不修改，只允许新增**；本清单与登记表必须同步维护。
+    static let releasedMigrations = ["v1", "v2-sync-state", "v3-meta"]
+
+    static func makeMigrator() -> DatabaseMigrator {
         var migrator = DatabaseMigrator()
         migrator.registerMigration("v1") { db in
             try db.create(table: "mail") { t in
@@ -132,6 +136,35 @@ public final class MirrorStore: @unchecked Sendable {
             """)
         }
         try migrator.migrate(db)
+    }
+
+    /// 已应用迁移清单（与 MIGRATIONS.md 登记表对齐，STORE-009）。
+    public var appliedMigrations: [String] {
+        (try? dbQueue.read { db in
+            try Self.makeMigrator().appliedMigrations(db)
+        }) ?? []
+    }
+
+    public var schemaVersion: Int { appliedMigrations.count }
+
+    /// 记录当前 app 版本到 meta（打开库时由调用方执行；诊断与排障用）。
+    public func recordAppVersion(_ version: String) {
+        try? dbQueue.write { db in
+            try db.execute(sql: "INSERT OR REPLACE INTO meta(key, value) VALUES ('appVersion', ?)",
+                           arguments: [version])
+            try db.execute(sql: "INSERT OR REPLACE INTO meta(key, value) VALUES ('schemaVersion', ?)",
+                           arguments: ["\(schemaVersion)"])
+            try db.execute(sql: "INSERT OR REPLACE INTO meta(key, value) VALUES ('migratedAt', ?)",
+                           arguments: [ISO8601DateFormatter().string(from: Date())])
+        }
+    }
+
+    /// 诊断串（如 "db schema v3 · app 0.1.0"）。
+    public func schemaDiagnostics() -> String {
+        let app = (try? dbQueue.read { db in
+            try String.fetchOne(db, sql: "SELECT value FROM meta WHERE key = 'appVersion'")
+        }) ?? "?"
+        return "db schema v\(schemaVersion) · app \(app)"
     }
 
     // MARK: - 写

@@ -70,7 +70,7 @@ swift test --package-path packages/CoreKit     # 全部测试
 ## 约定
 
 - Swift 值类型优先；域核心零 IO（端口协议注入）；Sendable 全覆盖
-- **数据库 migration 一经合入永不修改，只允许新增**（改已发布迁移对存量库无效，STORE-008 教训）
+- **数据库 migration 一经合入永不修改，只允许新增**——新迁移必须同步登记 `docs/MIGRATIONS.md` 与 `MirrorStore.releasedMigrations`，契约测试锁定（STORE-009 教训与标准）
 - 公共 API 都要 doc comment，注明对应用例 ID 或基线章节
 - 提交信息格式：`<scope>: <做了什么>`（scope ∈ core/spec/docs/ci/launch…）
 - 本仓库已公开：**密钥、凭证、证书、真实服务器会话数据永不入库**；契约测试 cassette 必须脱敏
