@@ -150,7 +150,7 @@ public final class FakeSmtpServer: SmtpTransport, @unchecked Sendable {
     private func stageName(_ c: SmtpCommand) -> String {
         switch c {
         case .ehlo: return "EHLO"
-        case .authLogin: return "AUTH"
+        case .authLogin, .authXoauth2: return "AUTH"
         case .mailFrom: return "MAIL FROM"
         case .rcptTo: return "RCPT TO"
         case .data: return "DATA"
