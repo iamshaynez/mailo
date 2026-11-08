@@ -205,11 +205,6 @@ public final class MailoAppModel: ObservableObject {
         }
     }
 
-    public func load(bucket: Bucket) throws {
-        selectedBucket = bucket
-        entries = try store.entries(bucket: bucket)
-        refreshCounts()
-    }
 
 /// 模型猜测的轻量注入点（MlKit 的 MlGateway 是 async 的；装配层用同步简化，app 层可桥接）。
 public protocol MlGuessProviding: Sendable {
