@@ -1,4 +1,5 @@
 import Testing
+import AuthKit
 import CoreKit
 import Foundation
 import MailProtoKit
