@@ -210,11 +210,83 @@ public final class MailoAppModel: ObservableObject {
         entries = try store.entries(bucket: bucket)
         refreshCounts()
     }
-}
 
 /// 模型猜测的轻量注入点（MlKit 的 MlGateway 是 async 的；装配层用同步简化，app 层可桥接）。
 public protocol MlGuessProviding: Sendable {
     func guess(for signal: MailSignal) throws -> ModelGuess
+}
+
+    // MARK: - 支撑能力（CLS-010 / STORE-006 / JOURNEY-003/004）
+
+    /// 邮件详情（阅读窗格数据源；两段式下正文按需回填，SYNC-014）。
+    public struct MailDetail: Equatable, Sendable {
+        public var stableId: String
+        public var subject: String?
+        public var fromAddress: String?
+        public var date: String?
+        public var textBody: String?
+        public var htmlBody: String?
+        public var attachmentNames: [String]
+        public var flags: [String]
+
+        public var isUnread: Bool { !flags.contains("\\Seen") }
+    }
+
+    public func mailDetail(stableId: String) -> MailDetail? {
+        guard var row = try? store.mail(stableId: stableId) else { return nil }
+        if row.raw == nil, let runner {
+            if let body = try? runner.engine.fetchBody(uid: row.uid, transport: runner.transport) {
+                let parsed = MimeParser.parse(body)
+                row.raw = Data(body)
+                row.snippet = row.snippet ?? parsed.textBody.map { String($0.prefix(200)) }
+                try? store.upsert(row)
+            }
+        }
+        guard let raw = row.raw else {
+            return MailDetail(stableId: stableId, subject: row.subject, fromAddress: row.fromAddress,
+                              date: row.date, textBody: nil, htmlBody: nil,
+                              attachmentNames: [], flags: row.flagList)
+        }
+        let parsed = MimeParser.parse([UInt8](raw))
+        return MailDetail(
+            stableId: stableId,
+            subject: row.subject ?? parsed.subject,
+            fromAddress: row.fromAddress ?? parsed.from,
+            date: row.date ?? parsed.date,
+            textBody: parsed.textBody,
+            htmlBody: parsed.htmlBody,
+            attachmentNames: parsed.attachments.compactMap(\.filename),
+            flags: row.flagList)
+    }
+
+    /// 桶计数（load 后刷新，供侧栏徽章）。
+    public private(set) var bucketCounts: [String: Int] = [:]
+
+    public func refreshCounts() {
+        bucketCounts = (try? store.bucketCounts()) ?? [:]
+    }
+
+    /// Screener 决策（CLS-010）：批准即显式规则，下一封同发件人直接命中；更新桶并刷新。
+    public func decideScreener(stableId: String, to bucket: Bucket) throws {
+        guard let row = try store.mail(stableId: stableId) else { return }
+        if bucket != .screener, let from = row.fromAddress {
+            let rule = UserRule.correction(senderAddress: from, bucket: bucket,
+                                           deviceId: deviceId, ts: Int64(Date().timeIntervalSince1970 * 1000))
+            pipeline.rules.append(rule)
+        }
+        try store.freeze(ClassificationRow(stableId: stableId, bucket: bucket, reason: "screenerDecision"))
+        if let existing = pipeline.frozen.first(where: { $0.key.value == stableId })?.key {
+            pipeline.frozen[existing] = bucket
+        }
+        try load(bucket: selectedBucket)
+        refreshCounts()
+    }
+
+    public func load(bucket: Bucket) throws {
+        selectedBucket = bucket
+        entries = try store.entries(bucket: bucket)
+        refreshCounts()
+    }
 }
 
 public extension MailoAppModel {
