@@ -26,3 +26,6 @@ env.secrets/
 apps/**/*.xcodeproj
 # SwiftPM 构建产物
 .build/
+# Xcode user data
+**/.swiftpm/
+**/xcuserdata/
