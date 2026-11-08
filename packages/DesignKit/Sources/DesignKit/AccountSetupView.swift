@@ -1,3 +1,4 @@
+import AuthKit
 import CoreKit
 import MailProtoKit
 import SwiftUI
@@ -67,7 +68,8 @@ public struct AccountSetupView: View {
                 busy = true
                 Task {
                     defer { busy = false }
-                    try? await model.connectOutlook(email: email, clientId: clientId)
+                    // 传 KeychainVault：refresh token 落 Keychain，下次启动免授权（JOURNEY-005 曾因漏传而失效）
+                    try? await model.connectOutlook(email: email, clientId: clientId, vault: KeychainVault())
                 }
             } label: {
                 if busy { ProgressView().frame(maxWidth: .infinity) }

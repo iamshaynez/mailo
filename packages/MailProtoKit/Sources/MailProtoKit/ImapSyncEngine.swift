@@ -86,9 +86,24 @@ public struct ImapSyncEngine: Sendable {
 
         var events: [MailEvent] = []
         var highest = snapshot?.highestUid ?? 0
-        for line in fetchLines {
+        for event in try Self.makeEvents(from: fetchLines, headerFirst: headerFirst,
+                                         fingerprint: accountFingerprint) {
+            events.append(event)
+            highest = max(highest, event.uid)
+        }
+
+        let snap = SyncSnapshot(folder: folder, uidValidity: uidValidity, highestUid: highest)
+        if isReset, let old = snapshot?.uidValidity {
+            return .resetDetected(old: old, new: uidValidity, events: events, snapshot: snap)
+        }
+        return .synced(events: events, snapshot: snap)
+    }
+
+    /// 行 → 事件构造（列表同步与历史回填共用，SYNC-016）。
+    static func makeEvents(from lines: [ParsedLine], headerFirst: Bool, fingerprint: String) throws -> [MailEvent] {
+        var events: [MailEvent] = []
+        for line in lines {
             guard let fd = FetchData.extract(from: line) else { continue }
-            // headerFirst：raw 为空，摘要来自 ENVELOPE；全量模式：解析 BODY[] 原文
             let rawBody = fd.rawBody ?? []
             let parsed = rawBody.isEmpty
                 ? ParsedEmail(headers: [:], messageId: fd.messageId, subject: fd.subject,
@@ -97,20 +112,20 @@ public struct ImapSyncEngine: Sendable {
             guard !rawBody.isEmpty || fd.subject != nil || fd.fromAddress != nil else { continue }
             let stableID = StableMessageID(
                 messageId: parsed.messageId ?? fd.messageId,
-                accountFingerprint: accountFingerprint,
+                accountFingerprint: fingerprint,
                 fallback: .init(from: parsed.from ?? fd.fromAddress ?? "", date: parsed.date ?? "",
                                 subject: parsed.subject ?? fd.subject ?? ""))
             events.append(MailEvent(
                 stableMessageID: stableID, uid: fd.uid, flags: fd.flags, raw: rawBody,
                 subject: parsed.subject ?? fd.subject, fromAddress: parsed.from ?? fd.fromAddress))
-            highest = max(highest, fd.uid)
         }
+        return events
+    }
 
-        let snap = SyncSnapshot(folder: folder, uidValidity: uidValidity, highestUid: highest)
-        if isReset, let old = snapshot?.uidValidity {
-            return .resetDetected(old: old, new: uidValidity, events: events, snapshot: snap)
-        }
-        return .synced(events: events, snapshot: snap)
+    /// 历史回填：拉任意 UID 区间（SYNC-016，后台回填器逐批调用）。
+    public func fetchRange(_ range: String, transport: any ImapTransport) throws -> [MailEvent] {
+        let lines = try ImapParser.parse(try transport.send(.fetchUid(range: range, items: "(UID FLAGS ENVELOPE)")))
+        return try Self.makeEvents(from: lines, headerFirst: true, fingerprint: accountFingerprint)
     }
 
     /// 单封正文按需拉取（SYNC-014）：`FETCH uid (UID BODY.PEEK[])`——PEEK 不置 \Seen。

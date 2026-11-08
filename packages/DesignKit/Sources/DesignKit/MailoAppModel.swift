@@ -103,6 +103,7 @@ public final class MailoAppModel: ObservableObject {
             try? accountStore().save(AccountRecord(email: email, clientId: clientId,
                                                    accountKind: account, secretRef: config.secretRef))
             startPolling()
+            startBackfill()
         } catch {
             phase = .failed(String(describing: error))
             throw error
@@ -143,9 +144,42 @@ public final class MailoAppModel: ObservableObject {
                                        username: record.email, secretRef: record.secretRef)
             try await attach(account: config, transport: transport)
             startPolling()
+            startBackfill()
             return true
         } catch {
             return false
+        }
+    }
+
+    /// 历史回填（SYNC-016）：从最近窗口下沿逐批向 UID 1 推进，覆盖全量信封。
+    /// 每批一条命令、间隔 2 秒防压服务器；空批 = UID 空洞继续；到 1 收尾。
+    private var backfillTask: Task<Void, Never>?
+    public private(set) var backfilledCount = 0
+
+    public func startBackfill(batchSize: Int = 100) {
+        backfillTask?.cancel()
+        guard let runner else { return }
+        let floor0 = max(1, (runner.snapshot?.highestUid ?? 0) - runner.engine.initialWindow)
+        guard floor0 > 1 else { return }
+        backfillTask = Task { [weak self] in
+            var floor = floor0
+            while !Task.isCancelled, let self {
+                guard let r = self.runner else { return }
+                let low = max(1, floor - batchSize + 1)
+                if let events = try? r.engine.fetchRange("\(low):\(floor)", transport: r.transport), !events.isEmpty {
+                    try? await self.apply(events)
+                    self.backfilledCount += events.count
+                    self.lastSyncSummary = "回填 \(self.backfilledCount) 封历史 · 進度 UID \(low)"
+                    self.refreshCounts()
+                    self.entries = (try? self.store.entries(bucket: self.selectedBucket)) ?? self.entries
+                }
+                if low <= 1 { 
+                    self.lastSyncSummary = "同步 \(self.backfilledCount) 封历史完成"
+                    return 
+                }
+                floor = low - 1
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+            }
         }
     }
 
