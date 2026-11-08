@@ -165,3 +165,10 @@
 - **Then** 未读：发件人与主题走**粗体字重**且保留蓝色未读点；已读：发件人与主题走 regular 字重、无蓝点；字重映射由 RowEmphasis 纯函数提供（测试锁映射语义，视图零分叉）
 - **Status**: green
 - **Tests**: `journey_019_unread_bold_emphasis`
+
+## JOURNEY-020 邮件时间戳贯穿（信封日期入库 → 列表/阅读窗格呈现）
+- **Given** header-first 同步（FETCH UID FLAGS ENVELOPE，Date 头存在于 ENVELOPE[0]）
+- **When** 引擎构造 MailEvent → apply 入库 → 列表/阅读窗格渲染
+- **Then** ENVELOPE 的 Date 头透传至 MailEvent.date 并入库（**规范化为 ISO8601 使字符串排序=时间序**，解析失败保原文兜底）；列表行时间与阅读窗格时间戳非空（解析支持 ISO 与存量 RFC2822 双格式）；多条邮件按收件时间倒序
+- **Status**: draft
+- **Tests**: `journey_020_timestamp_pipeline`
