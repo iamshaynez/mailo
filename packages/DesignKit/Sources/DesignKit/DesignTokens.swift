@@ -10,6 +10,8 @@ public enum DesignTokens {
     public static let brandBlueHex: UInt32 = 0x006FCF
     public static let brandBlueDeepHex: UInt32 = 0x0B4E96
     public static let brandBlueWashHex: UInt32 = 0xE8F1FB
+    public static let brandBlueBorderHex: UInt32 = 0xCFE2F6
+    public static let surfaceWashHex: UInt32 = 0xF7FAFE
 
     // bucket 语义色（§2）
     public static let imboxHex: UInt32 = 0x006FCF
@@ -27,6 +29,8 @@ public enum DesignTokens {
     public static var brandBlue: Color { Color(hex: brandBlueHex) }
     public static var brandBlueDeep: Color { Color(hex: brandBlueDeepHex) }
     public static var brandBlueWash: Color { Color(hex: brandBlueWashHex) }
+    public static var brandBlueBorder: Color { Color(hex: brandBlueBorderHex) }
+    public static var surfaceWash: Color { Color(hex: surfaceWashHex) }
     public static var inkPrimary: Color { Color(hex: 0x16202F) }
     public static var inkSecondary: Color { Color(hex: 0x3C4657) }
     public static var inkMuted: Color { Color(hex: 0x8892A6) }

@@ -64,14 +64,14 @@
 - **Given** 已连接（或 demo）状态的三栏主界面
 - **When** 渲染主壳
 - **Then** 骨架用 `NavigationSplitView`（侧栏可折叠 ⌘⇧C、分栏可拖动、窄屏自动单栏）；邮件列表用 `List(selection:)`——↑↓ 移动选中、↩ 在阅读窗格打开；不再有自绘红绿灯 spacer；标题工具栏以 brandBlue 着色承载搜索与 Compose
-- **Status**: draft
+- **Status**: green
 - **Tests**: `journey_008_splitview_skeleton`
 
 ## JOURNEY-009 菜单与快捷键（Mac 第一公民）
 - **Given** 主窗口活动状态
 - **When** 触发菜单/快捷键：⌘N 新邮件、⌘K 聚焦搜索、⌘R 回复、⌘⇧F 转发、⌘⇧U 标未读、⌘S Set Aside、同步 Now
 - **Then** 每个快捷键路由到对应动作（无选中邮件时禁用对应项）；⌘K 聚焦搜索框（装饰性 ⌘K 徽章废除）
-- **Status**: draft
+- **Status**: green
 - **Tests**: `journey_009_menu_shortcuts`
 
 ## JOURNEY-010 Demo 隔离（不污染生产库）

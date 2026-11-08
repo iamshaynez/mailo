@@ -16,5 +16,6 @@ struct MailoIOSApp: App {
                     }
                 }
         }
+        .commands { MailoCommandMenu(model: model) }
     }
 }

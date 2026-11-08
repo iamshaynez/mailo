@@ -3,7 +3,7 @@ import Foundation
 import GRDB
 
 /// 邮件镜像行（stableID 为全局主键，UID 仅是可刷新的缓存属性，STORE-005）。
-public struct MailRow: Codable, Equatable, FetchableRecord, PersistableRecord {
+public struct MailRow: Codable, Equatable, Sendable, FetchableRecord, PersistableRecord {
     public static let databaseTableName = "mail"
 
     public var stableId: String
@@ -38,7 +38,7 @@ public struct MailRow: Codable, Equatable, FetchableRecord, PersistableRecord {
 }
 
 /// 分类冻结行（基线 D8：结果冻结幂等的持久化形态）。
-public struct ClassificationRow: Codable, Equatable, FetchableRecord, PersistableRecord {
+public struct ClassificationRow: Codable, Equatable, Sendable, FetchableRecord, PersistableRecord {
     public static let databaseTableName = "classification"
 
     public var stableId: String
@@ -53,7 +53,7 @@ public struct ClassificationRow: Codable, Equatable, FetchableRecord, Persistabl
 }
 
 /// bucket 视图行：邮件 + 归类（UI 列表消费的形态）。
-public struct BucketEntry: Codable, Equatable, Hashable, FetchableRecord {
+public struct BucketEntry: Codable, Equatable, Hashable, Sendable, FetchableRecord {
     public var stableId: String
     public var subject: String?
     public var fromAddress: String?

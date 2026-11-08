@@ -18,7 +18,7 @@ struct SidebarView: View {
             privacyFooter
         }
         .background(DesignTokens.surfaceMain)
-        .frame(width: DesignTokens.sidebarWidth)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     private var accountRow: some View {
@@ -121,6 +121,9 @@ struct SidebarView: View {
 }
 
 extension Bucket {
+    /// 导航可达桶（侧栏与 iPhone bucket 菜单共用，JOURNEY-008 紧凑态入口）。
+    static let navBuckets: [Bucket] = [.imbox, .feed, .paperTrail, .screener, .setAside]
+
     var title: String {
         switch self {
         case .imbox: return "Imbox"

@@ -2,7 +2,8 @@ import CoreKit
 import MirrorKit
 import SwiftUI
 
-/// 邮件列表（mockup：标题/分段控件/日期分组/行视觉）。
+/// 列表栏（JOURNEY-008）：`List(selection:)` 原生键盘导航（↑↓/type-ahead），
+/// 日期分组 Section；分段过滤 New / Seen / All。
 struct MailListView: View {
     @ObservedObject var model: MailoAppModel
     @Binding var selection: String?
@@ -12,76 +13,72 @@ struct MailListView: View {
         VStack(spacing: 0) {
             header
             Divider().overlay(DesignTokens.borderDefault)
-            segmented
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-            Divider().overlay(DesignTokens.borderDefault)
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
-                    ForEach(grouped.keys.sorted().reversed(), id: \.self) { day in
+            if filteredGroups.isEmpty {
+                emptyState
+            } else {
+                List(selection: $selection) {
+                    ForEach(filteredGroups, id: \.label) { group in
                         Section {
-                            ForEach(grouped[day] ?? [], id: \.stableId) { entry in
+                            ForEach(group.entries, id: \.stableId) { entry in
                                 MailRowView(entry: entry,
                                             bucket: model.selectedBucket,
                                             selected: entry.stableId == selection)
-                                    .onTapGesture { selection = entry.stableId }
-                                    .padding(.horizontal, 8)
+                                    .tag(entry.stableId)
+                                    .listRowInsets(EdgeInsets())
+                                    .listRowSeparator(.hidden)
+                                    .listRowBackground(entry.stableId == selection
+                                        ? DesignTokens.brandBlueWash
+                                        : DesignTokens.surfaceMain)
                             }
                         } header: {
-                            Text(day)
+                            Text(group.label)
                                 .font(.system(size: 10.5, weight: .bold))
-                                .tracking(1)
+                                .tracking(1.2)
                                 .foregroundColor(DesignTokens.inkFaint)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 6)
-                                .background(DesignTokens.surfaceMain.opacity(0.96))
                         }
                     }
-                    if filtered.isEmpty {
-                        Text("这里很安静。")
-                            .font(.system(size: 13))
-                            .foregroundColor(DesignTokens.inkMuted)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 60)
-                    }
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .environment(\.defaultMinListRowHeight, 68)
             }
         }
-        .frame(width: DesignTokens.listWidth)
         .background(DesignTokens.surfaceMain)
     }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(model.selectedBucket.title)
-                .font(.system(size: 19, weight: .heavy))
-                .foregroundColor(DesignTokens.inkPrimary)
-            Text("\(model.entries.count) 封")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(DesignTokens.inkFaint)
-            Spacer()
+        VStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(model.selectedBucket.title)
+                    .font(.system(size: 19, weight: .heavy))
+                Text("\(filteredGroups.map(\.entries.count).reduce(0, +))")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(DesignTokens.inkFaint)
+                Spacer()
+            }
+            .padding(.horizontal, 16).padding(.vertical, 10)
+            segmented
+                .padding(.horizontal, 16).padding(.bottom, 10)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 14)
-        .padding(.bottom, 6)
     }
 
+    /// 分段控件（mockup §5 胶囊三段）。
     private var segmented: some View {
-        HStack(spacing: 2) {
-            ForEach(Array(["New", "Seen", "All"].enumerated()), id: \.offset) { index, label in
+        HStack(spacing: 3) {
+            ForEach(Array(["New", "Seen", "All"].enumerated()), id: \.offset) { index, title in
                 Button {
                     segment = index
                 } label: {
-                    Text(label)
+                    Text(title)
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(segment == index ? DesignTokens.brandBlue : DesignTokens.inkSecondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 5)
                         .background(
                             RoundedRectangle(cornerRadius: 6)
-                                .fill(segment == index ? DesignTokens.surfaceMain : Color.clear)
-                                .shadow(color: Color.black.opacity(segment == index ? 0.08 : 0), radius: 1, y: 1))
+                                .fill(segment == index ? Color.white : Color.clear)
+                                .shadow(color: segment == index ? Color.black.opacity(0.08) : .clear,
+                                        radius: 2, y: 1))
                 }
                 .buttonStyle(.plain)
             }
@@ -89,6 +86,20 @@ struct MailListView: View {
         .padding(3)
         .background(RoundedRectangle(cornerRadius: 8).fill(DesignTokens.surfaceSubtle))
     }
+
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "tray")
+                .font(.system(size: 28))
+                .foregroundColor(DesignTokens.inkFaint.opacity(0.6))
+            Text("All quiet here.")
+                .font(.system(size: 13))
+                .foregroundColor(DesignTokens.inkMuted)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: 过滤与分组
 
     private var filtered: [BucketEntry] {
         switch segment {
@@ -98,36 +109,64 @@ struct MailListView: View {
         }
     }
 
-    /// 按日期分组：TODAY / YESTERDAY / 更早显示日期（按 date 头的 yyyy-MM-dd 归一）。
-    private var grouped: [String: [BucketEntry]] {
-        var out: [String: [BucketEntry]] = [:]
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE, d MMM yyyy HH:mm:ss Z"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
+    private var filteredGroups: [(label: String, entries: [BucketEntry])] {
+        MailDateGrouping.group(entries: filtered)
+    }
+}
+
+// MARK: - 日期分组与格式化（PERF-004 方向：formatter 静态缓存，行渲染零分配）
+
+enum MailDateGrouping {
+    /// RFC2822 解析器（静态缓存；行渲染路径复用同一实例）。
+    static let rfc2822: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEE, d MMM yyyy HH:mm:ss Z"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    /// 按日分组：TODAY / YESTERDAY / 更早显示日期；保持入参（日期倒序）顺序。
+    static func group(entries: [BucketEntry]) -> [(label: String, entries: [BucketEntry])] {
+        var out: [(String, [BucketEntry])] = []
+        var buckets: [String: Int] = [:]
         let today = Calendar.current.startOfDay(for: Date())
-        for entry in filtered {
-            let date = entry.date.flatMap { formatter.date(from: $0) }
-            let label: String
-            if let date {
-                let day = Calendar.current.startOfDay(for: date)
-                let gap = Calendar.current.dateComponents([.day], from: day, to: today).day ?? 99
-                if gap == 0 { label = "TODAY" }
-                else if gap == 1 { label = "YESTERDAY" }
-                else {
-                    let show = DateFormatter()
-                    show.dateFormat = "MMM d"
-                    label = show.string(from: date).uppercased()
-                }
+        for entry in entries {
+            let label = dayLabel(entry.date, today: today)
+            if let index = buckets[label] {
+                out[index].1.append(entry)
             } else {
-                label = "未知日期"
+                buckets[label] = out.count
+                out.append((label, [entry]))
             }
-            out[label, default: []].append(entry)
         }
-        return out
+        return out.map { (label: $0.0, entries: $0.1) }
+    }
+
+    static func dayLabel(_ raw: String?, today: Date) -> String {
+        guard let raw, let date = rfc2822.date(from: raw) else { return "Undated" }
+        let day = Calendar.current.startOfDay(for: date)
+        let gap = Calendar.current.dateComponents([.day], from: day, to: today).day ?? 99
+        if gap == 0 { return "TODAY" }
+        if gap == 1 { return "YESTERDAY" }
+        return date.formatted(.dateTime.month(.abbreviated).day().locale(Locale(identifier: "en_US")))
+            .uppercased()
+    }
+
+    /// 行内时间标签：今天显示时刻，更早显示月日。
+    static func timeLabel(_ raw: String?) -> String {
+        guard let raw, let date = rfc2822.date(from: raw) else { return "" }
+        let today = Calendar.current.startOfDay(for: Date())
+        let day = Calendar.current.startOfDay(for: date)
+        let gap = Calendar.current.dateComponents([.day], from: day, to: today).day ?? 99
+        if gap == 0 {
+            return date.formatted(.dateTime.hour().minute().locale(Locale(identifier: "en_US")))
+        }
+        return date.formatted(.dateTime.month(.abbreviated).day().locale(Locale(identifier: "en_US")))
     }
 }
 
 /// 单行邮件（mockup 行视觉：bucket 头像/未读点/两行文本/选中蓝条）。
+/// 选中底色由 List 的 listRowBackground 提供（全幅蓝 wash），行内只保留 3pt 蓝条。
 struct MailRowView: View {
     let entry: BucketEntry
     let bucket: Bucket
@@ -157,11 +196,11 @@ struct MailRowView: View {
                         Circle().fill(DesignTokens.brandBlue).frame(width: 7, height: 7)
                     }
                     Spacer(minLength: 0)
-                    Text(timeLabel)
+                    Text(MailDateGrouping.timeLabel(entry.date))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(DesignTokens.inkFaint)
                 }
-                Text(entry.subject ?? "（无主题）")
+                Text(entry.subject ?? "(no subject)")
                     .font(.system(size: 13.5, weight: .medium))
                     .foregroundColor(DesignTokens.inkPrimary)
                     .lineLimit(1)
@@ -171,29 +210,15 @@ struct MailRowView: View {
                     .lineLimit(1)
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 12)
         .padding(.vertical, 9)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(selected ? DesignTokens.brandBlueWash : Color.clear))
         .overlay(alignment: .leading) {
             if selected {
-                RoundedRectangle(cornerRadius: 1.5)
+                RoundedRectangle(cornerRadius: DesignTokens.selectionBarWidth / 2)
                     .fill(DesignTokens.brandBlue)
-                    .frame(width: 3, height: 40)
-                    .padding(.leading, 0)
+                    .frame(width: DesignTokens.selectionBarWidth, height: 40)
             }
         }
         .contentShape(Rectangle())
-    }
-
-    private var timeLabel: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEE, d MMM yyyy HH:mm:ss Z"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = entry.date.flatMap({ formatter.date(from: $0) }) else { return "" }
-        let show = DateFormatter()
-        show.dateFormat = "HH:mm"
-        return show.string(from: date)
     }
 }
