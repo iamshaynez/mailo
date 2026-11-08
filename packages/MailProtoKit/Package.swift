@@ -7,6 +7,7 @@ let package = Package(
     products: [.library(name: "MailProtoKit", targets: ["MailProtoKit"])],
     dependencies: [
         .package(path: "../CoreKit"),
+        .package(path: "../MirrorKit"),
     ],
     targets: [
         .target(name: "MailProtoKit", dependencies: ["CoreKit"]),
@@ -15,6 +16,6 @@ let package = Package(
             dependencies: ["MailProtoKit"],
             path: "Sources/MailoProbe"
         ),
-        .testTarget(name: "MailProtoKitTests", dependencies: ["MailProtoKit", "CoreKit"]),
+        .testTarget(name: "MailProtoKitTests", dependencies: ["MailProtoKit", "CoreKit", "MirrorKit"]),
     ]
 )

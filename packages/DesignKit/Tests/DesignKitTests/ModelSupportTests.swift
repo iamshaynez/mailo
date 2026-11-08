@@ -9,7 +9,7 @@ import MailProtoKit
 @MainActor
 struct ModelSupportTests {
 
-    private func makeModel() -> (MailoAppModel, FakeImapServer) {
+    private func makeModel() async -> (MailoAppModel, FakeImapServer) {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("support-\(UUID().uuidString)", isDirectory: true)
         let model = MailoAppModel.createLive(storeDirectory: dir)
@@ -20,13 +20,13 @@ struct ModelSupportTests {
         ])])
         let account = AccountConfig(displayName: "t", imapHost: "h", smtpHost: "h",
                                      username: "u@t.co", secretRef: "t")
-        try? model.attach(account: account, transport: server)
+        try? await model.attach(account: account, transport: server)
         return (model, server)
     }
 
     @Test("CLS-010 Screener 决策流")
-    func cls_010_screener_decision_flow() throws {
-        let (model, _) = makeModel()
+    func cls_010_screener_decision_flow() async throws {
+        let (model, _) = await makeModel()
         try model.load(bucket: .screener)
         #expect(model.entries.count == 1)                 // 未知发件人在待定列表
         #expect(model.entries.first?.fromAddress == "stranger@unknown.io")
@@ -38,7 +38,7 @@ struct ModelSupportTests {
         #expect(model.pipeline.rules.count == rulesBefore + 1)                     // 显式规则生成
 
         // 下一封同发件人：直接命中规则（不再待定）
-        try model.apply([MailEvent(
+        try await model.apply([MailEvent(
             stableMessageID: StableMessageID(messageId: "<s4@x.t>", accountFingerprint: "primary"),
             uid: 4, flags: [], raw: Array("Message-ID: <s4@x.t>\r\nFrom: stranger@unknown.io\r\nSubject: again\r\nDate: Fri, 7 Nov 2026 13:00:00 +0000\r\n\r\nx".utf8),
             subject: "again", fromAddress: "stranger@unknown.io")])
@@ -47,8 +47,8 @@ struct ModelSupportTests {
     }
 
     @Test("STORE-006 桶计数查询")
-    func store_006_bucket_counts() throws {
-        let (model, _) = makeModel()
+    func store_006_bucket_counts() async throws {
+        let (model, _) = await makeModel()
         let counts = model.bucketCounts
         #expect(counts["feed"] == 2)         // netflix + github（种子库均属 feed）
         #expect(counts["screener"] == 1)     // 未知发件人
@@ -56,8 +56,8 @@ struct ModelSupportTests {
     }
 
     @Test("JOURNEY-003 邮件详情与未读")
-    func journey_003_detail_and_unread() throws {
-        let (model, _) = makeModel()
+    func journey_003_detail_and_unread() async throws {
+        let (model, _) = await makeModel()
         try model.load(bucket: .feed)
         guard let first = model.entries.first(where: { $0.subject == "S1" }) else {
             Issue.record("S1 not in feed"); return
@@ -78,12 +78,12 @@ struct ModelSupportTests {
 @MainActor
 struct HtmlDetailTests {
     @Test("JOURNEY-004 HTML 邮件详情分离")
-    func journey_004_html_detail_separated() throws {
+    func journey_004_html_detail_separated() async throws {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("html-\(UUID().uuidString)", isDirectory: true)
         let model = MailoAppModel.createLive(storeDirectory: dir)
         let htmlMail = "Message-ID: <h1@x.t>\r\nFrom: news@netflix.com\r\nSubject: HTML\r\nDate: Fri, 7 Nov 2026 15:00:00 +0000\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<p><b>New season</b> is out</p>"
-        try model.apply([MailEvent(
+        try await model.apply([MailEvent(
             stableMessageID: StableMessageID(messageId: "<h1@x.t>", accountFingerprint: "primary"),
             uid: 1, flags: [], raw: Array(htmlMail.utf8),
             subject: "HTML", fromAddress: "news@netflix.com")])

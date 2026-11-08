@@ -126,7 +126,7 @@ public final class FakeImapServer: ImapTransport, @unchecked Sendable {
             parts.append("ENVELOPE \(envelope(of: message))")
         }
         out += Array(parts.joined(separator: " ").utf8)
-        if upper.contains("BODY[]") {
+        if upper.contains("BODY[]") || upper.contains("BODY.PEEK[]") {
             if !parts.isEmpty { out += [UInt8(ascii: " ")] }
             out += Array("BODY[] {\(message.raw.count)}\r\n".utf8) // 字面量头
             out += message.raw

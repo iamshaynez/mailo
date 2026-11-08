@@ -18,7 +18,7 @@ struct SyncEngineTests {
         let server = FakeImapServer(mailboxes: ["INBOX": .init(uidValidity: 7, messages: [
             mail(1, "<m1@x.t>"), mail(2, "<m2@x.t>"), mail(3, "<m3@x.t>"),
         ])])
-        let engine = ImapSyncEngine(accountFingerprint: fp)
+        let engine = ImapSyncEngine(accountFingerprint: fp, headerFirst: false)
         let outcome = try engine.sync(folder: "INBOX", snapshot: nil, transport: server)
         guard case .synced(let events, let snap) = outcome else {
             Issue.record("expected .synced, got \(outcome)"); return
@@ -37,7 +37,7 @@ struct SyncEngineTests {
             mail(1, "<m1@x.t>"), mail(2, "<m2@x.t>"), mail(3, "<m3@x.t>"),
         ])
         let server = FakeImapServer(mailboxes: ["INBOX": box])
-        let engine = ImapSyncEngine(accountFingerprint: fp)
+        let engine = ImapSyncEngine(accountFingerprint: fp, headerFirst: false)
 
         let first = try engine.sync(folder: "INBOX", snapshot: nil, transport: server)
         guard case .synced(_, let snap) = first else {
@@ -62,7 +62,7 @@ struct SyncEngineTests {
 
     @Test("SYNC-008 UIDVALIDITY 重置：重拉全量但分类不丢")
     func sync_008_uidvalidity_reset_keeps_stable_ids() throws {
-        let engine = ImapSyncEngine(accountFingerprint: fp)
+        let engine = ImapSyncEngine(accountFingerprint: fp, headerFirst: false)
         let server = FakeImapServer(mailboxes: ["INBOX": .init(uidValidity: 7, messages: [
             mail(1, "<keep1@x.t>"), mail(2, "<keep2@x.t>"),
         ])])
@@ -101,7 +101,7 @@ struct InitialWindowTests {
             Message(uid: uid, raw: Array("Message-ID: <w\(uid)@x.t>\r\nFrom: a@b.c\r\nSubject: s\r\n\r\nx".utf8))
         }
         let server = FakeImapServer(mailboxes: ["INBOX": .init(uidValidity: 5, messages: messages)])
-        let engine = ImapSyncEngine(accountFingerprint: "acct", initialWindow: 50)
+        let engine = ImapSyncEngine(accountFingerprint: "acct", initialWindow: 50, headerFirst: false)
         let outcome = try engine.sync(folder: "INBOX", snapshot: nil, transport: server)
         guard case .synced(let events, let snap) = outcome else {
             Issue.record("expected .synced"); return

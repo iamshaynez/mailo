@@ -86,3 +86,24 @@
 - **Then** FETCH 区间锚定 UIDNEXT 只拉最近 50 封（NOT 1:* 全量；基线 §5 回填策略"最近优先"）；增量轮次不受影响
 - **Status**: draft
 - **Tests**: `sync_012_initial_recent_window`
+
+## SYNC-013 两段式同步（列表 ENVELOPE-only）
+- **Given** 同一邮箱（含 200 封），引擎 headerFirst 模式 vs 旧全量模式
+- **When** 首轮列表同步
+- **Then** FETCH items 为 `(UID FLAGS ENVELOPE)`（**无 BODY[]**）；事件带 subject/from（ENVELOPE 提取）而 raw 为空（正文按需）；同步耗时显著下降（PERF-003 联动）
+- **Status**: draft
+- **Tests**: `sync_013_header_first_fetch`
+
+## SYNC-014 正文按需拉取（lazy body）
+- **Given** 一封已入库但 raw 为空的邮件（仅 ENVELOPE）
+- **When** `engine.fetchBody(uid:transport:)` 单封 `FETCH (UID BODY.PEEK[])`（PEEK 不置已读）
+- **Then** 返回该邮件完整原文；假服务器确认 \Seen 标记未被设置
+- **Status**: draft
+- **Tests**: `sync_014_lazy_body_fetch`
+
+## SYNC-015 同步快照持久化（重启只拉增量）
+- **Given** 首轮同步后快照入库，App 重启（新 store 实例）后同邮箱再来一封新邮件
+- **When** 第二轮同步（从库恢复快照）
+- **Then** 只产生 1 个事件（增量）；FETCH 区间为高水位+1 而非全窗口
+- **Status**: draft
+- **Tests**: `sync_015_snapshot_persisted`
