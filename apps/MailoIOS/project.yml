@@ -7,6 +7,8 @@ options:
 packages:
   DesignKit:
     path: ../../packages/DesignKit
+  AuthKit:
+    path: ../../packages/AuthKit
 targets:
   MailoIOS:
     type: application
@@ -15,6 +17,7 @@ targets:
       - Sources
     dependencies:
       - package: DesignKit
+      - package: AuthKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.xiaowenz.mailo
