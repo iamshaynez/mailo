@@ -122,3 +122,31 @@ struct MigrationV2Tests {
         #expect(try reopened.entries(bucket: .imbox).count == 1)
     }
 }
+
+// MARK: STORE-009（项目标准：迁移契约锁定）
+
+struct MigrationContractTests {
+    @Test("STORE-009 迁移契约锁定")
+    func store_009_migration_contract() throws {
+        // 与登记表（MIGRATIONS.md + releasedMigrations）完全一致
+        let expected = ["v1", "v2-sync-state", "v3-meta"]
+        #expect(MirrorStore.releasedMigrations == expected)
+
+        // 新库：全部应用，顺序一致
+        let store = try MirrorStore()
+        #expect(store.appliedMigrations == expected)
+        #expect(store.schemaVersion == 3)
+
+        // 版本绑定：recordAppVersion 后诊断可读
+        store.recordAppVersion("0.1.0")
+        #expect(store.schemaDiagnostics() == "db schema v3 · app 0.1.0")
+
+        // 存量库（文件）二次打开幂等：清单不变
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("contract-\(UUID().uuidString).sqlite").path
+        defer { try? FileManager.default.removeItem(atPath: path) }
+        _ = try MirrorStore(path: path)
+        let reopened = try MirrorStore(path: path)
+        #expect(reopened.appliedMigrations == expected)
+    }
+}

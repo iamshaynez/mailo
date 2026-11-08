@@ -156,15 +156,18 @@ public struct MailoShell: View {
 
     @ViewBuilder
     private var diagnosticBar: some View {
-        if !model.lastSyncSummary.isEmpty {
-            Text(model.lastSyncSummary)
-                .font(.system(size: 10.5, weight: .medium))
-                .foregroundColor(DesignTokens.inkMuted)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 3)
-                .background(DesignTokens.brandBlueWash)
-                .overlay(alignment: .top) { Divider().overlay(DesignTokens.borderDefault) }
+        HStack(spacing: 12) {
+            Text(model.lastSyncSummary.isEmpty ? model.store.schemaDiagnostics() : model.lastSyncSummary)
+            Spacer()
+            Text(model.store.schemaDiagnostics())
         }
+        .font(.system(size: 10.5, weight: .medium))
+        .foregroundColor(DesignTokens.inkMuted)
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 3)
+        .background(DesignTokens.brandBlueWash)
+        .overlay(alignment: .top) { Divider().overlay(DesignTokens.borderDefault) }
     }
 
     // MARK: 窄屏（iPhone）：单栏 + 覆盖式阅读
