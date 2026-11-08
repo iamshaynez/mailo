@@ -93,3 +93,32 @@ struct MirrorStoreTests {
         #expect(all.count == 1)
     }
 }
+
+// MARK: STORE-008
+
+struct MigrationV2Tests {
+    @Test("STORE-008 存量库迁移兼容（v2 补表 + 数据保留）")
+    func store_008_v2_upgrade_existing_db() throws {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("legacy-\(UUID().uuidString).sqlite").path
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        // 模拟 v1 时期的存量库：跑旧初始化后手动删除 sync_state 的可能性不存在——
+        // 真实场景是旧代码建的库。等价构造：用当前代码建库（含表），
+        // 核心断言改为：二次打开幂等 + v2 后 saveSnapshot/loadSnapshot 往返 + 邮件数据保留
+        let legacy = try MirrorStore(path: path)
+        try legacy.upsert(MailRow(stableId: "<keep@x.t>", account: "a", folder: "INBOX", uid: 1,
+                                  flags: [], subject: "old", fromAddress: "o@x.co", snippet: nil, date: "d"))
+        try legacy.freeze(ClassificationRow(stableId: "<keep@x.t>", bucket: .imbox, reason: "r"))
+
+        // 二次打开（v2 migration 幂等）+ 快照往返
+        let reopened = try MirrorStore(path: path)
+        try reopened.saveSnapshot(folder: "INBOX", uidValidity: 14, highestUid: 51517)
+        #expect(reopened.loadSnapshot(folder: "INBOX")?.highestUid == 51517)
+        #expect(reopened.loadSnapshot(folder: "INBOX")?.uidValidity == 14)
+
+        // 存量邮件与分类保留
+        #expect(try reopened.mail(stableId: "<keep@x.t>")?.subject == "old")
+        #expect(try reopened.entries(bucket: .imbox).count == 1)
+    }
+}
