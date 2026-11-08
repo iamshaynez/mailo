@@ -18,7 +18,7 @@ struct SmtpAccountTests {
         let stages = server.executedCommands.map { cmd -> String in
             switch cmd {
             case .ehlo: return "EHLO"
-            case .authLogin: return "AUTH"
+            case .authLogin, .authXoauth2: return "AUTH"
             case .mailFrom: return "MAIL FROM"
             case .rcptTo: return "RCPT TO"
             case .data: return "DATA"
