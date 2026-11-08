@@ -20,3 +20,10 @@
 - **Then** items 不含 BODY[]（列表同步传输量从 O(全文) 降到 O(信封)）
 - **Status**: draft
 - **Tests**: `sync_013_header_first_fetch`（同源断言）
+
+## PERF-004 列表日期零重复解析
+- **Given** 列表加载 200 行（date 为 RFC2822 字符串）
+- **When** 行渲染取时间标签与日期分组
+- **Then** 每行渲染路径零 DateFormatter 分配（日期在数据层一次解析为 Date 缓存）；滚动期间无解析开销
+- **Status**: draft
+- **Tests**: `perf_004_row_date_no_formatter`

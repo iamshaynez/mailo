@@ -177,3 +177,10 @@
 - **Then** 命令-响应往返串行化（互斥锁），响应不交叉污染；单命令接收超时 30s；轮询失败不降级 UI（仅诊断提示，连接保持）
 - **Status**: draft
 - **Tests**: `mail_025_concurrent_send_safety`
+
+## MAIL-026 UID STORE 标记写回（\Seen）
+- **Given** 已连接 IMAP 会话（假服务器可测）
+- **When** 引擎对 uid N 执行 markSeen（UID STORE N +FLAGS (\Seen)）
+- **Then** wire 命令合规（tag 前缀 + UID STORE + FLAGS.SILENT）；服务器侧 flags 更新；失败抛错由调用方降级（尽力而为，不阻塞本地已读）
+- **Status**: draft
+- **Tests**: `mail_026_uid_store_flags`

@@ -11,11 +11,11 @@
 | 存储 | `MirrorKit` | GRDB 镜像层：mail/classification 表、FTS5 trigram 外部内容表+触发器、bucket 视图、中文子串搜索（<3 字 LIKE 兜底） | STORE-001~005 |
 | 模型 | `MlKit` | MlGateway 端口、确定性 Mock、原型向量引擎（余弦投票+margin 置信度+滚动自学习）、golden 评测（JSONL+分桶报告） | ML-001~005 |
 | 授权 | `AuthKit` | Gmail/Outlook 配置常量（scope/host/redirect）、CredentialVault 端口（InMemory 实现，Keychain 实现挂 app 层）、token 会话刷新判定 | OAUTH-001~003 |
-| UI | `DesignKit` | 设计规范 token（hex 常量化防漂移）、三栏壳（NavigationSplitView，212/392/3pt 选中条）、AppModel 端到端装配（同步→入库→分类→呈现，进程内零网络） | JOURNEY-001, DESIGN-001 |
+| UI | `DesignKit` | 设计规范 token（hex 常量化防漂移）、三栏壳（自绘 HStack 固定三栏 212/392/3pt 选中条；UI 基准线批次 1 迁 NavigationSplitView，见 docs/plan/ui-baseline-audit.md）、AppModel 端到端装配（同步→入库→分类→呈现，进程内零网络） | JOURNEY-001, DESIGN-001 |
 | App | `apps/MailoIOS` `apps/MailoMac` | XcodeGen 工程，CI 构建（iOS 模拟器 + macOS）通过；bundle id `com.xiaowenz.mailo` | — |
 | 门禁 | CI | 8 项必需检查：6 包 swift-test × 矩阵 + 双端 app-build；main 保护（PR-only、enforce_admins、仅 squash）；PERF 吞吐门禁 | PERF-001/002 |
 
-**用例总计**：42 条（41 green + 快照外其余全实现），见 `docs/specs/`。
+**用例总计**：97 条（34 green；UI 基准线批次新增 16 条 draft），见 `docs/specs/README.md` 索引。
 
 ## 2. 架构地图（一屏）
 
