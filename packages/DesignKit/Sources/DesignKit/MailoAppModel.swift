@@ -24,9 +24,6 @@ public final class MailoAppModel: ObservableObject {
     }
 
     @Published public private(set) var entries: [BucketEntry] = []
-    /// 列表代际（JOURNEY-018）：load/同步等**成员变化**时 +1；
-    /// 阅读标记（markRead/markUnread）只原位合并 flags、不升代际——分段内成员稳定。
-    @Published public private(set) var entriesGeneration = 0
     @Published public private(set) var selectedBucket: Bucket = .imbox
     @Published public private(set) var phase: Phase = .empty
     /// 最近一轮同步诊断（底部状态条；排查"授权成功但列表空"这类问题的第一现场）
@@ -265,7 +262,6 @@ public final class MailoAppModel: ObservableObject {
                                                              total: max(floor0 - 1, self.backfilledCount))
                     self.refreshCounts()
                     self.entries = (try? self.store.entries(bucket: self.selectedBucket)) ?? self.entries
-                    self.entriesGeneration += 1
                 }
                 if low <= 1 {
                     self.lastSyncSummary = L10n.t("sync.backfillDone", self.backfilledCount)
@@ -847,7 +843,6 @@ public protocol MlGuessProviding: Sendable {
     public func load(bucket: Bucket) throws {
         selectedBucket = bucket
         entries = try store.entries(bucket: bucket)
-        entriesGeneration += 1
         refreshCounts()
     }
 }
