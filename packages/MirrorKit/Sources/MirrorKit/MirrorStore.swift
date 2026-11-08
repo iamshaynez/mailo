@@ -171,11 +171,12 @@ public final class MirrorStore: @unchecked Sendable {
 
     /// 记录当前 app 版本到 meta（打开库时由调用方执行；诊断与排障用）。
     public func recordAppVersion(_ version: String) {
+        let schema = schemaVersion // 先取（read）再写——write 块内不可嵌套访问（GRDB 非重入）
         try? dbQueue.write { db in
             try db.execute(sql: "INSERT OR REPLACE INTO meta(key, value) VALUES ('appVersion', ?)",
                            arguments: [version])
             try db.execute(sql: "INSERT OR REPLACE INTO meta(key, value) VALUES ('schemaVersion', ?)",
-                           arguments: ["\(schemaVersion)"])
+                           arguments: ["\(schema)"])
             try db.execute(sql: "INSERT OR REPLACE INTO meta(key, value) VALUES ('migratedAt', ?)",
                            arguments: [ISO8601DateFormatter().string(from: Date())])
         }
