@@ -50,9 +50,9 @@ struct ModelSupportTests {
     func store_006_bucket_counts() throws {
         let (model, _) = makeModel()
         let counts = model.bucketCounts
-        #expect(counts["feed"] == 1)         // netflix
-        #expect(counts["screener"] == 1)     // 未知
-        #expect(counts["paperTrail"] == nil) // github.com 在种子库属 feed——见断言下移
+        #expect(counts["feed"] == 2)         // netflix + github（种子库均属 feed）
+        #expect(counts["screener"] == 1)     // 未知发件人
+        #expect(counts["paperTrail"] == nil)
     }
 
     @Test("JOURNEY-003 邮件详情与未读")
