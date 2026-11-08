@@ -175,3 +175,11 @@
 - **And** 存量无日期邮件（断链时期入库）在 attach 后自动按 ENVELOPE 分批回填（仅补 date/信封字段，**不动 flags/raw**；完成后列表代际刷新，时间列出现）
 - **Status**: green
 - **Tests**: `journey_020_timestamp_pipeline`
+
+## JOURNEY-021 连接自愈（正文加载与轮询）
+- **Given** 已连接但传输已被服务器断开（ENOTCONN/closed）；reconnectHandler 已注入（真实账户）
+- **When** 阅读窗格 loadDetail 拉取正文失败
+- **Then** 经 ensureConnection 重连（refresh token → 新连接 → 换 runner.transport，**握手在后台线程**）并重试一次；成功则正常渲染；重连或重试仍失败才进 failed 态
+- **And** 轮询遇传输失败同样静默自愈（重建连接，下轮恢复；MAIL-025「失败不降级 UI」语义不变）
+- **Status**: draft
+- **Tests**: `journey_021_body_load_reconnects`
