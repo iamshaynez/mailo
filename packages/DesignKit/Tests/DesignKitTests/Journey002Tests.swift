@@ -76,7 +76,7 @@ struct RestoreSessionTests {
         var refreshCalled = false
         let ok = await model.restoreSavedAccount(
             vault: vault,
-            directory: nil,
+            directory: dir,
             tokenRefresher: { clientId, refreshToken in
                 refreshCalled = true
                 return (clientId == "cid-1" && refreshToken == "refresh-token-xyz") ? "access-ok" : nil
