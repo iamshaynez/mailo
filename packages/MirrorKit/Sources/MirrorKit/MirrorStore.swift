@@ -61,6 +61,18 @@ public struct BucketEntry: Codable, Equatable, Hashable, FetchableRecord {
     public var date: String?
     public var bucket: String
     public var flags: String
+
+    public init(stableId: String, subject: String? = nil, fromAddress: String? = nil,
+                snippet: String? = nil, date: String? = nil, bucket: String, flags: String = "") {
+        self.stableId = stableId
+        self.subject = subject
+        self.fromAddress = fromAddress
+        self.snippet = snippet
+        self.date = date
+        self.bucket = bucket
+        self.flags = flags
+    }
+
 }
 
 /// 本地镜像存储（GRDB/SQLite + FTS5 trigram）。
