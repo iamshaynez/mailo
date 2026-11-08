@@ -13,17 +13,19 @@ public struct MailoShell: View {
     }
 
     public var body: some View {
-        switch model.phase {
-        case .demo, .connected:
-            GeometryReader { proxy in
-                if proxy.size.width < 700 {
-                    compactLayout
-                } else {
-                    wideLayout
+        Group {
+            switch model.phase {
+            case .demo, .connected:
+                GeometryReader { proxy in
+                    if proxy.size.width < 700 {
+                        compactLayout
+                    } else {
+                        wideLayout
+                    }
                 }
+            case .empty, .connecting, .failed:
+                AccountSetupView(model: model)
             }
-        case .empty, .connecting, .failed:
-            AccountSetupView(model: model)
         }
         .preferredColorScheme(.light) // 设计规范 §7：v1 锁浅色（深色模式下未显式色文本会白底白字）
     }
