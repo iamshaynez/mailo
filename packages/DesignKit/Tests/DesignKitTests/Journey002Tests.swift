@@ -10,7 +10,7 @@ import MailProtoKit
 struct Journey002Tests {
 
     @Test("JOURNEY-002 真实账户装配路径（注入传输）")
-    func journey_002_real_account_assembly() throws {
+    func journey_002_real_account_assembly() async throws {
         // 文件库（跨启动持久路径）
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("journey002-\(UUID().uuidString)", isDirectory: true)

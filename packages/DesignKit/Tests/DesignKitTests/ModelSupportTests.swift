@@ -25,7 +25,7 @@ struct ModelSupportTests {
     }
 
     @Test("CLS-010 Screener 决策流")
-    func cls_010_screener_decision_flow() throws {
+    func cls_010_screener_decision_flow() async throws {
         let (model, _) = makeModel()
         try model.load(bucket: .screener)
         #expect(model.entries.count == 1)                 // 未知发件人在待定列表
@@ -47,7 +47,7 @@ struct ModelSupportTests {
     }
 
     @Test("STORE-006 桶计数查询")
-    func store_006_bucket_counts() throws {
+    func store_006_bucket_counts() async throws {
         let (model, _) = makeModel()
         let counts = model.bucketCounts
         #expect(counts["feed"] == 2)         // netflix + github（种子库均属 feed）
@@ -56,7 +56,7 @@ struct ModelSupportTests {
     }
 
     @Test("JOURNEY-003 邮件详情与未读")
-    func journey_003_detail_and_unread() throws {
+    func journey_003_detail_and_unread() async throws {
         let (model, _) = makeModel()
         try model.load(bucket: .feed)
         guard let first = model.entries.first(where: { $0.subject == "S1" }) else {
@@ -78,7 +78,7 @@ struct ModelSupportTests {
 @MainActor
 struct HtmlDetailTests {
     @Test("JOURNEY-004 HTML 邮件详情分离")
-    func journey_004_html_detail_separated() throws {
+    func journey_004_html_detail_separated() async throws {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("html-\(UUID().uuidString)", isDirectory: true)
         let model = MailoAppModel.createLive(storeDirectory: dir)
