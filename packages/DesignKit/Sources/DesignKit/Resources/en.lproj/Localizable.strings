@@ -109,3 +109,6 @@
 "sync.backfillProgress" = "Backfilled %1$d · UID %2$d";
 "sync.backfillDone" = "Backfill complete: %d mails";
 "sync.sent" = "Sent to %1@: %2@";
+"sync.dateBackfillDone" = "Date backfill complete";
+"sync.dateBackfillProgress" = "Restoring timestamps %1$d / %2$d";
+"sync.dateBackfillFailed" = "Date backfill paused (will retry next sync)";

@@ -125,10 +125,13 @@ public struct FetchData: Equatable, Sendable {
     public var fromAddress: String?
     public var messageId: String?
     public var rawBody: [UInt8]?
+    /// ENVELOPE[0] 的 Date 头原文（JOURNEY-020：header-first 路径的日期来源）。
+    public var envelopeDate: String?
 
     public init(uid: Int, flags: [String], internalDate: String,
                 subject: String? = nil, fromAddress: String? = nil,
-                messageId: String? = nil, rawBody: [UInt8]? = nil) {
+                messageId: String? = nil, rawBody: [UInt8]? = nil,
+                envelopeDate: String? = nil) {
         self.uid = uid
         self.flags = flags
         self.internalDate = internalDate
@@ -136,6 +139,7 @@ public struct FetchData: Equatable, Sendable {
         self.fromAddress = fromAddress
         self.messageId = messageId
         self.rawBody = rawBody
+        self.envelopeDate = envelopeDate
     }
 
     /// 从 `* n FETCH (...)` 的 atoms 提取。ENVELOPE 顺序（RFC3501）：
@@ -148,7 +152,7 @@ public struct FetchData: Equatable, Sendable {
               case .list(let items) = line.atoms[3] else { return nil }
 
         var uid = 0, flags: [String] = [], date = ""
-        var subject: String?, from: String?, mid: String?, body: [UInt8]?
+        var subject: String?, from: String?, mid: String?, body: [UInt8]?, envDate: String?
 
         var k = 0
         while k + 1 < items.count + 1, k < items.count {
@@ -165,7 +169,10 @@ public struct FetchData: Equatable, Sendable {
                 if case .string(let v) = value { date = v }
             case "ENVELOPE":
                 if case .list(let env) = value {
-                    // env[1] subject, env[2] from, env[9] message-id
+                    // env[0] date, env[1] subject, env[2] from, env[9] message-id（RFC3501）
+                    if env.count > 0, case .string(let d) = env[0] {
+                        envDate = EncodedWord.decode(d) // JOURNEY-020：Date 头原文
+                    }
                     if env.count > 1 {
                         switch env[1] {
                         case .string(let s): subject = EncodedWord.decode(s)
@@ -188,6 +195,7 @@ public struct FetchData: Equatable, Sendable {
             k += 2
         }
         return FetchData(uid: uid, flags: flags, internalDate: date,
-                         subject: subject, fromAddress: from, messageId: mid, rawBody: body ?? header)
+                         subject: subject, fromAddress: from, messageId: mid, rawBody: body ?? header,
+                         envelopeDate: envDate)
     }
 }
