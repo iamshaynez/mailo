@@ -70,13 +70,14 @@ struct MailWebViewRepresentable: UIViewRepresentable {
 #endif
 
 private func configure(_ webView: WKWebView) -> WKWebView {
+    // 沙箱加固：禁 JS 与链接预览（点击链接后续迭代经安全审查后放行）
+    webView.configuration.preferences.javaScriptEnabled = false
+    webView.allowsLinkPreview = false
+    #if os(iOS)
     webView.isOpaque = false
     webView.backgroundColor = .clear
     webView.scrollView.showsVerticalScrollIndicator = true
-    // 沙箱加固：禁 JS 与链接跳转（点击链接后续迭代经安全审查后放行）
-    webView.configuration.preferences.javaScriptEnabled = false
-    webView.navigationDelegate = nil
-    webView.allowsLinkPreview = false
+    #endif
     return webView
 }
 #endif
