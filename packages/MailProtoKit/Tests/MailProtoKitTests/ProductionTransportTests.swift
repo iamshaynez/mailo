@@ -66,3 +66,24 @@ struct ProductionTransportTests {
         }
     }
 }
+
+// MARK: MAIL-025
+
+struct CommandMutexTests {
+    @Test("MAIL-025 并发 send 安全（未连接路径不崩、可串行）")
+    func mail_025_concurrent_send_safety() async {
+        let transport = TcpImapTransport(host: "invalid.local", port: 993, connectTimeout: 1)
+        // 并发 100 个 send：全部得到一致的 closed（锁下无竞态崩溃）
+        await withTaskGroup(of: Bool.self) { group in
+            for _ in 0..<100 {
+                group.addTask {
+                    do { _ = try transport.send(.capability); return true }
+                    catch { return error is TransportError }
+                }
+            }
+            var allClean = true
+            for await ok in group where !ok { allClean = false }
+            #expect(allClean)
+        }
+    }
+}

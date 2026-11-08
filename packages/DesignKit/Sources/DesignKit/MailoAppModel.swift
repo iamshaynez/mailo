@@ -202,7 +202,8 @@ public final class MailoAppModel: ObservableObject {
                     }
                     try self.load(bucket: self.selectedBucket)
                 } catch {
-                    self.phase = .failed("同步失败：\(error)")
+                    // 轮询失败不降级 UI（连接仍在、退避重试；MAIL-025）
+                    self.lastSyncSummary = "同步重试中：\(error)"
                 }
             }
         }
