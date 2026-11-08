@@ -101,6 +101,12 @@ public final class MirrorStore: @unchecked Sendable {
             }
             // FTS5 外部内容表 + trigram（SQLite 3.34+，中文子串可搜，STORE-003）。
             // 用原始 SQL + 手写触发器，避免对 GRDB FTS5 DSL 的版本耦合。
+            try db.create(table: "sync_state") { t in
+                t.primaryKey(["folder"], onConflict: .replace)
+                t.column("folder", .text).notNull()
+                t.column("uidValidity", .integer).notNull()
+                t.column("highestUid", .integer).notNull()
+            }
             try db.execute(sql: """
             CREATE VIRTUAL TABLE mail_fts USING fts5(
                 subject, fromAddress, snippet,
@@ -185,6 +191,27 @@ public final class MirrorStore: @unchecked Sendable {
     }
 
     /// 各桶邮件数（侧栏徽章数据源，STORE-006）。
+        /// 同步快照持久化（SYNC-015）：folder → (uidValidity, highestUid)。
+    public func saveSnapshot(folder: String, uidValidity: Int, highestUid: Int) throws {
+        try dbQueue.write { db in
+            try db.execute(sql: "INSERT OR REPLACE INTO sync_state(folder, uidValidity, highestUid) VALUES (?,?,?)",
+                           arguments: [folder, uidValidity, highestUid])
+        }
+    }
+
+    public func loadSnapshot(folder: String) -> (uidValidity: Int, highestUid: Int)? {
+        let row = try? dbQueue.read { db in
+            try Row.fetchOne(db, sql: "SELECT uidValidity, highestUid FROM sync_state WHERE folder = ?", arguments: [folder])
+        }
+        return row.map { ($0["uidValidity"] ?? 0, $0["highestUid"] ?? 0) }
+    }
+
+    /// 批量入库（STORE-007：单事务，事务开销摊平）。
+    public func upsertBatch(_ rows: [MailRow]) throws {
+        try dbQueue.write { db in
+            for row in rows { try row.save(db) }
+        }
+    }
     public func bucketCounts() throws -> [String: Int] {
         try dbQueue.read { db in
             var out: [String: Int] = [:]

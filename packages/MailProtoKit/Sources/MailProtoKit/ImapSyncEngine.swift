@@ -47,10 +47,14 @@ public struct ImapSyncEngine: Sendable {
     /// 首次同步（无快照/重置重拉）的最近窗口：只拉最近 N 封，绝不全量
     /// （SYNC-012，基线 §5 回填策略"最近优先"；历史回填由后台分批任务负责）。
     public var initialWindow: Int
+    /// 两段式同步（SYNC-013/PERF-003）：true 时列表同步只拉 ENVELOPE（不传正文），
+    /// 正文由 fetchBody 按需拉取（SYNC-014）。业界邮件客户端通行做法（Apple Mail/Thunderbird）。
+    public var headerFirst: Bool
 
-    public init(accountFingerprint: String, initialWindow: Int = 200) {
+    public init(accountFingerprint: String, initialWindow: Int = 200, headerFirst: Bool = true) {
         self.accountFingerprint = accountFingerprint
         self.initialWindow = initialWindow
+        self.headerFirst = headerFirst
     }
 
     public func sync(folder: String, snapshot: SyncSnapshot?, transport: any ImapTransport) throws -> SyncOutcome {
@@ -77,20 +81,28 @@ public struct ImapSyncEngine: Sendable {
         } else {
             range = "\(snapshot!.highestUid + 1):*"
         }
-        let fetchLines = try ImapParser.parse(try transport.send(.fetchUid(range: range, items: "(UID FLAGS BODY[])")))
+        let items = headerFirst ? "(UID FLAGS ENVELOPE)" : "(UID FLAGS BODY[])"
+        let fetchLines = try ImapParser.parse(try transport.send(.fetchUid(range: range, items: items)))
 
         var events: [MailEvent] = []
         var highest = snapshot?.highestUid ?? 0
         for line in fetchLines {
-            guard let fd = FetchData.extract(from: line), let rawBody = fd.rawBody, !rawBody.isEmpty else { continue }
-            let parsed = MimeParser.parse(rawBody)
+            guard let fd = FetchData.extract(from: line) else { continue }
+            // headerFirst：raw 为空，摘要来自 ENVELOPE；全量模式：解析 BODY[] 原文
+            let rawBody = fd.rawBody ?? []
+            let parsed = rawBody.isEmpty
+                ? ParsedEmail(headers: [:], messageId: fd.messageId, subject: fd.subject,
+                              from: fd.fromAddress, date: nil, textBody: nil, htmlBody: nil, attachments: [])
+                : MimeParser.parse(rawBody)
+            guard !rawBody.isEmpty || fd.subject != nil || fd.fromAddress != nil else { continue }
             let stableID = StableMessageID(
-                messageId: parsed.messageId,
+                messageId: parsed.messageId ?? fd.messageId,
                 accountFingerprint: accountFingerprint,
-                fallback: .init(from: parsed.from ?? "", date: parsed.date ?? "", subject: parsed.subject ?? ""))
+                fallback: .init(from: parsed.from ?? fd.fromAddress ?? "", date: parsed.date ?? "",
+                                subject: parsed.subject ?? fd.subject ?? ""))
             events.append(MailEvent(
                 stableMessageID: stableID, uid: fd.uid, flags: fd.flags, raw: rawBody,
-                subject: parsed.subject, fromAddress: parsed.from))
+                subject: parsed.subject ?? fd.subject, fromAddress: parsed.from ?? fd.fromAddress))
             highest = max(highest, fd.uid)
         }
 
@@ -99,6 +111,18 @@ public struct ImapSyncEngine: Sendable {
             return .resetDetected(old: old, new: uidValidity, events: events, snapshot: snap)
         }
         return .synced(events: events, snapshot: snap)
+    }
+
+    /// 单封正文按需拉取（SYNC-014）：`FETCH uid (UID BODY.PEEK[])`——PEEK 不置 \Seen。
+    /// 返回完整原文字节；邮件不在（已删）返回 nil。
+    public func fetchBody(uid: Int, transport: any ImapTransport) throws -> [UInt8]? {
+        let lines = try ImapParser.parse(try transport.send(.fetchUid(range: "\(uid)", items: "(UID BODY.PEEK[])")))
+        for line in lines {
+            if let fd = FetchData.extract(from: line), let body = fd.rawBody, !body.isEmpty {
+                return body
+            }
+        }
+        return nil
     }
 
     /// UIDVALIDITY 提取（tokenizer 中方括号为裸 token，按文本扫描稳健）。

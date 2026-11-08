@@ -13,3 +13,10 @@
 - **Then** 总耗时 < 5s（高水位同步的毫秒级单批远低于此，门禁防退化为 O(n²)）
 - **Status**: draft
 - **Tests**: `perf_002_parse_throughput`
+
+## PERF-003 列表同步不请求正文
+- **Given** headerFirst 引擎
+- **When** 观察 FETCH wire 命令
+- **Then** items 不含 BODY[]（列表同步传输量从 O(全文) 降到 O(信封)）
+- **Status**: draft
+- **Tests**: `sync_013_header_first_fetch`（同源断言）

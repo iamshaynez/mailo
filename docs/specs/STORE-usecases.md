@@ -44,3 +44,10 @@
 - **Then** 每桶数量正确（侧栏徽章数据源）
 - **Status**: draft
 - **Tests**: `store_006_bucket_counts`
+
+## STORE-007 批量事务 upsert
+- **Given** 200 封邮件事件
+- **When** upsertBatch（单事务）vs 逐封 upsert
+- **Then** 数据等价；批量耗时显著低于逐封（事务开销摊平）
+- **Status**: draft
+- **Tests**: `store_007_batch_upsert`
