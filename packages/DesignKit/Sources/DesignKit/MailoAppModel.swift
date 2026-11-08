@@ -28,6 +28,16 @@ public final class MailoAppModel: ObservableObject {
     public var deviceId: String
 
     private var runner: SyncRunner?
+    private var accounts: AccountStore?
+
+    private func accountStore() -> AccountStore {
+        if let accounts { return accounts }
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Mailo", isDirectory: true)
+        let store = AccountStore(directory: dir)
+        accounts = store
+        return store
+    }
     private var pollTask: Task<Void, Never>?
 
     public init(store: MirrorStore, pipeline: ClassificationPipeline, deviceId: String = "device-A") {
@@ -90,10 +100,52 @@ public final class MailoAppModel: ObservableObject {
                 smtpHost: OAuthProviderConfig.outlookSmtpHost, username: email,
                 secretRef: "mailo.acct.outlook.\(email)")
             try await attach(account: config, transport: transport)
+            try? accountStore().save(AccountRecord(email: email, clientId: clientId,
+                                                   accountKind: account, secretRef: config.secretRef))
             startPolling()
         } catch {
             phase = .failed(String(describing: error))
             throw error
+        }
+    }
+
+    /// 恢复上次会话（JOURNEY-005）：refresh token 刷新 → 连接 → 增量同步，免设备码。
+    /// tokenRefresher / transportFactory 为注入点（生产默认 DeviceCodeClient/TCP；测试注入假件）。
+    @discardableResult
+    public func restoreSavedAccount(
+        vault: any CredentialVault,
+        directory: URL? = nil,
+        tokenRefresher: (_ clientId: String, _ refreshToken: String) async throws -> String? = nil,
+        transportFactory: (_ host: String) -> any ImapTransport = { TcpImapTransport(host: $0) }
+    ) async -> Bool {
+        let store: AccountStore = {
+            if let directory { return AccountStore(directory: directory) }
+            return accountStore()
+        }()
+        guard let record = store.loadPrimary(),
+              let secret = try? vault.load(record.secretRef), !secret.isEmpty else { return false }
+        let kind = DeviceCodeFlow.MicrosoftAccount(rawValue: record.accountKind) ?? .personal
+        do {
+            let accessToken: String?
+            if let refresher = tokenRefresher {
+                accessToken = try await refresher(record.clientId, secret)
+            } else {
+                let granted = try await DeviceCodeClient().refresh(
+                    clientId: record.clientId, account: kind, refreshToken: secret)
+                accessToken = granted.accessToken
+            }
+            guard let token = accessToken else { return false }
+            let transport = transportFactory(OAuthProviderConfig.outlookImapHost)
+            try (transport as? TcpImapTransport)?.connect(method: .xoauth2(user: record.email, accessToken: token))
+            let config = AccountConfig(displayName: record.email,
+                                       imapHost: OAuthProviderConfig.outlookImapHost,
+                                       smtpHost: OAuthProviderConfig.outlookSmtpHost,
+                                       username: record.email, secretRef: record.secretRef)
+            try await attach(account: config, transport: transport)
+            startPolling()
+            return true
+        } catch {
+            return false
         }
     }
 

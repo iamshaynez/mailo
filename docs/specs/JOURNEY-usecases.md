@@ -34,3 +34,10 @@
 - **Then** textBody 为 nil、htmlBody 携带 HTML 原文；渲染层用 WKWebView + CSP（default-src 'none'; style-src 'unsafe-inline'; img-src data:）——远程图片默认禁（规范 §7），纯文本邮件仍走原生 Text
 - **Status**: draft
 - **Tests**: `journey_004_html_detail_separated`
+
+## JOURNEY-005 refresh token 恢复会话（免授权）
+- **Given** 上次连接成功：账户信息（email/clientId/账户形态）已存本地、refresh token 已存 vault
+- **When** App 重启执行 restoreSavedAccount（token 刷新注入 + 传输工厂注入，均可测）
+- **Then** 免设备码直接完成"刷新→连接→增量同步"；无存档或刷新失败返回 false（回设置页）
+- **Status**: draft
+- **Tests**: `journey_005_restore_session`
