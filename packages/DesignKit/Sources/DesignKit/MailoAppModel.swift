@@ -196,11 +196,20 @@ public final class MailoAppModel: ObservableObject {
     private var backfillTask: Task<Void, Never>?
     public private(set) var backfilledCount = 0
 
+    /// 回填进度（SYNC-017）：进行中非 nil，完成/取消归 nil；UI 呈现"导入历史 n/total"。
+    public struct BackfillProgress: Equatable, Sendable {
+        public let fetched: Int
+        public let total: Int
+    }
+
+    @Published public private(set) var backfillProgress: BackfillProgress?
+
     public func startBackfill(batchSize: Int = 100) {
         backfillTask?.cancel()
         guard let runner else { return }
         let floor0 = max(1, (runner.snapshot?.highestUid ?? 0) - runner.engine.initialWindow)
         guard floor0 > 1 else { return }
+        backfillProgress = BackfillProgress(fetched: 0, total: floor0 - 1)
         backfillTask = Task { [weak self] in
             var floor = floor0
             while !Task.isCancelled, let self {
@@ -210,17 +219,27 @@ public final class MailoAppModel: ObservableObject {
                     try? await self.apply(events)
                     self.backfilledCount += events.count
                     self.lastSyncSummary = "Backfilled \(self.backfilledCount) · UID \(low)"
+                    self.backfillProgress = BackfillProgress(fetched: self.backfilledCount,
+                                                             total: max(floor0 - 1, self.backfilledCount))
                     self.refreshCounts()
                     self.entries = (try? self.store.entries(bucket: self.selectedBucket)) ?? self.entries
                 }
-                if low <= 1 { 
+                if low <= 1 {
                     self.lastSyncSummary = "Backfill complete: \(self.backfilledCount) mails"
-                    return 
+                    self.backfillProgress = nil
+                    return
                 }
                 floor = low - 1
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
             }
         }
+    }
+
+    /// 取消回填（进度归零）。
+    public func cancelBackfill() {
+        backfillTask?.cancel()
+        backfillTask = nil
+        backfillProgress = nil
     }
 
     /// 前台轮询（基线 D7：30s 基准、失败退避由 PollingPolicy 管理）。
@@ -299,13 +318,40 @@ public final class MailoAppModel: ObservableObject {
         case refreshFailed
     }
 
-    /// 全文搜索（JOURNEY-007）：FTS5/底层搜索的 UI 数据源。
+    /// 全文搜索（JOURNEY-007）：FTS5/底层搜索的 UI 数据源。执行记录供防抖测试观测。
+    public private(set) var searchExecutions: [String] = []
+
     public func search(_ query: String) {
+        searchExecutions.append(query)
         guard query.trimmingCharacters(in: .whitespaces).count >= 1 else {
             searchResults = []
             return
         }
         searchResults = (try? store.search(query)) ?? []
+    }
+
+    private var searchTask: Task<Void, Never>?
+
+    /// 防抖搜索（JOURNEY-015）：250ms 窗口内连续输入只执行最后一轮；新输入取消未完成轮。
+    public func searchDebounced(_ query: String) {
+        searchTask?.cancel()
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else {
+            clearSearch()
+            return
+        }
+        searchTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled, let self else { return }
+            self.search(trimmed)
+        }
+    }
+
+    /// 清空搜索（Esc/清除按钮）：取消在途查询并恢复列表。
+    public func clearSearch() {
+        searchTask?.cancel()
+        searchResults = []
+        searchExecutions.append("")
     }
 
     // MARK: - 事件应用（入库 + 分类 + 冻结，JOURNEY-001 核心）
@@ -395,6 +441,60 @@ public protocol MlGuessProviding: Sendable {
         public var bucket: Bucket?
 
         public var isUnread: Bool { !flags.contains("\\Seen") }
+    }
+
+    /// 正文加载状态（JOURNEY-014）：loading → loaded / failed(可重试)。
+    public enum DetailLoadState: Equatable, Sendable {
+        case loading
+        case loaded(MailDetail)
+        case failed(String)
+    }
+
+    /// 异步详情加载（JOURNEY-014）：正文网络回填在后台线程，主线程零等待；
+    /// 失败返回 failed（阅读窗格给重试），成功后 raw 已持久化（下次零网络）。
+    public func loadDetail(stableId: String) async -> DetailLoadState {
+        guard var row = try? store.mail(stableId: stableId) else {
+            return .failed("Message missing from local store")
+        }
+        if row.raw == nil, let runner {
+            let engine = runner.engine
+            let transport = runner.transport
+            let uid = row.uid
+            do {
+                let body: [UInt8]? = try await Task.detached(priority: .userInitiated) {
+                    try engine.fetchBody(uid: uid, transport: transport)
+                }.value
+                if let body {
+                    let parsed = MimeParser.parse(body)
+                    row.raw = Data(body)
+                    row.snippet = row.snippet ?? parsed.textBody.map { String($0.prefix(200)) }
+                    try? store.upsert(row)
+                }
+            } catch {
+                return .failed("Couldn't load message body: \(String(describing: error))")
+            }
+        }
+        return .loaded(buildDetail(from: row))
+    }
+
+    private func buildDetail(from row: MailRow) -> MailDetail {
+        let ownBucket = try? store.classificationBucket(stableId: row.stableId)
+        guard let raw = row.raw else {
+            return MailDetail(stableId: row.stableId, subject: row.subject, fromAddress: row.fromAddress,
+                              date: row.date, textBody: nil, htmlBody: nil,
+                              attachmentNames: [], flags: row.flagList, bucket: ownBucket)
+        }
+        let parsed = MimeParser.parse([UInt8](raw))
+        return MailDetail(
+            stableId: row.stableId,
+            subject: row.subject ?? parsed.subject,
+            fromAddress: row.fromAddress ?? parsed.from,
+            date: row.date ?? parsed.date,
+            textBody: parsed.textBody,
+            htmlBody: parsed.htmlBody,
+            attachmentNames: parsed.attachments.compactMap(\.filename),
+            flags: row.flagList,
+            bucket: ownBucket)
     }
 
     public func mailDetail(stableId: String) -> MailDetail? {

@@ -8,6 +8,7 @@ struct MailListView: View {
     @ObservedObject var model: MailoAppModel
     @Binding var selection: String?
     @State private var segment = 0 // 0 New / 1 Seen / 2 All
+    @State private var dateIndex = MailDateIndex(entries: []) // PERF-004
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,7 +23,8 @@ struct MailListView: View {
                             ForEach(group.entries, id: \.stableId) { entry in
                                 MailRowView(entry: entry,
                                             bucket: model.selectedBucket,
-                                            selected: entry.stableId == selection)
+                                            selected: entry.stableId == selection,
+                                            timeText: dateIndex.timeLabel(for: entry.stableId))
                                     .tag(entry.stableId)
                                     .listRowInsets(EdgeInsets())
                                     .listRowSeparator(.hidden)
@@ -45,6 +47,8 @@ struct MailListView: View {
             }
         }
         .background(DesignTokens.surfaceMain)
+        .onAppear { dateIndex = MailDateIndex(entries: model.entries) }
+        .onChange(of: model.entries) { dateIndex = MailDateIndex(entries: $0) }
     }
 
     private var header: some View {
@@ -60,6 +64,17 @@ struct MailListView: View {
             .padding(.horizontal, 16).padding(.vertical, 10)
             segmented
                 .padding(.horizontal, 16).padding(.bottom, 10)
+            if let progress = model.backfillProgress {
+                VStack(alignment: .leading, spacing: 3) {
+                    ProgressView(value: Double(progress.fetched),
+                                 total: Double(max(progress.total, 1)))
+                        .tint(DesignTokens.brandBlue)
+                    Text("Importing history · \(progress.fetched) mails")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundColor(DesignTokens.inkMuted)
+                }
+                .padding(.horizontal, 16).padding(.bottom, 10)
+            }
         }
     }
 
@@ -127,14 +142,15 @@ struct MailListView: View {
     }
 
     private var filteredGroups: [(label: String, entries: [BucketEntry])] {
-        MailDateGrouping.group(entries: filtered)
+        MailDateGrouping.group(entries: filtered, index: dateIndex)
     }
 }
 
-// MARK: - 日期分组与格式化（PERF-004 方向：formatter 静态缓存，行渲染零分配）
+// MARK: - 日期分组与索引（PERF-004：加载时一次解析，行渲染零分配）
 
+@MainActor
 enum MailDateGrouping {
-    /// RFC2822 解析器（静态缓存；行渲染路径复用同一实例）。
+    /// RFC2822 解析器（静态缓存；全 UI 共享）。
     static let rfc2822: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "EEE, d MMM yyyy HH:mm:ss Z"
@@ -143,14 +159,13 @@ enum MailDateGrouping {
     }()
 
     /// 按日分组：TODAY / YESTERDAY / 更早显示日期；保持入参（日期倒序）顺序。
-    static func group(entries: [BucketEntry]) -> [(label: String, entries: [BucketEntry])] {
+    static func group(entries: [BucketEntry], index: MailDateIndex) -> [(label: String, entries: [BucketEntry])] {
         var out: [(String, [BucketEntry])] = []
         var buckets: [String: Int] = [:]
-        let today = Calendar.current.startOfDay(for: Date())
         for entry in entries {
-            let label = dayLabel(entry.date, today: today)
-            if let index = buckets[label] {
-                out[index].1.append(entry)
+            let label = index.dayLabel(for: entry.stableId)
+            if let i = buckets[label] {
+                out[i].1.append(entry)
             } else {
                 buckets[label] = out.count
                 out.append((label, [entry]))
@@ -158,27 +173,55 @@ enum MailDateGrouping {
         }
         return out.map { (label: $0.0, entries: $0.1) }
     }
+}
 
-    static func dayLabel(_ raw: String?, today: Date) -> String {
-        guard let raw, let date = rfc2822.date(from: raw) else { return "Undated" }
+/// 列表日期索引（PERF-004）：一次构建，同一 raw 字符串只解析一次；
+/// 行渲染路径全部是字典查找 + 静态 formatter。`parseCount` 为测试观测口。
+@MainActor
+struct MailDateIndex {
+    static let dayFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "MMM d"; f.locale = Locale(identifier: "en_US"); return f
+    }()
+    static let timeFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "HH:mm"; f.locale = Locale(identifier: "en_US"); return f
+    }()
+    static var parseCount = 0
+
+    private let dates: [String: Date]
+
+    init(entries: [BucketEntry]) {
+        Self.parseCount = 0
+        var rawCache: [String: Date] = [:]
+        var out: [String: Date] = [:]
+        for entry in entries {
+            guard let raw = entry.date else { continue }
+            if let cached = rawCache[raw] { out[entry.stableId] = cached; continue }
+            guard let parsed = MailDateGrouping.rfc2822.date(from: raw) else { continue }
+            Self.parseCount += 1
+            rawCache[raw] = parsed
+            out[entry.stableId] = parsed
+        }
+        dates = out
+    }
+
+    func date(for stableId: String) -> Date? { dates[stableId] }
+
+    func dayLabel(for stableId: String) -> String {
+        guard let date = dates[stableId] else { return "Undated" }
+        let today = Calendar.current.startOfDay(for: Date())
         let day = Calendar.current.startOfDay(for: date)
         let gap = Calendar.current.dateComponents([.day], from: day, to: today).day ?? 99
         if gap == 0 { return "TODAY" }
         if gap == 1 { return "YESTERDAY" }
-        return date.formatted(.dateTime.month(.abbreviated).day().locale(Locale(identifier: "en_US")))
-            .uppercased()
+        return Self.dayFormatter.string(from: date).uppercased()
     }
 
-    /// 行内时间标签：今天显示时刻，更早显示月日。
-    static func timeLabel(_ raw: String?) -> String {
-        guard let raw, let date = rfc2822.date(from: raw) else { return "" }
+    func timeLabel(for stableId: String) -> String {
+        guard let date = dates[stableId] else { return "" }
         let today = Calendar.current.startOfDay(for: Date())
         let day = Calendar.current.startOfDay(for: date)
         let gap = Calendar.current.dateComponents([.day], from: day, to: today).day ?? 99
-        if gap == 0 {
-            return date.formatted(.dateTime.hour().minute().locale(Locale(identifier: "en_US")))
-        }
-        return date.formatted(.dateTime.month(.abbreviated).day().locale(Locale(identifier: "en_US")))
+        return gap == 0 ? Self.timeFormatter.string(from: date) : Self.dayFormatter.string(from: date)
     }
 }
 
@@ -188,6 +231,8 @@ struct MailRowView: View {
     let entry: BucketEntry
     let bucket: Bucket
     let selected: Bool
+    var timeText: String = ""
+    @State private var hovered = false
 
     private var isUnread: Bool { !entry.flags.contains("\\Seen") }
 
@@ -213,7 +258,7 @@ struct MailRowView: View {
                         Circle().fill(DesignTokens.brandBlue).frame(width: 7, height: 7)
                     }
                     Spacer(minLength: 0)
-                    Text(MailDateGrouping.timeLabel(entry.date))
+                    Text(timeText)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(DesignTokens.inkFaint)
                 }
@@ -237,5 +282,7 @@ struct MailRowView: View {
             }
         }
         .contentShape(Rectangle())
+        .onHover { hovered = $0 } // mockup §2：hover 用 surface/wash（macOS 反馈）
+        .background(hovered && !selected ? DesignTokens.surfaceWash : Color.clear)
     }
 }
