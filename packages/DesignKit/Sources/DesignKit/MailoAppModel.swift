@@ -38,6 +38,47 @@ public final class MailoAppModel: ObservableObject {
         accounts = store
         return store
     }
+    // MARK: - UI 命令路由（JOURNEY-009）
+    @Published public private(set) var commandRequest: MailCommandRequest?
+    private var commandSeq = 0
+
+    /// 手动同步可用（已装配 runner：demo/已连接）。
+    public var isSyncCapable: Bool { runner != nil }
+
+    /// 撰写可用（demo 或已连接）。
+    public var canCompose: Bool {
+        switch phase {
+        case .demo, .connected: return true
+        case .empty, .connecting, .failed: return false
+        }
+    }
+
+    /// 菜单/快捷键 → 壳层动作（单调递增 id 保证重复触发可观察）。
+    public func request(_ command: MailoUICommand) {
+        commandSeq += 1
+        commandRequest = MailCommandRequest(id: commandSeq, command: command)
+    }
+
+    /// 手动同步（JOURNEY-009 菜单）：立即跑一轮增量并刷新列表；失败写入同步摘要不弹窗。
+    public func syncNow() {
+        Task { @MainActor in
+            guard var r = runner else { return }
+            do {
+                let outcome = try r.runOnce()
+                runner = r
+                if case .synced(let events, _) = outcome {
+                    try? await apply(events)
+                    try? store.saveSnapshot(folder: "INBOX",
+                                            uidValidity: r.snapshot?.uidValidity ?? 0,
+                                            highestUid: r.snapshot?.highestUid ?? 0)
+                }
+                try load(bucket: selectedBucket)
+                lastSyncSummary = "Manual sync completed"
+            } catch {
+                lastSyncSummary = "Sync failed: \(error)"
+            }
+        }
+    }
     private var pollTask: Task<Void, Never>?
 
     public init(store: MirrorStore, pipeline: ClassificationPipeline, deviceId: String = "device-A") {

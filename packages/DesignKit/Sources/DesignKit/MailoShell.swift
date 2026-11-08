@@ -2,14 +2,18 @@ import CoreKit
 import MirrorKit
 import SwiftUI
 
-/// 三栏主壳（mockup Blue Box Classic 全量还原）：
-/// 品牌蓝标题栏（搜索/Compose）→ Screener 顶条 → 侧栏 212 / 列表 392 / 阅读 flex。
-/// macOS 用 hiddenTitleBar 让内容顶到窗口顶（App 壳配置）；窄屏（iPhone）自动退化为单栏+覆盖式阅读。
+/// 三栏主壳（JOURNEY-008 骨架原生化）：
+/// `NavigationSplitView`（212 侧栏 / 392 列表 / flex 阅读，可拖动、⌘⇧C 折叠）+
+/// 系统 toolbar 以运通蓝着色承载搜索与 Compose（Blue Box 身份的规范表达）。
+/// 窄屏（iPhone）自动退化为 NavigationStack 单栏 + 覆盖式阅读 + bucket 菜单。
 public struct MailoShell: View {
     @ObservedObject var model: MailoAppModel
     @State private var selection: String?
     @State private var composing = false
     @State private var searchText = ""
+    @FocusState private var searchFocused: Bool
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     public init(model: MailoAppModel) {
         self.model = model
@@ -19,41 +23,70 @@ public struct MailoShell: View {
         Group {
             switch model.phase {
             case .demo, .connected:
-                GeometryReader { proxy in
-                    if proxy.size.width < 700 {
-                        compactLayout
-                    } else {
-                        wideLayout
-                    }
+                if sizeClass == .compact {
+                    compactLayout
+                } else {
+                    wideLayout
                 }
             case .empty, .connecting, .failed:
                 AccountSetupView(model: model)
             }
         }
-        .preferredColorScheme(.light) // 设计规范 §7：v1 锁浅色（深色模式下未显式色文本会白底白字）
+        .preferredColorScheme(.light) // 设计规范 §7：v1 锁浅色
+        .sheet(isPresented: $composing) { ComposeView(model: model) }
+        .onChange(of: model.commandRequest) { request in
+            guard let request else { return }
+            handle(request.command)
+        }
+        .onChange(of: model.selectedBucket) { _ in selection = nil }
     }
 
-    // MARK: 宽屏三栏
+    private func handle(_ command: MailoUICommand) {
+        switch command {
+        case .compose: composing = true
+        case .focusSearch: searchFocused = true
+        }
+    }
+
+    // MARK: 宽屏三栏（NavigationSplitView）
 
     private var wideLayout: some View {
         VStack(spacing: 0) {
-            brandBar
             screenerBanner
-            HStack(spacing: 0) {
+            NavigationSplitView(columnVisibility: $columnVisibility) {
                 SidebarView(model: model)
-                Divider().overlay(DesignTokens.borderDefault)
-                if searchText.isEmpty {
-                    MailListView(model: model, selection: $selection)
-                } else {
-                    SearchResultsView(model: model, selection: $selection)
-                }
-                Divider().overlay(DesignTokens.borderDefault)
+                    .background(DesignTokens.surfaceMain)
+                    .navigationSplitViewColumnWidth(min: 180, ideal: DesignTokens.sidebarWidth, max: 320)
+            } content: {
+                listColumn
+                    .background(DesignTokens.surfaceMain)
+                    .navigationSplitViewColumnWidth(min: 320, ideal: DesignTokens.listWidth, max: 560)
+            } detail: {
                 readerPane
             }
-            diagnosticBar
+            .navigationSplitViewStyle(.balanced)
         }
+        .navigationTitle("Mailo")
+        #if os(macOS)
+        .toolbarBackground(DesignTokens.brandBlue, for: .windowToolbar)
+        .toolbarBackground(.visible, for: .windowToolbar)
+        .toolbarColorScheme(.dark, for: .windowToolbar) // 蓝底上系统自动用浅色内容
+        #else
+        .toolbarBackground(DesignTokens.brandBlue, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        #endif
+        .toolbar { toolbarContent }
         .background(DesignTokens.surfaceMain)
-        .sheet(isPresented: $composing) { ComposeView(model: model) }
+    }
+
+    @ViewBuilder
+    private var listColumn: some View {
+        if searchText.isEmpty {
+            MailListView(model: model, selection: $selection)
+        } else {
+            SearchResultsView(model: model, selection: $selection)
+        }
     }
 
     @ViewBuilder
@@ -71,59 +104,21 @@ public struct MailoShell: View {
                 Spacer()
             }
             .frame(maxWidth: .infinity)
-            .background(Color(red: 0.99, green: 1.0, blue: 1.0))
+            .background(DesignTokens.surfaceWash)
         }
     }
 
-    // MARK: 品牌标题栏（mockup §4：52pt 运通蓝）
+    // MARK: 品牌工具栏（mockup §4：运通蓝标题栏的原生化表达）
 
-    private var brandBar: some View {
-        HStack(spacing: 14) {
-            #if os(macOS)
-            Color.clear.frame(width: 60, height: 10) // 系统红绿灯让位
-            #endif
-            HStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(Color.white)
-                    .frame(width: 20, height: 20)
-                    .overlay(Text("M").font(.system(size: 12, weight: .heavy)).foregroundColor(DesignTokens.brandBlue))
-                Text("Mailo")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
-            }
-            HStack(spacing: 7) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 11))
-                TextField("搜索全部邮件…", text: $searchText)
-                    .font(.system(size: 12.5))
-                    .textFieldStyle(.plain)
-                    .onChange(of: searchText) { q in model.search(q) }
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                        model.search("")
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 11))
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    Text("⌘K")
-                        .font(.system(size: 10.5, weight: .semibold))
-                        .padding(.horizontal, 6).padding(.vertical, 1)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.2)))
-                }
-            }
-            .foregroundColor(Color.white.opacity(0.85))
-            .padding(.horizontal, 12)
-            .frame(maxWidth: 420)
-            .frame(height: 30)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.16)))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.white.opacity(0.28), lineWidth: 1))
-
-            Spacer()
-
-            Button { composing = true } label: {
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
+            searchField
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                composing = true
+            } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "pencil")
                     Text("Compose")
@@ -136,9 +131,40 @@ public struct MailoShell: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 16)
-        .frame(height: DesignTokens.titleBarHeight)
-        .background(DesignTokens.brandBlue.ignoresSafeArea(edges: .top))
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 11))
+            TextField("Search all mail…", text: $searchText)
+                .font(.system(size: 12.5))
+                .textFieldStyle(.plain)
+                .focused($searchFocused)
+                .submitLabel(.search)
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                    model.search("")
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text("⌘K") // 与 MailoCommandMenu 的 ⌘K 呼应（JOURNEY-009）
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .padding(.horizontal, 6).padding(.vertical, 1)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.2)))
+            }
+        }
+        .foregroundColor(Color.white.opacity(0.85))
+        .padding(.horizontal, 12)
+        .frame(minWidth: 220, idealWidth: 380, maxWidth: 420)
+        .frame(height: 30)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.16)))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.white.opacity(0.28), lineWidth: 1))
+        .onChange(of: searchText) { q in model.search(q) }
     }
 
     // MARK: Screener 顶条（mockup §5）
@@ -149,7 +175,7 @@ public struct MailoShell: View {
         if count > 0 {
             HStack(spacing: 8) {
                 Circle().fill(DesignTokens.bucketColor(.screener)).frame(width: 7, height: 7)
-                Text("\(count) 位新发件人正在 Screener 等待 — 批准一次，永久归类。")
+                Text("\(count) new senders waiting in your Screener — approve once, filed forever.")
                     .font(.system(size: 12.5))
                 Spacer()
                 Button {
@@ -167,38 +193,23 @@ public struct MailoShell: View {
             .padding(.vertical, 7)
             .background(DesignTokens.brandBlueWash)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(Color(red: 0.81, green: 0.89, blue: 0.96)).frame(height: 1)
+                Rectangle().fill(DesignTokens.brandBlueBorder).frame(height: 1)
             }
         }
     }
 
-    // MARK: 诊断条（排查真实数据的第一现场）
-
-    @ViewBuilder
-    private var diagnosticBar: some View {
-        HStack(spacing: 12) {
-            Text(model.lastSyncSummary.isEmpty ? model.store.schemaDiagnostics() : model.lastSyncSummary)
-            Spacer()
-            Text(model.store.schemaDiagnostics())
-        }
-        .font(.system(size: 10.5, weight: .medium))
-        .foregroundColor(DesignTokens.inkMuted)
-        .padding(.horizontal, 16)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 3)
-        .background(DesignTokens.brandBlueWash)
-        .overlay(alignment: .top) { Divider().overlay(DesignTokens.borderDefault) }
-    }
-
-    // MARK: 窄屏（iPhone）：单栏 + 覆盖式阅读
+    // MARK: 窄屏（iPhone）：NavigationStack 单栏 + 覆盖式阅读 + bucket 菜单
 
     private var compactLayout: some View {
-        VStack(spacing: 0) {
-            brandBar
-            screenerBanner
+        NavigationStack {
             ZStack {
-                MailListView(model: model, selection: .constant(nil))
-                    .frame(maxWidth: .infinity)
+                if searchText.isEmpty {
+                    MailListView(model: model, selection: .constant(nil))
+                        .frame(maxWidth: .infinity)
+                } else {
+                    SearchResultsView(model: model, selection: .constant(nil))
+                        .frame(maxWidth: .infinity)
+                }
                 if let selection {
                     MailReaderView(model: model, stableId: selection)
                         .background(DesignTokens.surfaceMain)
@@ -216,14 +227,33 @@ public struct MailoShell: View {
                         .transition(.move(edge: .trailing))
                 }
             }
-            diagnosticBar
+            .navigationTitle("Mailo")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(DesignTokens.brandBlue, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { composing = true } label: { Image(systemName: "pencil") }
+                        .disabled(!model.canCompose)
+                }
+                ToolbarItem(placement: .navigation) {
+                    Menu {
+                        ForEach(Bucket.navBuckets, id: \.self) { bucket in
+                            Button(bucket.title) { try? model.load(bucket: bucket) }
+                        }
+                    } label: {
+                        Image(systemName: "line.3.horizontal")
+                    }
+                }
+            }
         }
-        .background(DesignTokens.surfaceMain)
-        .sheet(isPresented: $composing) { ComposeView(model: model) }
     }
 }
 
-/// 搜索结果（JOURNEY-007）：全库命中，复用行视觉。
+/// 搜索结果（JOURNEY-007）：全库命中，与列表同源行视觉 + List selection（JOURNEY-008）。
 struct SearchResultsView: View {
     @ObservedObject var model: MailoAppModel
     @Binding var selection: String?
@@ -231,17 +261,23 @@ struct SearchResultsView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
-                Text("搜索结果")
+                Text("Search Results")
                     .font(.system(size: 19, weight: .heavy))
-                Text("\(model.searchResults.count) 封")
+                Text("\(model.searchResults.count)")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(DesignTokens.inkFaint)
                 Spacer()
             }
             .padding(.horizontal, 16).padding(.vertical, 10)
             Divider().overlay(DesignTokens.borderDefault)
-            ScrollView {
-                LazyVStack(spacing: 0) {
+            if model.searchResults.isEmpty {
+                Text("No results")
+                    .font(.system(size: 13))
+                    .foregroundColor(DesignTokens.inkMuted)
+                    .padding(.top, 60)
+                Spacer()
+            } else {
+                List(selection: $selection) {
                     ForEach(model.searchResults, id: \.stableId) { row in
                         MailRowView(
                             entry: BucketEntry(stableId: row.stableId, subject: row.subject,
@@ -249,19 +285,18 @@ struct SearchResultsView: View {
                                                date: row.date, bucket: "search", flags: row.flags),
                             bucket: .imbox,
                             selected: row.stableId == selection)
-                            .onTapGesture { selection = row.stableId }
-                            .padding(.horizontal, 8)
-                    }
-                    if model.searchResults.isEmpty {
-                        Text("无结果")
-                            .font(.system(size: 13))
-                            .foregroundColor(DesignTokens.inkMuted)
-                            .padding(.top, 60)
+                            .tag(row.stableId)
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(row.stableId == selection
+                                ? DesignTokens.brandBlueWash
+                                : DesignTokens.surfaceMain)
                     }
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
-        .frame(width: DesignTokens.listWidth)
         .background(DesignTokens.surfaceMain)
     }
 }

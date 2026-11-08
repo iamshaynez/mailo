@@ -5,6 +5,7 @@ import SwiftUI
 @main
 struct MailoMacApp: App {
     @StateObject private var model = MailoAppModel.createLive()
+    @NSApplicationDelegateAdaptor(WindowAutosaveDelegate.self) private var appDelegate
 
     var body: some Scene {
         WindowGroup {
@@ -17,6 +18,22 @@ struct MailoMacApp: App {
                 }
                 .frame(minWidth: 960, minHeight: 600)
         }
-        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 1280, height: 820)
+        .commands { MailoCommandMenu(model: model) }
+    }
+}
+
+/// 记住主窗口位置与大小（Mac 基本品味，JOURNEY-008）：
+/// SwiftUI WindowGroup 无 frame autosave 直通 API，经 NSWindow 通知挂名。
+final class WindowAutosaveDelegate: NSObject, NSApplicationDelegate {
+    private var observer: NSObjectProtocol?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        observer = NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeMainNotification, object: nil, queue: .main
+        ) { note in
+            guard let window = note.object as? NSWindow else { return }
+            _ = window.setFrameAutosaveName("MailoMainWindow") // 已挂名时幂等返回 false
+        }
     }
 }
