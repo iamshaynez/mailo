@@ -10,6 +10,9 @@ public final class TcpImapTransport: ImapTransport, @unchecked Sendable {
     public let connectTimeout: TimeInterval
     private var tagCounter = 0
     private var nextTag: String { tagCounter += 1; return "M\(tagCounter)" }
+    /// 命令互斥（MAIL-025）：轮询/回填/阅读拉取并发共用本连接，
+    /// 命令-响应往返必须串行化，否则响应按 tag 交叉污染导致超时。
+    private let commandLock = NSLock()
 
     public init(host: String, port: UInt16 = 993, connectTimeout: TimeInterval = 10) {
         self.host = host
@@ -52,8 +55,9 @@ public final class TcpImapTransport: ImapTransport, @unchecked Sendable {
     }
 
     /// 端口实现：发送命令，收集到 tagged 终结行为止的完整响应字节（含字面量整体）。
-    /// 大响应（FETCH 流）以原始字节块直读 → ImapLineReader 组装，不做中间切行（MAIL-022 关联修复）。
+    /// 全程持命令锁（MAIL-025）。
     public func send(_ command: ImapCommand) throws -> [UInt8] {
+        commandLock.lock(); defer { commandLock.unlock() }
         guard let conn = connection else { throw TransportError.closed }
         let tag = nextTag
         try conn.send(Array("\(tag) \(command.wire)\r\n".utf8))

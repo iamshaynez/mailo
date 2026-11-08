@@ -166,7 +166,7 @@ final class TlsConnection: @unchecked Sendable {
 
     /// 读取一块原始字节（不切行）。IMAP 大响应（FETCH 流）必须走此路径：
     /// 行切分-重组会与字面量数据内部字节互相干扰，原始流直读无失真。
-    func receiveRaw(timeout: TimeInterval = 20) throws -> [UInt8] {
+    func receiveRaw(timeout: TimeInterval = 30) throws -> [UInt8] {
         if !receiveBuffer.isEmpty {
             let out = receiveBuffer
             receiveBuffer = []

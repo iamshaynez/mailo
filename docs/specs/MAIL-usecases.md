@@ -170,3 +170,10 @@
 - **Then** 会话序列 EHLO → AUTH XOAUTH2 <sasl>（单命令 235，非交互）→ MAIL FROM → RCPT → DATA → DOT → QUIT；SASL 载荷与 IMAP 同构
 - **Status**: draft
 - **Tests**: `mail_024_smtp_xoauth2`
+
+## MAIL-025 传输命令互斥（并发安全）
+- **Given** 多个任务（轮询/回填/阅读拉取）并发调用同一 TcpImapTransport
+- **When** send 并发到达
+- **Then** 命令-响应往返串行化（互斥锁），响应不交叉污染；单命令接收超时 30s；轮询失败不降级 UI（仅诊断提示，连接保持）
+- **Status**: draft
+- **Tests**: `mail_025_concurrent_send_safety`
