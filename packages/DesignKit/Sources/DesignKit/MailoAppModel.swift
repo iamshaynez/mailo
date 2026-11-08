@@ -50,8 +50,8 @@ public final class MailoAppModel: ObservableObject {
         let started = Date()
         let outcome = try r.runOnce()
         runner = r
-        store.saveSnapshot(folder: "INBOX", uidValidity: r.snapshot?.uidValidity ?? 0,
-                           highestUid: r.snapshot?.highestUid ?? 0)
+        try store.saveSnapshot(folder: "INBOX", uidValidity: r.snapshot?.uidValidity ?? 0,
+                               highestUid: r.snapshot?.highestUid ?? 0)
         var count = 0
         switch outcome {
         case .synced(let events, _), .resetDetected(_, _, let events, _):
@@ -100,25 +100,23 @@ public final class MailoAppModel: ObservableObject {
     /// 前台轮询（基线 D7：30s 基准、失败退避由 PollingPolicy 管理）。
     public func startPolling() {
         pollTask?.cancel()
-        pollTask = Task { [weak self] in
+        pollTask = Task { [weak self] in // Task 继承 MainActor（类隔离）
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 30 * 1_000_000_000)
-                guard !Task.isCancelled else { return }
-                await MainActor.run { [weak self] in
-                    guard let self, var r = self.runner else { return }
-                    do {
-                        let outcome = try r.runOnce()
-                        self.runner = r
-                        if case .synced(let events, _) = outcome {
-                            try? await self.apply(events)
-                            self.store.saveSnapshot(folder: "INBOX",
-                                uidValidity: r.snapshot?.uidValidity ?? 0,
-                                highestUid: r.snapshot?.highestUid ?? 0)
-                        }
-                        try self.load(bucket: self.selectedBucket)
-                    } catch {
-                        self.phase = .failed("同步失败：\(error)")
+                guard !Task.isCancelled, let self else { return }
+                guard var r = self.runner else { continue }
+                do {
+                    let outcome = try r.runOnce()
+                    self.runner = r
+                    if case .synced(let events, _) = outcome {
+                        try? await self.apply(events)
+                        try? self.store.saveSnapshot(folder: "INBOX",
+                            uidValidity: r.snapshot?.uidValidity ?? 0,
+                            highestUid: r.snapshot?.highestUid ?? 0)
                     }
+                    try self.load(bucket: self.selectedBucket)
+                } catch {
+                    self.phase = .failed("同步失败：\(error)")
                 }
             }
         }
