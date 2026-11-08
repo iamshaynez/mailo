@@ -87,30 +87,38 @@ struct MailReaderView: View {
     @ViewBuilder
     private func detailContent(_ detail: MailoAppModel.MailDetail) -> some View {
         VStack(spacing: 0) {
-            // 头部恒显（JOURNEY-014 v2：不再因无正文塌陷——发件人/主题/时间戳永远可见）
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    metaRow
-                    subjectBlock
-                    Divider().overlay(DesignTokens.borderDefault).padding(.vertical, 16)
-                }
-                .frame(maxWidth: 680, alignment: .leading)
-                .padding(.horizontal, DesignTokens.spacingReading)
-                .padding(.top, 24)
+            // 头部块：自然高度（非 ScrollView——固定内容不需要滚动，ScrollView 的
+            // 无限理想高度会撑爆 SplitView 布局，v2 的塌陷根因）
+            VStack(alignment: .leading, spacing: 0) {
+                metaRow
+                subjectBlock
+                Divider().overlay(DesignTokens.borderDefault).padding(.vertical, 16)
             }
-            .fixedSize(horizontal: false, vertical: true) // 头部取自然高度
+            .frame(maxWidth: 680, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, DesignTokens.spacingReading)
+            .padding(.top, 24)
 
-            // 正文：HTML 走 WKWebView 沙箱（自滚动）；纯文本走原生 Text；双缺失给明确占位
+            // 正文：HTML 走 WKWebView 沙箱（自滚动）；显式跟随容器尺寸，
+            // 不把无限宽度/高度需求上传给 NavigationSplitView（挤压侧栏/列表的根因）
             if let html = detail.htmlBody {
                 HtmlMailWebView(html: html, allowRemoteImages: remoteImagesAllowed)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(.horizontal, 26)
                     .padding(.bottom, 12)
             } else if detail.textBody != nil {
                 ScrollView {
                     bodyText
-                    if !detail.attachmentNames.isEmpty { attachments }
+                        .frame(maxWidth: 680, alignment: .leading)
+                        .padding(.horizontal, DesignTokens.spacingReading)
+                    if !detail.attachmentNames.isEmpty {
+                        attachments
+                            .frame(maxWidth: 680, alignment: .leading)
+                            .padding(.horizontal, DesignTokens.spacingReading)
+                    }
                     Spacer(minLength: 40)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(L10n.t("reader.noBody"))
@@ -125,6 +133,8 @@ struct MailReaderView: View {
                 .padding(.top, 8)
             }
         }
+        // 整体约束：占满可用空间、不越界（宽度需求不上传）
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     // MARK: 操作条（动作全部接通，JOURNEY-011/012）
