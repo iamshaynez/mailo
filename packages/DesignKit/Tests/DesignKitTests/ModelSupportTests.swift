@@ -20,7 +20,7 @@ struct ModelSupportTests {
         ])])
         let account = AccountConfig(displayName: "t", imapHost: "h", smtpHost: "h",
                                      username: "u@t.co", secretRef: "t")
-        try? model.attach(account: account, transport: server)
+        try? await model.attach(account: account, transport: server)
         return (model, server)
     }
 

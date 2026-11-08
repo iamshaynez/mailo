@@ -26,7 +26,7 @@ struct Journey002Tests {
             Message(uid: 12, raw: Array("Message-ID: <r3@x.t>\r\nFrom: stranger@unknown.io\r\nSubject: hi\r\nDate: Fri, 6 Nov 2026 12:00:00 +0000\r\n\r\nb".utf8)),
         ])])
 
-        let outcome = try model.attach(account: account, transport: transport)
+        let outcome = try await model.attach(account: account, transport: transport)
         guard case .synced(let events, let snap) = outcome else {
             Issue.record("expected .synced"); return
         }

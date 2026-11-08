@@ -8,8 +8,8 @@ import CoreKit
 struct DesignKitTests {
 
     @Test("JOURNEY-001 骨架端到端装配")
-    func journey_001_bootstrap_end_to_end() throws {
-        let model = MailoAppModel.bootstrapDemo()
+    func journey_001_bootstrap_end_to_end() async throws {
+        let model = await MailoAppModel.bootstrapDemo()
 
         // roster 命中的三桶各就各位
         try model.load(bucket: .feed)

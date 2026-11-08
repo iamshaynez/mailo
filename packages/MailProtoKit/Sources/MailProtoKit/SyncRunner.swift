@@ -32,6 +32,11 @@ public struct SyncRunner: Sendable {
     public private(set) var snapshot: SyncSnapshot?
     public private(set) var policy: PollingPolicy
 
+    /// 恢复持久化快照（SYNC-015）。
+    public mutating func restoreSnapshot(_ snap: SyncSnapshot) {
+        self.snapshot = snap
+    }
+
     public init(accountFingerprint: String, transport: any ImapTransport,
                 folder: String = "INBOX", policy: PollingPolicy = PollingPolicy()) {
         self.engine = ImapSyncEngine(accountFingerprint: accountFingerprint)

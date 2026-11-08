@@ -212,6 +212,12 @@ public final class MirrorStore: @unchecked Sendable {
             for row in rows { try row.save(db) }
         }
     }
+
+    public func freezeBatch(_ rows: [ClassificationRow]) throws {
+        try dbQueue.write { db in
+            for row in rows { try row.save(db) }
+        }
+    }
     public func bucketCounts() throws -> [String: Int] {
         try dbQueue.read { db in
             var out: [String: Int] = [:]
