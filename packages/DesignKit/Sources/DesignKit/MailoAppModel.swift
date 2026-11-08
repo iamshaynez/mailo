@@ -20,6 +20,8 @@ public final class MailoAppModel: ObservableObject {
     @Published public private(set) var screenerCount: Int = 0
     @Published public private(set) var selectedBucket: Bucket = .imbox
     @Published public private(set) var phase: Phase = .empty
+    /// 最近一轮同步诊断（底部状态条；排查"授权成功但列表空"这类问题的第一现场）
+    @Published public private(set) var lastSyncSummary: String = 
 
     public let store: MirrorStore
     public var pipeline: ClassificationPipeline
@@ -121,23 +123,29 @@ public final class MailoAppModel: ObservableObject {
     // MARK: - 事件应用（入库 + 分类 + 冻结，JOURNEY-001 核心）
 
     public func apply(_ events: [MailEvent]) throws {
+        var buckets: [Bucket: Int] = [:]
         for event in events {
             let parsed = MimeParser.parse(event.raw)
+            // 发件人净化（MAIL-023）：ENVELOPE 结构化地址优先，MIME From 头兜底（剥显示名/注释）
+            let from = EmailAddress.parse(event.fromAddress)?.address
+                ?? EmailAddress.parse(parsed.from)?.address
+                ?? parsed.from
             let row = MailRow(
                 stableId: event.stableMessageID.value,
                 account: "primary", folder: "INBOX", uid: event.uid,
                 flags: event.flags,
                 subject: event.subject ?? parsed.subject,
-                fromAddress: event.fromAddress ?? parsed.from,
+                fromAddress: from,
                 snippet: parsed.textBody.map { String($0.prefix(200)) },
                 date: parsed.date,
                 raw: Data(event.raw))
             try store.upsert(row)
 
+            let fromParsed = EmailAddress.parse(from)
             let signal = MailSignal(
                 messageID: event.stableMessageID,
-                senderLocalPart: row.fromAddress?.split(separator: "@").first.map(String.init) ?? "unknown",
-                senderDomain: row.fromAddress?.split(separator: "@").last.map(String.init) ?? "unknown",
+                senderLocalPart: fromParsed?.local ?? "unknown",
+                senderDomain: fromParsed?.domain ?? "unknown",
                 subject: row.subject ?? "")
             let verdict = pipeline.decide(signal)
             let decision: FinalDecision
@@ -152,10 +160,12 @@ public final class MailoAppModel: ObservableObject {
             case .bucket(let bucket, let reason):
                 pipeline.frozen[event.stableMessageID] = bucket
                 try store.freeze(ClassificationRow(stableId: event.stableMessageID.value, bucket: bucket, reason: "\(reason)"))
+                buckets[bucket, default: 0] += 1
             case .screener:
                 screenerCount += 1
             }
         }
+        lastSyncSummary = "同步 \(events.count) 封 · imbox \(buckets[.imbox] ?? 0) / feed \(buckets[.feed] ?? 0) / paper \(buckets[.paperTrail] ?? 0) / screener \(screenerCount)"
     }
 
     public func load(bucket: Bucket) throws {

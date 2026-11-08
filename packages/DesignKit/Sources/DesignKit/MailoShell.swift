@@ -32,6 +32,16 @@ public struct MailoShell: View {
             reader
         }
         .background(DesignTokens.surfaceMain)
+        .safeAreaInset(edge: .bottom) {
+            if !model.lastSyncSummary.isEmpty {
+                Text(model.lastSyncSummary)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundColor(DesignTokens.inkMuted)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 3)
+                    .background(DesignTokens.brandBlueWash)
+            }
+        }
     }
 
     private var sidebar: some View {
