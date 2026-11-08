@@ -51,3 +51,10 @@
 - **Then** 数据等价；批量耗时显著低于逐封（事务开销摊平）
 - **Status**: draft
 - **Tests**: `store_007_batch_upsert`
+
+## STORE-008 存量库迁移兼容（v2）
+- **Given** 一个 v1 时期创建的存量库（已应用旧 v1、无 sync_state 表）
+- **When** 新版本打开该库（v2 migration 补建表）
+- **Then** 初始化成功、saveSnapshot/loadSnapshot 正常；邮件与分类数据保留；migration 铁律：已发布迁移永不修改，只新增
+- **Status**: draft
+- **Tests**: `store_008_v2_upgrade_existing_db`
