@@ -159,6 +159,14 @@ public final class MailoAppModel: ObservableObject {
         }
     }
 
+    /// 连接自愈统一入口（JOURNEY-021）：正文加载/轮询撞死连接时调用。
+    /// 重连实现（installReconnect 注入）的握手在后台线程执行，不卡主线程。
+    @discardableResult
+    public func ensureConnection() async -> Bool {
+        guard let reconnect = reconnectHandler else { return false }
+        return await reconnect()
+    }
+
     /// 安装连接重建句柄（JOURNEY-020：日期回填被服务器踢线后自动重连续跑）。
     /// refresh token → 新 TLS 连接 → 换 runner.transport（SyncRunner.transport 为 var）。
     private func installReconnect(email: String, clientId: String,
@@ -175,7 +183,10 @@ public final class MailoAppModel: ObservableObject {
                     try? vault.save(rotated, for: "mailo.acct.outlook.\(email)")
                 }
                 let transport = TcpImapTransport(host: OAuthProviderConfig.outlookImapHost, port: 993, connectTimeout: 15)
-                try transport.connect(method: .xoauth2(user: email, accessToken: granted.accessToken))
+                let user = email, token = granted.accessToken
+                try await Task.detached(priority: .userInitiated) {
+                    try transport.connect(method: .xoauth2(user: user, accessToken: token)) // 握手在后台线程
+                }.value
                 guard var r = self.runner else { return false }
                 r.transport = transport
                 self.runner = r
@@ -300,8 +311,9 @@ public final class MailoAppModel: ObservableObject {
                     }
                     try self.load(bucket: self.selectedBucket)
                 } catch {
-                    // 轮询失败不降级 UI（连接仍在、退避重试；MAIL-025）
+                    // 轮询失败不降级 UI（MAIL-025）；连接被踢则静默自愈（JOURNEY-021）
                     self.lastSyncSummary = L10n.t("sync.retrying", String(describing: error))
+                    _ = await self.ensureConnection()
                 }
             }
         }
@@ -495,24 +507,38 @@ public protocol MlGuessProviding: Sendable {
     /// 失败返回 failed（阅读窗格给重试），成功后 raw 已持久化（下次零网络）。
     public func loadDetail(stableId: String) async -> DetailLoadState {
         guard var row = try? store.mail(stableId: stableId) else {
-            return .failed("Message missing from local store")
+            return .failed(L10n.t("reader.missing"))
         }
-        if row.raw == nil, let runner {
-            let engine = runner.engine
-            let transport = runner.transport
-            let uid = row.uid
+        if row.raw == nil, let currentRunner = runner {
+            let body: [UInt8]?
             do {
-                let body: [UInt8]? = try await Task.detached(priority: .userInitiated) {
+                let engine = currentRunner.engine
+                let transport = currentRunner.transport
+                let uid = row.uid
+                body = try await Task.detached(priority: .userInitiated) {
                     try engine.fetchBody(uid: uid, transport: transport)
                 }.value
-                if let body {
-                    let parsed = MimeParser.parse(body)
-                    row.raw = Data(body)
-                    row.snippet = row.snippet ?? parsed.textBody.map { String($0.prefix(200)) }
-                    try? store.upsert(row)
-                }
             } catch {
-                return .failed("Couldn't load message body: \(String(describing: error))")
+                // 连接可能被服务器踢线（ENOTCONN/closed）：重连一次重试（JOURNEY-021）
+                guard await ensureConnection(), let retryRunner = runner else {
+                    return .failed(L10n.t("reader.bodyFailed", String(describing: error)))
+                }
+                do {
+                    let engine = retryRunner.engine
+                    let transport = retryRunner.transport
+                    let uid = row.uid
+                    body = try await Task.detached(priority: .userInitiated) {
+                        try engine.fetchBody(uid: uid, transport: transport)
+                    }.value
+                } catch {
+                    return .failed(L10n.t("reader.bodyFailed", String(describing: error)))
+                }
+            }
+            if let body {
+                let parsed = MimeParser.parse(body)
+                row.raw = Data(body)
+                row.snippet = row.snippet ?? parsed.textBody.map { String($0.prefix(200)) }
+                try? store.upsert(row)
             }
         }
         return .loaded(buildDetail(from: row))

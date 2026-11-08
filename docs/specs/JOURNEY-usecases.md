@@ -181,5 +181,5 @@
 - **When** 阅读窗格 loadDetail 拉取正文失败
 - **Then** 经 ensureConnection 重连（refresh token → 新连接 → 换 runner.transport，**握手在后台线程**）并重试一次；成功则正常渲染；重连或重试仍失败才进 failed 态
 - **And** 轮询遇传输失败同样静默自愈（重建连接，下轮恢复；MAIL-025「失败不降级 UI」语义不变）
-- **Status**: draft
+- **Status**: green
 - **Tests**: `journey_021_body_load_reconnects`
