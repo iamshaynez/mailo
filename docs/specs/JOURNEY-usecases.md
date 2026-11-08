@@ -102,11 +102,12 @@
 - **Status**: green
 - **Tests**: `journey_013_mark_seen_on_open`
 
-## JOURNEY-014 正文异步加载（不阻塞主线程）
+## JOURNEY-014 正文异步加载（v2：显式驱动与头部恒显）
 - **Given** 正文未回填的邮件 X（raw 为空，需网络拉 BODY）
-- **When** 打开 X
-- **Then** 阅读窗格先渲染头部 + loading 态；正文在后台线程拉取；失败显示错误与「重试」按钮；期间 UI 可交互（主线程无网络等待）
-- **Status**: green
+- **When** 打开 X / 切换到 X
+- **Then** 加载由 **onAppear + onChange(stableId) 显式驱动**（每次选中变化必触发；Task 取消旧的）；阅读窗格先渲染头部 + loading 态；正文在后台线程拉取；失败重连重试（JOURNEY-021）后仍败显示错误与「重试」按钮
+- **And** **头部（发件人/主题/时间戳）恒定显示**（不再因无正文塌陷）；text/html 双缺失时在完整头部下方显示明确占位；期间 UI 可交互（主线程无网络等待）
+- **Status**: green（v2：v1 的 .task(id:) 驱动在快速连续选中时不可靠——实测 10 次选中仅触发 1 次加载；头部塌陷 hack 使无正文邮件渲染成裸占位）
 - **Tests**: `journey_014_async_body_load`
 
 ## JOURNEY-015 搜索防抖与取消

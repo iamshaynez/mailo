@@ -112,3 +112,4 @@
 "sync.dateBackfillDone" = "Date backfill complete";
 "sync.dateBackfillProgress" = "Restoring timestamps %1$d / %2$d";
 "sync.dateBackfillFailed" = "Date backfill paused (will retry next sync)";
+"reader.noBody.hint" = "The message body hasn't been downloaded yet. Open again or Retry to fetch it.";

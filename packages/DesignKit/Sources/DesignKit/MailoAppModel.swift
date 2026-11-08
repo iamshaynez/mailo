@@ -539,7 +539,9 @@ public protocol MlGuessProviding: Sendable {
                 row.raw = Data(body)
                 row.snippet = row.snippet ?? parsed.textBody.map { String($0.prefix(200)) }
                 try? store.upsert(row)
+            } else {
             }
+        } else if row.raw == nil {
         }
         return .loaded(buildDetail(from: row))
     }
