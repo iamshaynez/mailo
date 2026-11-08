@@ -21,7 +21,7 @@ public final class MailoAppModel: ObservableObject {
     @Published public private(set) var selectedBucket: Bucket = .imbox
     @Published public private(set) var phase: Phase = .empty
     /// 最近一轮同步诊断（底部状态条；排查"授权成功但列表空"这类问题的第一现场）
-    @Published public private(set) var lastSyncSummary: String = 
+    @Published public private(set) var lastSyncSummary: String = ""
 
     public let store: MirrorStore
     public var pipeline: ClassificationPipeline
