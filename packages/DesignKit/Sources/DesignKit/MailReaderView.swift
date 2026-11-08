@@ -8,13 +8,72 @@ struct MailReaderView: View {
     @ObservedObject var model: MailoAppModel
     let stableId: String
 
-    @State private var detail: MailoAppModel.MailDetail?
+    @State private var loadState: MailoAppModel.DetailLoadState?
+    @State private var retryNonce = 0
 
     var body: some View {
         VStack(spacing: 0) {
             actionBar
             Divider().overlay(DesignTokens.borderDefault)
-            if let detail {
+            switch loadState {
+            case .loaded(let detail):
+                detailContent(detail)
+            case .failed(let message):
+                failureView(message)
+            default:
+                loadingView
+            }
+        }
+        .background(DesignTokens.surfaceWash)
+        .task(id: "\(stableId)#\(retryNonce)") {
+            loadState = .loading
+            var state = await model.loadDetail(stableId: stableId)
+            // 打开即标已读（JOURNEY-013）：正文到手后生效
+            if case .loaded(var d) = state, d.isUnread {
+                model.markRead(stableId: stableId)
+                d.flags.append("\\Seen")
+                state = .loaded(d)
+            }
+            loadState = state
+        }
+    }
+
+    private var loadingView: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+            Text("Loading message…")
+                .font(.system(size: 12))
+                .foregroundColor(DesignTokens.inkMuted)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func failureView(_ message: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 28))
+                .foregroundColor(DesignTokens.inkFaint.opacity(0.7))
+            Text(message)
+                .font(.system(size: 12.5))
+                .foregroundColor(DesignTokens.inkMuted)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Button {
+                retryNonce += 1 // .task(id:) 重跑（JOURNEY-014 重试）
+            } label: {
+                Text("Retry")
+                    .font(.system(size: 12.5, weight: .bold))
+                    .padding(.horizontal, 16).padding(.vertical, 7)
+                    .background(Capsule().fill(DesignTokens.brandBlue).opacity(0.12))
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private func detailContent(_ detail: MailoAppModel.MailDetail) -> some View {
+        VStack(spacing: 0) {
                 VStack(spacing: 0) {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
@@ -42,23 +101,6 @@ struct MailReaderView: View {
                         }
                     }
                 }
-            } else {
-                Text("Select a message")
-                    .foregroundColor(DesignTokens.inkMuted)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-        .background(DesignTokens.surfaceWash)
-        .onAppear(perform: reload)
-        .onChange(of: stableId) { _ in reload() }
-    }
-
-    private func reload() {
-        detail = model.mailDetail(stableId: stableId)
-        // 打开即标已读（JOURNEY-013）：本地立即 + 服务器尽力写回
-        if detail?.isUnread == true {
-            model.markRead(stableId: stableId)
-            detail?.flags.append("\\Seen")
         }
     }
 
@@ -121,7 +163,7 @@ struct MailReaderView: View {
             }
             Divider()
             Button("Mark Unread") { model.markUnread(stableId: stableId) }
-            Button("Copy Sender") { Clipboard.copy(detail?.fromAddress ?? "") }
+            Button("Copy Sender") { Clipboard.copy(currentDetail?.fromAddress ?? "") }
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 13, weight: .semibold))
@@ -163,7 +205,15 @@ struct MailReaderView: View {
 
     // MARK: 元信息（bucket 徽标用邮件自身归类，JOURNEY-003 正确性）
 
-    private var ownBucket: Bucket { detail?.bucket ?? model.selectedBucket }
+    private var ownBucket: Bucket { currentDetail?.bucket ?? model.selectedBucket }
+
+    private var currentDetail: MailoAppModel.MailDetail? {
+        if case .loaded(let d) = loadState { return d }
+        return nil
+    }
+
+    /// 内容构建器沿用可选 detail 名（loading 期不渲染内容）。
+    private var detail: MailoAppModel.MailDetail? { currentDetail }
 
     private var metaRow: some View {
         HStack(spacing: 14) {
@@ -199,7 +249,7 @@ struct MailReaderView: View {
     }
 
     private var formattedDate: String {
-        guard let raw = detail?.date else { return "" }
+        guard let raw = currentDetail?.date else { return "" }
         return MailDateGrouping.rfc2822.date(from: raw)?
             .formatted(.dateTime.year().month(.abbreviated).day().hour().minute()) ?? raw
     }

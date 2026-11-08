@@ -25,5 +25,5 @@
 - **Given** 列表加载 200 行（date 为 RFC2822 字符串）
 - **When** 行渲染取时间标签与日期分组
 - **Then** 每行渲染路径零 DateFormatter 分配（日期在数据层一次解析为 Date 缓存）；滚动期间无解析开销
-- **Status**: draft
+- **Status**: green
 - **Tests**: `perf_004_row_date_no_formatter`

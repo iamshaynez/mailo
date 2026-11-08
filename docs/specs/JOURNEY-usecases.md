@@ -106,14 +106,14 @@
 - **Given** 正文未回填的邮件 X（raw 为空，需网络拉 BODY）
 - **When** 打开 X
 - **Then** 阅读窗格先渲染头部 + loading 态；正文在后台线程拉取；失败显示错误与「重试」按钮；期间 UI 可交互（主线程无网络等待）
-- **Status**: draft
+- **Status**: green
 - **Tests**: `journey_014_async_body_load`
 
 ## JOURNEY-015 搜索防抖与取消
 - **Given** 搜索框连续输入
 - **When** 每次键入
 - **Then** 250ms 防抖后才触发查询；新键入取消未完成的上一轮；Esc 清空搜索并恢复列表
-- **Status**: draft
+- **Status**: green
 - **Tests**: `journey_015_search_debounce`
 
 ## JOURNEY-016 Settings 场景（⌘,）

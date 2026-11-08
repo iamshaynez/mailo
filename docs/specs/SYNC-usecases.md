@@ -114,3 +114,10 @@
 - **Then** 返回该 UID 区间的事件（ENVELOPE 模式、事件构造与列表同步一致）；AppModel 回填循环从窗口下沿逐批向 UID 1 推进直至覆盖全量（空批=UID 空洞，继续）
 - **Status**: draft
 - **Tests**: `sync_016_backfill_range`
+
+## SYNC-017 回填进度可见
+- **Given** 历史回填进行中（SYNC-016 逐批推进）
+- **When** 每批完成
+- **Then** 模型暴露 backfillProgress{fetched, total}（UI 呈现"导入历史邮件 n/total"）；完成或取消后归 nil；轮询/前台不受进度影响
+- **Status**: green
+- **Tests**: `sync_017_backfill_progress`

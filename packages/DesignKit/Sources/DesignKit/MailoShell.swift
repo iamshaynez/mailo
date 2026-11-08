@@ -218,7 +218,7 @@ private struct MainSurface: View {
             if !searchText.isEmpty {
                 Button {
                     searchText = ""
-                    model.search("")
+                    model.clearSearch()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 11))
@@ -237,7 +237,15 @@ private struct MainSurface: View {
         .frame(height: 30)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.16)))
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.white.opacity(0.28), lineWidth: 1))
-        .onChange(of: searchText) { q in model.search(q) }
+        .onChange(of: searchText) { q in model.searchDebounced(q) } // JOURNEY-015 防抖
+        #if os(macOS)
+        .onExitCommand { // Esc：清空搜索恢复列表（macOS）
+            if !searchText.isEmpty {
+                searchText = ""
+                model.clearSearch()
+            }
+        }
+        #endif
     }
 
     // MARK: Screener 顶条（mockup §5）
@@ -330,6 +338,7 @@ private struct MainSurface: View {
 struct SearchResultsView: View {
     @ObservedObject var model: MailoAppModel
     @Binding var selection: String?
+    @State private var dateIndex = MailDateIndex(entries: [])
 
     var body: some View {
         VStack(spacing: 0) {
@@ -357,7 +366,8 @@ struct SearchResultsView: View {
                                                fromAddress: row.fromAddress, snippet: row.snippet,
                                                date: row.date, bucket: "search", flags: row.flags),
                             bucket: .imbox,
-                            selected: row.stableId == selection)
+                            selected: row.stableId == selection,
+                            timeText: dateIndex.timeLabel(for: row.stableId))
                             .tag(row.stableId)
                             .listRowInsets(EdgeInsets())
                             .listRowSeparator(.hidden)
@@ -372,6 +382,15 @@ struct SearchResultsView: View {
             }
         }
         .background(DesignTokens.surfaceMain)
+        .onAppear { rebuildIndex() }
+        .onChange(of: model.searchResults) { _ in rebuildIndex() }
+    }
+
+    private func rebuildIndex() {
+        dateIndex = MailDateIndex(entries: model.searchResults.map {
+            BucketEntry(stableId: $0.stableId, subject: $0.subject, fromAddress: $0.fromAddress,
+                        snippet: $0.snippet, date: $0.date, bucket: "search", flags: $0.flags)
+        })
     }
 
     @ViewBuilder
