@@ -280,6 +280,40 @@ struct MailDateIndex {
     }
 }
 
+/// 行强调档位（JOURNEY-019）：未读=粗体+蓝点，已读=regular（Mail.app 式编码）。
+/// 纯函数面：字重/未读点由档位唯一决定，视图零分叉。
+@MainActor
+enum RowEmphasis: Equatable {
+    case unread
+    case read
+
+    init(isUnread: Bool) {
+        self = isUnread ? .unread : .read
+    }
+
+    init(entry: BucketEntry) {
+        self.init(isUnread: !entry.flags.contains("\\Seen"))
+    }
+
+    var showsDot: Bool { self == .unread }
+
+    var senderWeight: Font.Weight {
+        self == .unread ? .bold : .regular
+    }
+
+    var subjectWeight: Font.Weight {
+        self == .unread ? .semibold : .regular
+    }
+
+    var senderFont: Font {
+        Font.system(size: 13.5, weight: senderWeight) // Typo.bodyStrong 尺度的字重变体
+    }
+
+    var subjectFont: Font {
+        Font.system(size: 13.5, weight: subjectWeight)
+    }
+}
+
 /// 单行邮件（mockup 行视觉：bucket 头像/未读点/两行文本/选中蓝条 + hover）。
 struct MailRowView: View {
     let entry: BucketEntry
@@ -290,6 +324,7 @@ struct MailRowView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isUnread: Bool { !entry.flags.contains("\\Seen") }
+    private var emphasis: RowEmphasis { RowEmphasis(isUnread: isUnread) }
 
     var body: some View {
         HStack(spacing: 11) {
@@ -305,7 +340,7 @@ struct MailRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(entry.fromAddress ?? L10n.t("row.unknown"))
-                        .font(DesignTokens.Typo.bodyStrong)
+                        .font(emphasis.senderFont)
                         .foregroundColor(DesignTokens.inkPrimary)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -318,7 +353,7 @@ struct MailRowView: View {
                         .foregroundColor(DesignTokens.inkFaint)
                 }
                 Text(entry.subject ?? L10n.t("row.noSubject"))
-                    .font(DesignTokens.Typo.bodyStrong.weight(.medium))
+                    .font(emphasis.subjectFont)
                     .foregroundColor(DesignTokens.inkPrimary)
                     .lineLimit(1)
                 Text(entry.snippet ?? "")
