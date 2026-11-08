@@ -57,6 +57,11 @@ public struct SmtpClient: Sendable {
         self.domain = domain
     }
 
+    public enum Auth: Equatable, Sendable {
+        case login(user: String, password: String)
+        case xoauth2(user: String, accessToken: String) // MAIL-024
+    }
+
     /// 发送一封纯文本邮件。返回构造出的完整 DATA 块字节（供测试与 "Sent" 归档复用）。
     @discardableResult
     public func send(from: String, to: String, subject: String, body: String,
