@@ -78,28 +78,28 @@
 - **Given** 生产库 mailo.sqlite 存在且含真实数据
 - **When** 进入 Demo（「先看看」）
 - **Then** demo 装配到独立内存库（MirrorStore() 无路径）；生产库字节不变；界面常驻 Demo 水印；可一键退出回到账户页；再次进入真实账户不受 demo 影响
-- **Status**: draft
+- **Status**: green
 - **Tests**: `journey_010_demo_isolation`
 
 ## JOURNEY-011 Reply / Forward 预填撰写
 - **Given** 阅读窗格打开邮件 X（发件人 sender@x.co，主题 "Hello"）
 - **When** 点 Reply（或 ⌘R）
 - **Then** 打开撰写：To=sender@x.co、Subject="Re: Hello"、正文引用 X 的文本；Forward（⌘⇧F）Subject="Fwd: Hello"、To 空；发送走既有 JOURNEY-006 通道
-- **Status**: draft
+- **Status**: green
 - **Tests**: `journey_011_reply_forward_prefill`
 
 ## JOURNEY-012 Set Aside 操作
 - **Given** 阅读任意桶内邮件 X
 - **When** 点 Set Aside（或 ⌘S、右键菜单）
 - **Then** X 冻结更新为 setAside 桶；当前列表移除该行、侧栏 Set Aside 计数 +1；再次进入 Set Aside 桶可见 X；⌘Z 撤销（回到原桶）
-- **Status**: draft
+- **Status**: green
 - **Tests**: `journey_012_set_aside`
 
 ## JOURNEY-013 打开即标已读（本地 + 服务器写回）
 - **Given** 未读邮件 X（flags 不含 \Seen）
 - **When** 阅读窗格打开 X
 - **Then** 本地镜像 flags 并入 \Seen（未读点消失、New 段移出）；向服务器发 UID STORE +FLAGS (\Seen)（尽力而为：demo/假服务器生效；真实服务器失败不阻塞 UI、不回滚本地）
-- **Status**: draft
+- **Status**: green
 - **Tests**: `journey_013_mark_seen_on_open`
 
 ## JOURNEY-014 正文异步加载（不阻塞主线程）
@@ -127,7 +127,7 @@
 - **Given** 阅读窗格打开桶 B 内邮件 X（发件人 sender@x.co）
 - **When** 点「Not <B> →」选择目标桶 T
 - **Then** 生成 senderExact→T 显式规则（CLS-006 语义）；X 与该发件人既有待定邮件全部移入 T；下一封同发件人直接进 T
-- **Status**: draft
+- **Status**: green
 - **Tests**: `journey_017_manual_correction_entry`
 
 ## DESIGN-002 token 全集与内联色清零

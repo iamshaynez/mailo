@@ -122,7 +122,11 @@ struct SidebarView: View {
 
 extension Bucket {
     /// 导航可达桶（侧栏与 iPhone bucket 菜单共用，JOURNEY-008 紧凑态入口）。
+    /// blocked（CLS-011）刻意不在导航——被拦截邮件仍留镜像可搜索，但不再打扰。
     static let navBuckets: [Bucket] = [.imbox, .feed, .paperTrail, .screener, .setAside]
+
+    /// 手动纠正目标（JOURNEY-017「This isn't X →」菜单；Block 单列一项）。
+    static let correctionTargets: [Bucket] = [.imbox, .feed, .paperTrail, .setAside]
 
     var title: String {
         switch self {
@@ -131,6 +135,7 @@ extension Bucket {
         case .paperTrail: return "Paper Trail"
         case .screener: return "Screener"
         case .setAside: return "Set Aside"
+        case .blocked: return "Blocked"
         }
     }
 }

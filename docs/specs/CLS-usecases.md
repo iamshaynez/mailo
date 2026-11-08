@@ -78,5 +78,5 @@
 - **Given** 未知发件人邮件 X 处于 Screener 待定，用户决定 Block
 - **When** decideScreener(X, to: .blocked)
 - **Then** 生成 senderExact→blocked 显式规则（同 CLS-010 批准语义）；X 冻结为 blocked 桶；blocked 邮件不出现在任何导航桶（含 Screener 计数递减）；下一封同发件人邮件直接命中规则进 blocked（永不再打扰）
-- **Status**: draft
+- **Status**: green
 - **Tests**: `cls_011_block_bucket_semantics`

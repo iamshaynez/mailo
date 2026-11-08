@@ -19,6 +19,8 @@ public enum DesignTokens {
     public static let paperTrailHex: UInt32 = 0x64748B
     public static let screenerHex: UInt32 = 0x7C3AED
     public static let setAsideHex: UInt32 = 0xC4A35A
+    /// blocked（CLS-011）：不进导航，仅在纠正菜单与搜索结果出现——低调灰
+    public static let blockedHex: UInt32 = 0x8892A6
 
     // 布局（§4）
     public static let sidebarWidth: CGFloat = 212
@@ -34,6 +36,8 @@ public enum DesignTokens {
     public static var inkPrimary: Color { Color(hex: 0x16202F) }
     public static var inkSecondary: Color { Color(hex: 0x3C4657) }
     public static var inkMuted: Color { Color(hex: 0x8892A6) }
+    /// 阅读区正文（mockup r-content #2A3444）
+    public static var inkBody: Color { Color(hex: 0x2A3444) }
     public static var inkFaint: Color { Color(hex: 0x9AA4B5) }
     public static var borderStrong: Color { Color(hex: 0xD8DFEA) }
     public static var surfaceSubtle: Color { Color(hex: 0xF1F4F9) }
@@ -47,6 +51,7 @@ public enum DesignTokens {
         case .paperTrail: return Color(hex: paperTrailHex)
         case .screener: return Color(hex: screenerHex)
         case .setAside: return Color(hex: setAsideHex)
+        case .blocked: return Color(hex: blockedHex)
         }
     }
 }
