@@ -7,6 +7,8 @@ import SwiftUI
 public struct MailoShell: View {
     @ObservedObject var model: MailoAppModel
     @State private var selection: String?
+    @State private var composing = false
+    @State private var searchText = 
 
     public init(model: MailoAppModel) {
         self.model = model
@@ -39,13 +41,18 @@ public struct MailoShell: View {
             HStack(spacing: 0) {
                 SidebarView(model: model)
                 Divider().overlay(DesignTokens.borderDefault)
-                MailListView(model: model, selection: $selection)
+                if searchText.isEmpty {
+                    MailListView(model: model, selection: $selection)
+                } else {
+                    SearchResultsView(model: model, selection: $selection)
+                }
                 Divider().overlay(DesignTokens.borderDefault)
                 readerPane
             }
             diagnosticBar
         }
         .background(DesignTokens.surfaceMain)
+        .sheet(isPresented: $composing) { ComposeView(model: model) }
     }
 
     @ViewBuilder
@@ -86,13 +93,25 @@ public struct MailoShell: View {
             HStack(spacing: 7) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 11))
-                Text("搜索全部邮件…")
+                TextField("搜索全部邮件…", text: $searchText)
                     .font(.system(size: 12.5))
-                Spacer(minLength: 4)
-                Text("⌘K")
-                    .font(.system(size: 10.5, weight: .semibold))
-                    .padding(.horizontal, 6).padding(.vertical, 1)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.2)))
+                    .textFieldStyle(.plain)
+                    .onChange(of: searchText) { q in model.search(q) }
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                        model.search("")
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 11))
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Text("⌘K")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .padding(.horizontal, 6).padding(.vertical, 1)
+                        .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.2)))
+                }
             }
             .foregroundColor(Color.white.opacity(0.85))
             .padding(.horizontal, 12)
@@ -103,7 +122,7 @@ public struct MailoShell: View {
 
             Spacer()
 
-            Button {} label: {
+            Button { composing = true } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "pencil")
                     Text("Compose")
@@ -198,6 +217,50 @@ public struct MailoShell: View {
             }
             diagnosticBar
         }
+        .background(DesignTokens.surfaceMain)
+        .sheet(isPresented: $composing) { ComposeView(model: model) }
+    }
+}
+
+/// 搜索结果（JOURNEY-007）：全库命中，复用行视觉。
+struct SearchResultsView: View {
+    @ObservedObject var model: MailoAppModel
+    @Binding var selection: String?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("搜索结果")
+                    .font(.system(size: 19, weight: .heavy))
+                Text("\(model.searchResults.count) 封")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(DesignTokens.inkFaint)
+                Spacer()
+            }
+            .padding(.horizontal, 16).padding(.vertical, 10)
+            Divider().overlay(DesignTokens.borderDefault)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(model.searchResults, id: \.stableId) { row in
+                        MailRowView(
+                            entry: BucketEntry(stableId: row.stableId, subject: row.subject,
+                                               fromAddress: row.fromAddress, snippet: row.snippet,
+                                               date: row.date, bucket: "search", flags: row.flags),
+                            bucket: .imbox,
+                            selected: row.stableId == selection)
+                            .onTapGesture { selection = row.stableId }
+                            .padding(.horizontal, 8)
+                    }
+                    if model.searchResults.isEmpty {
+                        Text("无结果")
+                            .font(.system(size: 13))
+                            .foregroundColor(DesignTokens.inkMuted)
+                            .padding(.top, 60)
+                    }
+                }
+            }
+        }
+        .frame(width: DesignTokens.listWidth)
         .background(DesignTokens.surfaceMain)
     }
 }

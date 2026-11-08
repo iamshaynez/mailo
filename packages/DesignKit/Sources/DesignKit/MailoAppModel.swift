@@ -213,6 +213,58 @@ public final class MailoAppModel: ObservableObject {
         pollTask = nil
     }
 
+    // MARK: - 撰写与搜索（JOURNEY-006/007）
+
+    @Published public private(set) var searchResults: [MirrorKit.MailRow] = []
+
+    /// 撰写并发送（JOURNEY-006）：refresh token → access token → SMTP XOAUTH2。
+    /// tokenRefresher / smtpTransport 为注入点（生产默认 DeviceCodeClient/TCP；测试注入假件）。
+    public func composeAndSend(
+        to: String, subject: String, body: String,
+        vault: (any CredentialVault)? = nil,
+        tokenRefresher: ((_ clientId: String, _ refreshToken: String) async throws -> String?)? = nil,
+        smtpTransport: (any SmtpTransport)? = nil
+    ) async throws {
+        guard let record = accountStore().loadPrimary() else {
+            throw ComposeError.notConnected
+        }
+        let vault = vault ?? InMemoryVault() // 生产由 UI 传 KeychainVault；此处兜底避免崩溃
+        guard let secret = try? vault.load(record.secretRef), !secret.isEmpty else {
+            throw ComposeError.missingToken
+        }
+        let accessToken: String
+        if let refresher = tokenRefresher {
+            guard let refreshed = try await refresher(record.clientId, secret) else {
+                throw ComposeError.refreshFailed
+            }
+            accessToken = refreshed
+        } else {
+            let kind = DeviceCodeFlow.MicrosoftAccount(rawValue: record.accountKind) ?? .personal
+            accessToken = try await DeviceCodeClient().refresh(clientId: record.clientId, account: kind, refreshToken: secret).accessToken
+        }
+        let transport = smtpTransport ?? TcpSmtpTransport(host: OAuthProviderConfig.outlookSmtpHost, port: 465)
+        try (transport as? TcpSmtpTransport)?.connect()
+        _ = try SmtpClient().send(from: record.email, to: to, subject: subject, body: body,
+                                  auth: .xoauth2(user: record.email, accessToken: accessToken),
+                                  transport: transport)
+        lastSyncSummary = "已发送至 \(to)：\(subject)"
+    }
+
+    public enum ComposeError: Error, Equatable {
+        case notConnected
+        case missingToken
+        case refreshFailed
+    }
+
+    /// 全文搜索（JOURNEY-007）：FTS5/底层搜索的 UI 数据源。
+    public func search(_ query: String) {
+        guard query.trimmingCharacters(in: .whitespaces).count >= 1 else {
+            searchResults = []
+            return
+        }
+        searchResults = (try? store.search(query)) ?? []
+    }
+
     /// Demo 模式切换（UI"先看看"入口）。
     public func switchToDemo() {
         Task { @MainActor in
