@@ -1,17 +1,20 @@
 import CoreKit
 import SwiftUI
 
-/// 侧栏（mockup §4：212pt；账户行 / MAILBOXES 徽章 / DECIDE / 隐私徽章）。
+/// 侧栏（mockup §4：212pt；账户行 / MAILBOXES 徽章 / DECIDE / 隐私徽章 + 设置入口）。
+/// 隐私徽章用规范状态色（DESIGN-002：不再内联 RGB）。
 struct SidebarView: View {
     @ObservedObject var model: MailoAppModel
+    @ObservedObject var root: MailoRootModel
+    @State private var showSettings = false
 
     var body: some View {
         VStack(spacing: 0) {
             accountRow
             Divider().overlay(DesignTokens.borderDefault)
 
-            navSection(title: "MAILBOXES", buckets: [.imbox, .feed, .paperTrail])
-            navSection(title: "DECIDE", buckets: [.screener, .setAside])
+            navSection(key: "nav.section.mailboxes", buckets: [.imbox, .feed, .paperTrail])
+            navSection(key: "nav.section.decide", buckets: [.screener, .setAside])
 
             Spacer(minLength: 0)
 
@@ -19,6 +22,9 @@ struct SidebarView: View {
         }
         .background(DesignTokens.surfaceMain)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        #if os(iOS)
+        .sheet(isPresented: $showSettings) { MailoSettingsView(root: root) }
+        #endif
     }
 
     private var accountRow: some View {
@@ -26,12 +32,12 @@ struct SidebarView: View {
             ZStack {
                 Circle().fill(DesignTokens.brandBlue)
                 Text(String(accountInitial))
-                    .font(.system(size: 11, weight: .bold))
+                    .font(DesignTokens.Typo.meta)
                     .foregroundColor(.white)
             }
             .frame(width: 24, height: 24)
             Text(accountLabel)
-                .font(.system(size: 13))
+                .font(DesignTokens.Typo.body)
                 .foregroundColor(DesignTokens.inkSecondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -39,22 +45,23 @@ struct SidebarView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
     }
 
     private var accountLabel: String {
         if case .connected(let email) = model.phase { return email }
         if case .demo = model.phase { return "demo@local" }
-        return "未连接"
+        return L10n.t("account.notConnected")
     }
 
     private var accountInitial: String {
         String(accountLabel.prefix(1)).uppercased()
     }
 
-    private func navSection(title: String, buckets: [Bucket]) -> some View {
+    private func navSection(key: String, buckets: [Bucket]) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.system(size: 10.5, weight: .bold))
+            Text(L10n.t(key))
+                .font(DesignTokens.Typo.micro)
                 .tracking(1.2)
                 .foregroundColor(DesignTokens.inkFaint)
                 .padding(.horizontal, 12)
@@ -71,12 +78,14 @@ struct SidebarView: View {
                             .fill(DesignTokens.bucketColor(bucket))
                             .frame(width: 9, height: 9)
                         Text(bucket.title)
-                            .font(.system(size: 13.5, weight: isActive ? .semibold : .regular))
+                            .font(isActive
+                                  ? DesignTokens.Typo.navItem.weight(.semibold)
+                                  : DesignTokens.Typo.navItem)
                             .foregroundColor(isActive ? .white : DesignTokens.inkSecondary)
                         Spacer(minLength: 0)
                         if count > 0 {
                             Text("\(count)")
-                                .font(.system(size: 11.5, weight: .bold))
+                                .font(DesignTokens.Typo.meta.weight(.bold))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 1)
                                 .background(
@@ -89,34 +98,49 @@ struct SidebarView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 7)
                     .background(
-                        RoundedRectangle(cornerRadius: 8)
+                        RoundedRectangle(cornerRadius: DesignTokens.radiusButton)
                             .fill(isActive ? DesignTokens.brandBlue : Color.clear))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 6)
+                .accessibilityLabel("\(bucket.title), \(count)")
             }
         }
     }
 
+    /// 隐私徽章（规范状态色）+ 设置入口（macOS SettingsLink / iOS sheet，JOURNEY-016）。
     private var privacyFooter: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 5) {
-                Circle().fill(Color(red: 0.18, green: 0.42, blue: 0.20)).frame(width: 6, height: 6)
-                Text("100% on-device")
-                    .font(.system(size: 10.5, weight: .bold))
+            #if os(macOS)
+            SettingsLink {
+                privacyBadge
             }
-            .foregroundColor(Color(red: 0.25, green: 0.42, blue: 0.20))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color(red: 0.94, green: 0.96, blue: 0.93)))
-            Text("No cloud. No tracking. Ever.")
-                .font(.system(size: 11))
+            .buttonStyle(.plain)
+            #else
+            Button { showSettings = true } label: { privacyBadge }
+                .buttonStyle(.plain)
+            #endif
+            Text(L10n.t("privacy.tagline"))
+                .font(DesignTokens.Typo.meta.weight(.regular))
                 .foregroundColor(DesignTokens.inkFaint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .overlay(alignment: .top) { Divider().overlay(DesignTokens.borderDefault) }
+    }
+
+    private var privacyBadge: some View {
+        HStack(spacing: 5) {
+            Circle().fill(DesignTokens.statusSuccessFg).frame(width: 6, height: 6)
+            Text(L10n.t("privacy.ondevice"))
+                .font(DesignTokens.Typo.micro)
+        }
+        .foregroundColor(DesignTokens.statusSuccessFg)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(RoundedRectangle(cornerRadius: 6).fill(DesignTokens.statusSuccessBg))
+        .help(L10n.t("settings.title"))
     }
 }
 
@@ -128,14 +152,6 @@ extension Bucket {
     /// 手动纠正目标（JOURNEY-017「This isn't X →」菜单；Block 单列一项）。
     static let correctionTargets: [Bucket] = [.imbox, .feed, .paperTrail, .setAside]
 
-    var title: String {
-        switch self {
-        case .imbox: return "Imbox"
-        case .feed: return "Feed"
-        case .paperTrail: return "Paper Trail"
-        case .screener: return "Screener"
-        case .setAside: return "Set Aside"
-        case .blocked: return "Blocked"
-        }
-    }
+    /// 本地化桶名（DESIGN-003；键与 rawValue 同名）。
+    var title: String { L10n.t("bucket.\(rawValue)") }
 }

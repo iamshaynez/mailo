@@ -9,6 +9,7 @@ struct MailReaderView: View {
     let stableId: String
 
     @State private var loadState: MailoAppModel.DetailLoadState?
+    @AppStorage("allowRemoteImages") private var remoteImagesAllowed = false
     @State private var retryNonce = 0
 
     var body: some View {
@@ -41,8 +42,8 @@ struct MailReaderView: View {
     private var loadingView: some View {
         VStack(spacing: 10) {
             ProgressView()
-            Text("Loading message…")
-                .font(.system(size: 12))
+            Text(L10n.t("reader.loading"))
+                .font(DesignTokens.Typo.meta)
                 .foregroundColor(DesignTokens.inkMuted)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -51,18 +52,18 @@ struct MailReaderView: View {
     private func failureView(_ message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "wifi.exclamationmark")
-                .font(.system(size: 28))
+                .font(DesignTokens.Typo.iconMedium)
                 .foregroundColor(DesignTokens.inkFaint.opacity(0.7))
             Text(message)
-                .font(.system(size: 12.5))
+                .font(DesignTokens.Typo.caption.weight(.regular))
                 .foregroundColor(DesignTokens.inkMuted)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             Button {
                 retryNonce += 1 // .task(id:) 重跑（JOURNEY-014 重试）
             } label: {
-                Text("Retry")
-                    .font(.system(size: 12.5, weight: .bold))
+                Text(L10n.t("reader.retry"))
+                    .font(DesignTokens.Typo.caption)
                     .padding(.horizontal, 16).padding(.vertical, 7)
                     .background(Capsule().fill(DesignTokens.brandBlue).opacity(0.12))
             }
@@ -90,7 +91,7 @@ struct MailReaderView: View {
 
                     // 正文：HTML 走 WKWebView 沙箱（自滚动）；纯文本走原生 Text
                     if let html = detail.htmlBody {
-                        HtmlMailWebView(html: html)
+                        HtmlMailWebView(html: html, allowRemoteImages: remoteImagesAllowed)
                             .padding(.horizontal, 26)
                             .padding(.bottom, 12)
                     } else {
@@ -114,23 +115,24 @@ struct MailReaderView: View {
                 Button {
                     model.request(.reply)
                 } label: {
-                    Label("Reply", systemImage: "arrow.turn.up.left")
-                        .font(.system(size: 12.5, weight: .bold))
+                    Label(L10n.t("reader.reply"), systemImage: "arrow.turn.up.left")
+                        .font(DesignTokens.Typo.caption)
                         .foregroundColor(.white)
                         .padding(.horizontal, 14).padding(.vertical, 7)
                         .background(Capsule().fill(DesignTokens.brandBlue)
-                            .shadow(color: DesignTokens.brandBlue.opacity(0.35), radius: 6, y: 3))
+                            .modifier(DesignTokens.primaryShadow()))
                 }
                 .buttonStyle(.plain)
+                .help(L10n.t("reader.reply"))
                 Button {
                     model.request(.forward)
                 } label: {
-                    ghostLabel("Forward")
+                    ghostLabel(L10n.t("reader.forward"))
                 }
                 Button {
                     try? model.setAside(stableId: stableId)
                 } label: {
-                    ghostLabel("Set Aside")
+                    ghostLabel(L10n.t("reader.setAside"))
                 }
                 Spacer()
                 correctionMenu
@@ -142,7 +144,7 @@ struct MailReaderView: View {
 
     private func ghostLabel(_ title: String) -> some View {
         Text(title)
-            .font(.system(size: 12.5, weight: .semibold))
+            .font(DesignTokens.Typo.caption)
             .foregroundColor(DesignTokens.inkSecondary)
             .padding(.horizontal, 13).padding(.vertical, 7)
             .background(Capsule().strokeBorder(DesignTokens.borderStrong, lineWidth: 1))
@@ -151,22 +153,22 @@ struct MailReaderView: View {
     /// ⋯ 菜单（JOURNEY-017 手动纠正常驻入口 + 标未读 + 拷贝）。
     private var correctionMenu: some View {
         Menu {
-            Section("This isn't \(model.selectedBucket.title) →") {
-                ForEach(Bucket.correctionTargets, id: \.self) { bucket in
-                    Button("Move to \(bucket.title)") {
+            Section(L10n.t("reader.menu.notBucket", ownBucket.title)) {
+                ForEach(Bucket.correctionTargets.filter { $0 != ownBucket }, id: \.self) { bucket in
+                    Button(L10n.t("reader.menu.moveTo", bucket.title)) {
                         try? model.reclassify(stableId: stableId, to: bucket)
                     }
                 }
-                Button("Block Sender") {
+                Button(L10n.t("reader.menu.blockSender")) {
                     try? model.reclassify(stableId: stableId, to: .blocked)
                 }
             }
             Divider()
-            Button("Mark Unread") { model.markUnread(stableId: stableId) }
-            Button("Copy Sender") { Clipboard.copy(currentDetail?.fromAddress ?? "") }
+            Button(L10n.t("reader.menu.markUnread")) { model.markUnread(stableId: stableId) }
+            Button(L10n.t("reader.menu.copySender")) { Clipboard.copy(currentDetail?.fromAddress ?? "") }
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 13, weight: .semibold))
+                .font(DesignTokens.Typo.iconCompact)
                 .foregroundColor(DesignTokens.inkSecondary)
                 .padding(.horizontal, 13).padding(.vertical, 7)
                 .background(Capsule().strokeBorder(DesignTokens.borderStrong, lineWidth: 1))
@@ -174,18 +176,19 @@ struct MailReaderView: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
+        .accessibilityLabel(L10n.t("reader.menu.notBucket", ownBucket.title))
     }
 
     /// Screener 决策条（CLS-010/011）：批准即规则，Block → blocked 桶。
     private var screenerDecisions: some View {
         HStack(spacing: 8) {
-            Text("Where should this sender go?")
-                .font(.system(size: 12.5, weight: .semibold))
+            Text(L10n.t("reader.screenerPrompt"))
+                .font(DesignTokens.Typo.caption)
                 .foregroundColor(DesignTokens.bucketColor(.screener))
-            decision("→ Imbox", bucket: .imbox, color: DesignTokens.bucketColor(.imbox))
-            decision("→ Feed", bucket: .feed, color: DesignTokens.bucketColor(.feed))
-            decision("→ Paper", bucket: .paperTrail, color: DesignTokens.bucketColor(.paperTrail))
-            decision("Block", bucket: .blocked, color: DesignTokens.bucketColor(.blocked))
+            decision(L10n.t("reader.screenerTo", Bucket.imbox.title), bucket: .imbox, color: DesignTokens.bucketColor(.imbox))
+            decision(L10n.t("reader.screenerTo", Bucket.feed.title), bucket: .feed, color: DesignTokens.bucketColor(.feed))
+            decision(L10n.t("reader.screenerTo", Bucket.paperTrail.title), bucket: .paperTrail, color: DesignTokens.bucketColor(.paperTrail))
+            decision(L10n.t("reader.screenerBlock"), bucket: .blocked, color: DesignTokens.bucketColor(.blocked))
             Spacer()
         }
     }
@@ -195,7 +198,7 @@ struct MailReaderView: View {
             try? model.decideScreener(stableId: stableId, to: bucket)
         } label: {
             Text(label)
-                .font(.system(size: 12, weight: .bold))
+                .font(DesignTokens.Typo.caption)
                 .foregroundColor(color)
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(Capsule().strokeBorder(color.opacity(0.6), lineWidth: 1.2))
@@ -221,27 +224,27 @@ struct MailReaderView: View {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(DesignTokens.bucketColor(ownBucket))
                 Text(String((detail?.fromAddress ?? "?").prefix(1)).uppercased())
-                    .font(.system(size: 16, weight: .heavy))
+                    .font(DesignTokens.Typo.sub)
                     .foregroundColor(.white)
             }
             .frame(width: 46, height: 46)
             VStack(alignment: .leading, spacing: 2) {
                 Text(detail?.fromAddress ?? "")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(DesignTokens.Typo.sub.weight(.bold))
                     .foregroundColor(DesignTokens.inkPrimary)
                 Text(formattedDate)
-                    .font(.system(size: 12))
+                    .font(DesignTokens.Typo.meta.weight(.regular))
                     .foregroundColor(DesignTokens.inkFaint)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text(ownBucket.title.uppercased())
-                    .font(.system(size: 10, weight: .heavy))
+                    .font(DesignTokens.Typo.micro)
                     .tracking(1.2)
                     .foregroundColor(DesignTokens.bucketColor(ownBucket))
                 if ownBucket == .imbox {
-                    Text("Real person ✓")
-                        .font(.system(size: 12.5, weight: .semibold))
+                    Text(L10n.t("reader.realPerson"))
+                        .font(DesignTokens.Typo.caption)
                         .foregroundColor(DesignTokens.inkSecondary)
                 }
             }
@@ -256,16 +259,16 @@ struct MailReaderView: View {
 
     private var subjectBlock: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(detail?.subject ?? "(no subject)")
-                .font(.system(size: 22, weight: .heavy))
+            Text(detail?.subject ?? L10n.t("row.noSubject"))
+                .font(DesignTokens.Typo.title)
                 .foregroundColor(DesignTokens.inkPrimary)
         }
         .padding(.top, 18)
     }
 
     private var bodyText: some View {
-        Text(detail?.textBody ?? "(no body preview)")
-            .font(.system(size: 14))
+        Text(detail?.textBody ?? L10n.t("reader.noBody"))
+            .font(DesignTokens.Typo.body)
             .lineSpacing(7)
             .foregroundColor(DesignTokens.inkBody)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -279,9 +282,9 @@ struct MailReaderView: View {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(DesignTokens.brandBlueWash)
                         .frame(width: 30, height: 30)
-                        .overlay(Text("📎").font(.system(size: 13)))
+                        .overlay(Text("📎").font(DesignTokens.Typo.body))
                     Text(name)
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .font(DesignTokens.Typo.caption)
                         .foregroundColor(DesignTokens.inkSecondary)
                 }
                 .padding(.horizontal, 14).padding(.vertical, 10)

@@ -6,6 +6,7 @@ import SwiftUI
 /// ⌘↩ 发送；关闭有内容时留驻（v1 不做草稿持久化，关闭即弃）。
 public struct ComposeView: View {
     @ObservedObject var model: MailoAppModel
+    var onDismiss: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var to: String
     @State private var subject: String
@@ -13,8 +14,9 @@ public struct ComposeView: View {
     @State private var sending = false
     @State private var errorText: String?
 
-    public init(model: MailoAppModel, draft: ComposeDraft = ComposeDraft()) {
+    public init(model: MailoAppModel, draft: ComposeDraft = ComposeDraft(), onDismiss: (() -> Void)? = nil) {
         self.model = model
+        self.onDismiss = onDismiss
         _to = State(initialValue: draft.to)
         _subject = State(initialValue: draft.subject)
         _bodyText = State(initialValue: draft.body)
@@ -23,39 +25,40 @@ public struct ComposeView: View {
     public var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("New Message")
-                    .font(.system(size: 16, weight: .heavy))
+                Text(L10n.t("compose.title"))
+                    .font(DesignTokens.Typo.sub)
                 Spacer()
                 Button {
-                    dismiss()
+                    close()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(DesignTokens.inkFaint)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(L10n.t("compose.title"))
             }
             .padding(16)
 
             Form {
-                TextField("To", text: $to)
-                TextField("Subject", text: $subject)
+                TextField(L10n.t("compose.to"), text: $to)
+                TextField(L10n.t("compose.subject"), text: $subject)
             }
             .formStyle(.grouped)
             .scrollContentBackground(.hidden)
             .frame(height: 120)
 
             TextEditor(text: $bodyText)
-                .font(.system(size: 14))
+                .font(DesignTokens.Typo.body)
                 .padding(12)
                 .overlay(alignment: .topLeading) {
                     if bodyText.isEmpty {
-                        Text("Write something…").foregroundColor(DesignTokens.inkFaint).padding(16)
+                        Text(L10n.t("compose.bodyPlaceholder")).foregroundColor(DesignTokens.inkFaint).padding(16)
                     }
                 }
 
             if let errorText {
                 Text(errorText)
-                    .font(.system(size: 11.5))
+                    .font(DesignTokens.Typo.meta)
                     .foregroundColor(.red)
                     .padding(.horizontal, 16)
             }
@@ -63,7 +66,7 @@ public struct ComposeView: View {
             HStack {
                 Button(action: send) {
                     if sending { ProgressView().frame(maxWidth: .infinity) }
-                    else { Text("Send").frame(maxWidth: .infinity) }
+                    else { Text(L10n.t("compose.send")).frame(maxWidth: .infinity) }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(DesignTokens.brandBlue)
@@ -75,6 +78,11 @@ public struct ComposeView: View {
         .frame(minWidth: 460, minHeight: 420)
     }
 
+    private func close() {
+        onDismiss?()
+        dismiss()
+    }
+
     private func send() {
         sending = true
         errorText = nil
@@ -83,9 +91,9 @@ public struct ComposeView: View {
             do {
                 try await model.composeAndSend(to: to, subject: subject, body: bodyText,
                                                vault: KeychainVault())
-                dismiss()
+                close()
             } catch {
-                errorText = "Send failed: \(error.localizedDescription.isEmpty ? String(describing: error) : error.localizedDescription)"
+                errorText = L10n.t("compose.sendFailed", error.localizedDescription.isEmpty ? String(describing: error) : error.localizedDescription)
             }
         }
     }

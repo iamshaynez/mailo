@@ -1,0 +1,111 @@
+/* Mailo · en (development language, DESIGN-003) */
+
+/* Navigation */
+"nav.section.mailboxes" = "MAILBOXES";
+"nav.section.decide" = "DECIDE";
+"bucket.imbox" = "Imbox";
+"bucket.feed" = "Feed";
+"bucket.paperTrail" = "Paper Trail";
+"bucket.screener" = "Screener";
+"bucket.setAside" = "Set Aside";
+"bucket.blocked" = "Blocked";
+"privacy.ondevice" = "100% on-device";
+"privacy.tagline" = "No cloud. No tracking. Ever.";
+"account.notConnected" = "Not connected";
+
+/* Toolbar */
+"toolbar.search.placeholder" = "Search all mail…";
+"toolbar.compose" = "Compose";
+
+/* Screener banner */
+"screener.banner" = "%d new senders waiting in your Screener — approve once, filed forever.";
+"screener.review" = "Review →";
+
+/* Demo strip */
+"demo.badge" = "Demo — sample mailbox, nothing touches your real account.";
+"demo.exit" = "Exit Demo";
+
+/* List */
+"segment.new" = "New";
+"segment.seen" = "Previously seen";
+"segment.aside" = "Set aside";
+"list.empty" = "All quiet here.";
+"list.backfill" = "Importing history · %d mails";
+"list.count" = "%d";
+"search.title" = "Search Results";
+"search.empty" = "No results";
+"row.noSubject" = "(no subject)";
+"row.unknown" = "unknown";
+"date.undated" = "Undated";
+"date.today" = "TODAY";
+"date.yesterday" = "YESTERDAY";
+
+/* Reader */
+"reader.reply" = "Reply";
+"reader.forward" = "Forward";
+"reader.setAside" = "Set Aside";
+"reader.loading" = "Loading message…";
+"reader.retry" = "Retry";
+"reader.bodyFailed" = "Couldn't load message body: %@";
+"reader.missing" = "Message missing from local store";
+"reader.screenerPrompt" = "Where should this sender go?";
+"reader.screenerTo" = "→ %@";
+"reader.screenerBlock" = "Block";
+"reader.menu.notBucket" = "This isn't %@";
+"reader.menu.moveTo" = "Move to %@";
+"reader.menu.blockSender" = "Block Sender";
+"reader.menu.markUnread" = "Mark Unread";
+"reader.menu.markRead" = "Mark as Read";
+"reader.menu.copySender" = "Copy Sender";
+"reader.realPerson" = "Real person ✓";
+"reader.noBody" = "(no body preview)";
+"reader.select" = "Select a message";
+"reader.calm" = "Imbox is calm.";
+
+/* Compose */
+"compose.title" = "New Message";
+"compose.to" = "To";
+"compose.subject" = "Subject";
+"compose.bodyPlaceholder" = "Write something…";
+"compose.send" = "Send";
+"compose.sendFailed" = "Send failed: %@";
+
+/* Account setup */
+"setup.welcome" = "Welcome to Mailo";
+"setup.subtitle" = "No cloud. Zero data leaves your device. Connect your mailbox:";
+"setup.emailPlaceholder" = "Email (you@outlook.com)";
+"setup.clientId" = "Entra Client ID";
+"setup.connect" = "Connect Outlook";
+"setup.tryDemo" = "Try the demo (no account needed)";
+"setup.devicecode.title" = "Finish sign-in in your browser";
+"setup.devicecode.open" = "Open %@";
+"setup.devicecode.link" = "Open sign-in page";
+"setup.devicecode.requesting" = "Requesting a device code from Microsoft…";
+
+/* Commands */
+"menu.newMessage" = "New Message";
+"menu.search" = "Search";
+"menu.syncNow" = "Sync Now";
+"menu.undo" = "Undo %@";
+"menu.message" = "Message";
+
+/* Settings */
+"settings.tab.account" = "Account";
+"settings.tab.privacy" = "Privacy";
+"settings.tab.diagnostics" = "Diagnostics";
+"settings.disconnect" = "Disconnect Account";
+"settings.disconnect.confirm" = "This removes the account and stored credentials on this device. Your mail stays on the server.";
+"settings.remoteImages" = "Load remote images by default";
+"settings.remoteImages.hint" = "When off, remote images are blocked for privacy. You can still allow them per message.";
+"settings.diagnostics.schema" = "Local database";
+"settings.diagnostics.lastSync" = "Last sync";
+"settings.diagnostics.backfill" = "History imported";
+
+/* Sync status */
+"sync.summary.synced" = "Synced %1$d · %2$@s · imbox %3$d / feed %4$d / paper %5$d / screener %6$d";
+"sync.manualDone" = "Manual sync completed";
+"sync.manualFailed" = "Sync failed: %@";
+"sync.retrying" = "Sync retrying: %@";
+"sync.backfillProgress" = "Backfilled %1$d · UID %2$d";
+"sync.backfillDone" = "Backfill complete: %d mails";
+"sync.sent" = "Sent to %1@: %2@";
