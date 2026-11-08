@@ -115,7 +115,7 @@ public final class MailoAppModel: ObservableObject {
     public func restoreSavedAccount(
         vault: any CredentialVault,
         directory: URL? = nil,
-        tokenRefresher: (_ clientId: String, _ refreshToken: String) async throws -> String? = nil,
+        tokenRefresher: ((_ clientId: String, _ refreshToken: String) async throws -> String?)? = nil,
         transportFactory: (_ host: String) -> any ImapTransport = { TcpImapTransport(host: $0) }
     ) async -> Bool {
         let store: AccountStore = {
@@ -127,7 +127,7 @@ public final class MailoAppModel: ObservableObject {
         let kind = DeviceCodeFlow.MicrosoftAccount(rawValue: record.accountKind) ?? .personal
         do {
             let accessToken: String?
-            if let refresher = tokenRefresher {
+            if let refresher {
                 accessToken = try await refresher(record.clientId, secret)
             } else {
                 let granted = try await DeviceCodeClient().refresh(
