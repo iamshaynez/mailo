@@ -10,6 +10,6 @@ struct MailoMacApp: App {
             MailoShell(model: model)
                 .frame(minWidth: 960, minHeight: 600)
         }
-        .windowToolbarStyle(.unified)
+        .windowStyle(.hiddenTitleBar)
     }
 }

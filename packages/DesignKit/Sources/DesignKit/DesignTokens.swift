@@ -30,6 +30,9 @@ public enum DesignTokens {
     public static var inkPrimary: Color { Color(hex: 0x16202F) }
     public static var inkSecondary: Color { Color(hex: 0x3C4657) }
     public static var inkMuted: Color { Color(hex: 0x8892A6) }
+    public static var inkFaint: Color { Color(hex: 0x9AA4B5) }
+    public static var borderStrong: Color { Color(hex: 0xD8DFEA) }
+    public static var surfaceSubtle: Color { Color(hex: 0xF1F4F9) }
     public static var surfaceMain: Color { .white }
     public static var borderDefault: Color { Color(hex: 0xE8ECF3) }
 
