@@ -163,6 +163,8 @@ private struct MainSurface: View {
             Button(L10n.t("demo.exit")) { root.exitDemo() }
                 .font(DesignTokens.Typo.caption)
                 .foregroundColor(DesignTokens.brandBlue)
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .contentShape(Rectangle())
                 .buttonStyle(.plain)
         }
         .foregroundColor(DesignTokens.inkSecondary)
@@ -291,6 +293,8 @@ private struct MainSurface: View {
                     Text(L10n.t("screener.review"))
                         .font(DesignTokens.Typo.caption)
                         .foregroundColor(DesignTokens.brandBlue)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }

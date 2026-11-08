@@ -148,6 +148,7 @@ struct MailReaderView: View {
             .foregroundColor(DesignTokens.inkSecondary)
             .padding(.horizontal, 13).padding(.vertical, 7)
             .background(Capsule().strokeBorder(DesignTokens.borderStrong, lineWidth: 1))
+            .contentShape(Rectangle()) // 命中区域铺满胶囊（JOURNEY-018）
     }
 
     /// ⋯ 菜单（JOURNEY-017 手动纠正常驻入口 + 标未读 + 拷贝）。
@@ -202,6 +203,7 @@ struct MailReaderView: View {
                 .foregroundColor(color)
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(Capsule().strokeBorder(color.opacity(0.6), lineWidth: 1.2))
+                .contentShape(Rectangle()) // 命中区域铺满胶囊（JOURNEY-018）
         }
         .buttonStyle(.plain)
     }

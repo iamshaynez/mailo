@@ -156,5 +156,5 @@
 - **When** 点开 X 阅读触发 markRead（或右键 Mark as Read）
 - **Then** X **仍留在 New 段列表原位**（不消失、不重排）；仅未读点原位清除（entries 原位合并 flags，不整表重查）；直到切换分段/切换桶/新同步（代际变化）才重新过滤——此时 X 归入 Previously seen
 - **And** 分段控件（New / Previously seen / Set aside）与阅读窗格胶囊按钮的点击命中区域为整个胶囊区域，而非文字笔画
-- **Status**: draft
+- **Status**: green
 - **Tests**: `journey_018_segment_membership_stable_on_read`
