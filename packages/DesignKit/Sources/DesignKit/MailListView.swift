@@ -8,6 +8,7 @@ struct MailListView: View {
     @ObservedObject var model: MailoAppModel
     @Binding var selection: String?
     @State private var segment = 0 // 0 New / 1 Previously seen / 2 Set aside
+    @State private var segmentSnapshot: [BucketEntry] = [] // JOURNEY-018：段内成员稳定
     @State private var dateIndex = MailDateIndex(entries: []) // PERF-004
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -51,12 +52,25 @@ struct MailListView: View {
             }
         }
         .background(DesignTokens.surfaceMain)
-        .onAppear { rebuildIndex() }
-        .onChange(of: model.entries) { _ in rebuildIndex() }
-        .onChange(of: segment) { newSegment in
-            if newSegment == 2 { model.loadAsideEntries() } // 第三段直读 Set Aside 桶
+        .onAppear { rebuildSnapshot() }
+        // JOURNEY-018：entries 变化分两类——flags 原位合并（阅读标记）只同步旗标；
+        // 代际变化（load/同步/回填）才重建段快照（重新过滤成员）。
+        .onChange(of: model.entries) {
+            segmentSnapshot = SegmentSnapshot.mergeFlags(into: segmentSnapshot, from: $0)
             rebuildIndex()
         }
+        .onChange(of: model.entriesGeneration) { _ in rebuildSnapshot() }
+        .onChange(of: model.selectedBucket) { _ in rebuildSnapshot() }
+        .onChange(of: segment) { newSegment in
+            if newSegment == 2 { model.loadAsideEntries() } // 第三段直读 Set Aside 桶
+            rebuildSnapshot()
+        }
+    }
+
+    /// 重建段快照（成员按当前段过滤；JOURNEY-018 入口）。
+    private func rebuildSnapshot() {
+        segmentSnapshot = SegmentSnapshot.build(segment: segment, entries: model.entries)
+        rebuildIndex()
     }
 
     private func rebuildIndex() {
@@ -107,6 +121,7 @@ struct MailListView: View {
                                 .fill(segment == index ? Color.white : Color.clear)
                                 .shadow(color: segment == index ? Color.black.opacity(0.08) : .clear,
                                         radius: 2, y: 1))
+                        .contentShape(Rectangle()) // 命中区域铺满分段格（JOURNEY-018）
                 }
                 .buttonStyle(.plain)
             }
@@ -135,11 +150,7 @@ struct MailListView: View {
     // MARK: 数据选择（过滤 + Set aside 段）
 
     private var displayEntries: [BucketEntry] {
-        switch segment {
-        case 0: return model.entries.filter { !$0.flags.contains("\\Seen") }
-        case 1: return model.entries.filter { $0.flags.contains("\\Seen") }
-        default: return model.asideEntries
-        }
+        segment == 2 ? model.asideEntries : segmentSnapshot
     }
 
     private var displayGroups: [(label: String, entries: [BucketEntry])] {
@@ -160,6 +171,32 @@ struct MailListView: View {
         }
         Divider()
         Button(L10n.t("reader.menu.copySender")) { Clipboard.copy(entry.fromAddress ?? "") }
+    }
+}
+
+// MARK: - 分段快照（JOURNEY-018：段内成员稳定，flags 原位合并）
+
+/// 分段快照的纯函数面（测试锁定）：
+/// build = 进段/代际变化时按 flags 过滤成员；mergeFlags = 段内阅读标记只改旗标不动成员。
+@MainActor
+enum SegmentSnapshot {
+    static func build(segment: Int, entries: [BucketEntry]) -> [BucketEntry] {
+        switch segment {
+        case 0: return entries.filter { !$0.flags.contains("\\Seen") }
+        case 1: return entries.filter { $0.flags.contains("\\Seen") }
+        default: return entries
+        }
+    }
+
+    static func mergeFlags(into snapshot: [BucketEntry], from updated: [BucketEntry]) -> [BucketEntry] {
+        let byId = Dictionary(uniqueKeysWithValues: updated.map { ($0.stableId, $0.flags) })
+        var out = snapshot
+        for i in out.indices {
+            if let flags = byId[out[i].stableId] {
+                out[i].flags = flags
+            }
+        }
+        return out
     }
 }
 

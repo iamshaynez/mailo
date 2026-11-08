@@ -17,6 +17,9 @@ public final class MailoAppModel: ObservableObject {
     }
 
     @Published public private(set) var entries: [BucketEntry] = []
+    /// 列表代际（JOURNEY-018）：load/同步等**成员变化**时 +1；
+    /// 阅读标记（markRead/markUnread）只原位合并 flags、不升代际——分段内成员稳定。
+    @Published public private(set) var entriesGeneration = 0
     @Published public private(set) var selectedBucket: Bucket = .imbox
     @Published public private(set) var phase: Phase = .empty
     /// 最近一轮同步诊断（底部状态条；排查"授权成功但列表空"这类问题的第一现场）
@@ -223,6 +226,7 @@ public final class MailoAppModel: ObservableObject {
                                                              total: max(floor0 - 1, self.backfilledCount))
                     self.refreshCounts()
                     self.entries = (try? self.store.entries(bucket: self.selectedBucket)) ?? self.entries
+                    self.entriesGeneration += 1
                 }
                 if low <= 1 {
                     self.lastSyncSummary = L10n.t("sync.backfillDone", self.backfilledCount)
@@ -548,12 +552,12 @@ public protocol MlGuessProviding: Sendable {
     /// 最近一次可撤销动作（Edit ⌘Z 消费）。
     @Published public private(set) var lastAction: UndoableAction?
 
-    /// 打开即标已读（JOURNEY-013）：本地 flags 并集（未读点立即消失），
+    /// 打开即标已读（JOURNEY-013/018）：本地 flags 并集后**原位合并**进既有列表
+    /// （成员与顺序不动、不升代际——阅读不会把邮件从 New 段脚下抽走）；
     /// 服务器 UID STORE 写回在后台尽力而为，失败不回滚本地。
     public func markRead(stableId: String) {
         try? store.setFlags(stableId: stableId, merge: ["\\Seen"])
-        entries = (try? store.entries(bucket: selectedBucket)) ?? entries
-        refreshCounts()
+        mergeFlagsInPlace(stableId: stableId)
         // 服务器写回（尽力而为）：后台线程，失败不回滚本地（JOURNEY-013）
         guard let runner, let row = try? store.mail(stableId: stableId) else { return }
         let engine = runner.engine, transport = runner.transport, uid = row.uid
@@ -562,10 +566,26 @@ public protocol MlGuessProviding: Sendable {
         }
     }
 
-    /// 标回未读（仅本地；服务器写回不做——重新打开会再次标读）。
+    /// 标回未读（仅本地，同样原位；服务器写回不做——重新打开会再次标读）。
     public func markUnread(stableId: String) {
         try? store.setFlags(stableId: stableId, remove: ["\\Seen"])
-        entries = (try? store.entries(bucket: selectedBucket)) ?? entries
+        mergeFlagsInPlace(stableId: stableId)
+    }
+
+    /// 原位合并 flags（JOURNEY-018）：entries / asideEntries / searchResults 三处列表同步，
+    /// 成员与顺序保持，未读点原位清除。
+    private func mergeFlagsInPlace(stableId: String) {
+        guard let row = try? store.mail(stableId: stableId) else { return }
+        let joined = row.flagList.joined(separator: " ")
+        if let i = entries.firstIndex(where: { $0.stableId == stableId }) {
+            entries[i].flags = joined
+        }
+        if let i = asideEntries.firstIndex(where: { $0.stableId == stableId }) {
+            asideEntries[i].flags = joined
+        }
+        if let i = searchResults.firstIndex(where: { $0.stableId == stableId }) {
+            searchResults[i].flags = joined
+        }
     }
 
     public func toggleUnread(stableId: String) {
@@ -715,6 +735,7 @@ public protocol MlGuessProviding: Sendable {
     public func load(bucket: Bucket) throws {
         selectedBucket = bucket
         entries = try store.entries(bucket: bucket)
+        entriesGeneration += 1
         refreshCounts()
     }
 }
