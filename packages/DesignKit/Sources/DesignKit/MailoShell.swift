@@ -8,7 +8,7 @@ public struct MailoShell: View {
     @ObservedObject var model: MailoAppModel
     @State private var selection: String?
     @State private var composing = false
-    @State private var searchText = 
+    @State private var searchText = ""
 
     public init(model: MailoAppModel) {
         self.model = model
