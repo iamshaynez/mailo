@@ -222,10 +222,12 @@ public final class MailoAppModel: ObservableObject {
     public func composeAndSend(
         to: String, subject: String, body: String,
         vault: (any CredentialVault)? = nil,
+        directory: URL? = nil,
         tokenRefresher: ((_ clientId: String, _ refreshToken: String) async throws -> String?)? = nil,
         smtpTransport: (any SmtpTransport)? = nil
     ) async throws {
-        guard let record = accountStore().loadPrimary() else {
+        let store: AccountStore = directory.map { AccountStore(directory: $0) } ?? accountStore()
+        guard let record = store.loadPrimary() else {
             throw ComposeError.notConnected
         }
         let vault = vault ?? InMemoryVault() // 生产由 UI 传 KeychainVault；此处兜底避免崩溃

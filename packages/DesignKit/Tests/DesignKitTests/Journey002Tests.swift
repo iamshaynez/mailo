@@ -119,7 +119,7 @@ struct ComposeSearchTests {
         let smtp = FakeSmtpServer()
 
         try await model.composeAndSend(to: "friend@x.co", subject: "Hello", body: "line1\n.dot\nline3",
-                                       vault: vault,
+                                       vault: vault, directory: dir,
                                        tokenRefresher: { cid, rt in (cid == "cid" && rt == "refresh-1") ? "access-ok" : nil },
                                        smtpTransport: smtp)
         // 会话完整且走 XOAUTH2
