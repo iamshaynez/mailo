@@ -163,14 +163,72 @@ public final class MailoAppModel: ObservableObject {
                 buckets[bucket, default: 0] += 1
             case .screener:
                 screenerCount += 1
+                pipeline.frozen[event.stableMessageID] = .screener
+                try store.freeze(ClassificationRow(stableId: event.stableMessageID.value, bucket: .screener, reason: "belowThreshold"))
             }
         }
         lastSyncSummary = "同步 \(events.count) 封 · imbox \(buckets[.imbox] ?? 0) / feed \(buckets[.feed] ?? 0) / paper \(buckets[.paperTrail] ?? 0) / screener \(screenerCount)"
     }
 
+    // MARK: - 支撑能力（CLS-010 / STORE-006 / JOURNEY-003）
+
+    /// 邮件详情（阅读窗格数据源：完整正文从 raw 重新解析）。
+    public struct MailDetail: Equatable, Sendable {
+        public var stableId: String
+        public var subject: String?
+        public var fromAddress: String?
+        public var date: String?
+        public var textBody: String?
+        public var attachmentNames: [String]
+        public var flags: [String]
+
+        public var isUnread: Bool { !flags.contains("\\Seen") }
+    }
+
+    public func mailDetail(stableId: String) -> MailDetail? {
+        guard let row = try? store.mail(stableId: stableId), let raw = row.raw else { return nil }
+        let parsed = MimeParser.parse([UInt8](raw))
+        return MailDetail(
+            stableId: stableId,
+            subject: row.subject ?? parsed.subject,
+            fromAddress: row.fromAddress ?? parsed.from,
+            date: row.date ?? parsed.date,
+            textBody: parsed.textBody ?? parsed.htmlBody,
+            attachmentNames: parsed.attachments.compactMap(\.filename),
+            flags: row.flagList)
+    }
+
+    /// 桶计数（load 后刷新，供侧栏徽章）。
+    public private(set) var bucketCounts: [String: Int] = [:]
+
+    public func refreshCounts() {
+        bucketCounts = (try? store.bucketCounts()) ?? [:]
+    }
+
+    /// Screener 决策（CLS-010）：批准即显式规则，下一封同发件人直接命中；更新桶并刷新。
+    public func decideScreener(stableId: String, to bucket: Bucket) throws {
+        guard let row = try store.mail(stableId: stableId) else { return }
+        if bucket != .screener, let from = row.fromAddress {
+            let rule = UserRule.correction(senderAddress: from, bucket: bucket,
+                                           deviceId: deviceId, ts: Int64(Date().timeIntervalSince1970 * 1000))
+            pipeline.rules.append(rule)
+        }
+        let stable = StableMessageID(messageId: nil, accountFingerprint: "primary",
+                                      fallback: .init(from: row.fromAddress ?? "", date: row.date ?? "", subject: row.subject ?? ""))
+        // 直接按 stableId 更新冻结（stable key 就是 stableId 值）
+        try store.freeze(ClassificationRow(stableId: stableId, bucket: bucket, reason: "screenerDecision"))
+        if let existing = pipeline.frozen.first(where: { $0.key.value == stableId })?.key {
+            pipeline.frozen[existing] = bucket
+        }
+        _ = stable
+        try load(bucket: selectedBucket)
+        refreshCounts()
+    }
+
     public func load(bucket: Bucket) throws {
         selectedBucket = bucket
         entries = try store.entries(bucket: bucket)
+        refreshCounts()
     }
 }
 

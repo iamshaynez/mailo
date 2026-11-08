@@ -20,3 +20,10 @@
 - **Then** feed/paperTrail/imbox 各桶正确呈现；未知发件人低置信进 Screener 计数；本地库为文件路径模式（跨启动持久）
 - **Status**: draft
 - **Tests**: `journey_002_real_account_assembly`
+
+## JOURNEY-003 邮件详情与未读呈现
+- **Given** 已入库邮件（含完整 raw 字节）
+- **When** mailDetail(stableId) 与列表渲染
+- **Then** 详情含完整正文（从 raw 重新解析，非 200 字 snippet）；未读判定 = flags 不含 \\Seen（列表"New"分段依据）
+- **Status**: draft
+- **Tests**: `journey_003_detail_and_unread`
