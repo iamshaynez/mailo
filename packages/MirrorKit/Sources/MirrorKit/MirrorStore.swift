@@ -135,7 +135,29 @@ public final class MirrorStore: @unchecked Sendable {
             END;
             """)
         }
-        try migrator.migrate(db)
+        // v2 为存量库补 sync_state（曾误改入 v1 的修正，STORE-008 教训）
+        migrator.registerMigration("v2-sync-state") { db in
+            try db.execute(sql: """
+            CREATE TABLE IF NOT EXISTS sync_state(
+                folder TEXT NOT NULL PRIMARY KEY ON CONFLICT REPLACE,
+                uidValidity INTEGER NOT NULL,
+                highestUid INTEGER NOT NULL
+            )
+            """)
+        }
+        // v3：版本绑定元数据（STORE-009）
+        migrator.registerMigration("v3-meta") { db in
+            try db.create(table: "meta") { t in
+                t.primaryKey(["key"], onConflict: .replace)
+                t.column("key", .text).notNull()
+                t.column("value", .text).notNull()
+            }
+        }
+        return migrator
+    }
+
+    static func migrate(_ db: DatabaseQueue) throws {
+        try makeMigrator().migrate(db)
     }
 
     /// 已应用迁移清单（与 MIGRATIONS.md 登记表对齐，STORE-009）。
