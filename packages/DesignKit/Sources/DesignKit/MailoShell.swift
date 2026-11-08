@@ -25,6 +25,7 @@ public struct MailoShell: View {
         case .empty, .connecting, .failed:
             AccountSetupView(model: model)
         }
+        .preferredColorScheme(.light) // 设计规范 §7：v1 锁浅色（深色模式下未显式色文本会白底白字）
     }
 
     // MARK: 宽屏三栏

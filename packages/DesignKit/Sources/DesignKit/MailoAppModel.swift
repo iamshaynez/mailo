@@ -179,6 +179,7 @@ public final class MailoAppModel: ObservableObject {
         public var fromAddress: String?
         public var date: String?
         public var textBody: String?
+        public var htmlBody: String?
         public var attachmentNames: [String]
         public var flags: [String]
 
@@ -193,7 +194,8 @@ public final class MailoAppModel: ObservableObject {
             subject: row.subject ?? parsed.subject,
             fromAddress: row.fromAddress ?? parsed.from,
             date: row.date ?? parsed.date,
-            textBody: parsed.textBody ?? parsed.htmlBody,
+            textBody: parsed.textBody,
+            htmlBody: parsed.htmlBody,
             attachmentNames: parsed.attachments.compactMap(\.filename),
             flags: row.flagList)
     }
