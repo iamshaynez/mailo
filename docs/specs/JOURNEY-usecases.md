@@ -151,13 +151,15 @@
 - **Status**: green
 - **Tests**: `design_004_motion_tokens`
 
-## JOURNEY-018 分段成员稳定（阅读不抖动）+ 分段控件命中区域
+## JOURNEY-018 分段成员稳定（v2：后台刷新永不删行）+ 分段控件命中区域
 - **Given** New 段打开，邮件 X 未读且在列表中
-- **When** 点开 X 阅读触发 markRead（或右键 Mark as Read）
-- **Then** X **仍留在 New 段列表原位**（不消失、不重排）；仅未读点原位清除（entries 原位合并 flags，不整表重查）；直到切换分段/切换桶/新同步（代际变化）才重新过滤——此时 X 归入 Previously seen
+- **When** 任意**后台数据刷新**（markRead/markUnread、30s 轮询、历史回填批次、日期回补、手动同步）
+- **Then** 列表成员**只增不删**：已在快照中的 X 留在原位（flags 原位合并——已读变轻但不消失）；新到达的未读邮件按 date 归位插入顶部；**被移出当前桶的行**（不在最新桶数据中，如 Set Aside/拦截/纠正移走）立即移除；其余一律不动
+- **When** 用户**显式切换**分段或切换桶（或重新进入视图）
+- **Then** 按最新 flags 全量重算（此时已读邮件归入 Previously seen）
 - **And** 分段控件（New / Previously seen / Set aside）与阅读窗格胶囊按钮的点击命中区域为整个胶囊区域，而非文字笔画
-- **Status**: green
-- **Tests**: `journey_018_segment_membership_stable_on_read`
+- **Status**: green（v2 行为修订：v1 的"代际重算"把后台刷新也当重算触发，已读邮件被抽走——实测轮询/回填期间高发）
+- **Tests**: `journey_018_segment_membership_stable_on_read`, `journey_018_merge_semantics_grow_only`
 
 ## JOURNEY-019 未读/已读行的字重编码
 - **Given** 列表行 / 搜索结果行（视觉由 MailRowView 统一渲染）
