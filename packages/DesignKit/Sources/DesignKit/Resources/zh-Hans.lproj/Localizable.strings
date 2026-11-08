@@ -109,3 +109,6 @@
 "sync.backfillProgress" = "已回填 %1$d 封 · UID %2$d";
 "sync.backfillDone" = "历史回填完成：%d 封";
 "sync.sent" = "已发送至 %1@：%2@";
+"sync.dateBackfillDone" = "时间戳回补完成";
+"sync.dateBackfillProgress" = "正在回补时间戳 %1$d / %2$d";
+"sync.dateBackfillFailed" = "时间戳回补暂停（下轮同步重试）";

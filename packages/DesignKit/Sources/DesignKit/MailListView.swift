@@ -204,6 +204,18 @@ enum SegmentSnapshot {
 
 @MainActor
 enum MailDateGrouping {
+    /// 双格式解析（JOURNEY-020）：入库 ISO8601 优先，存量 RFC2822 原文兜底。
+    static let iso8601: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    static func parse(_ raw: String?) -> Date? {
+        guard let raw, !raw.isEmpty else { return nil }
+        return CoreKit.MailDateFormat.parse(raw)
+    }
+
     /// RFC2822 解析器（静态缓存；全 UI 共享）。
     static let rfc2822: DateFormatter = {
         let f = DateFormatter()
@@ -251,7 +263,7 @@ struct MailDateIndex {
         for entry in entries {
             guard let raw = entry.date else { continue }
             if let cached = rawCache[raw] { out[entry.stableId] = cached; continue }
-            guard let parsed = MailDateGrouping.rfc2822.date(from: raw) else { continue }
+            guard let parsed = MailDateGrouping.parse(raw) else { continue }
             Self.parseCount += 1
             rawCache[raw] = parsed
             out[entry.stableId] = parsed

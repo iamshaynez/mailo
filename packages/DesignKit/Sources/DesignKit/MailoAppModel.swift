@@ -1,6 +1,13 @@
 import AuthKit
 import CoreKit
 import Foundation
+
+/// 诊断输出（stderr——GUI app 的 stdout 不可靠）。
+func diagLog(_ message: @autoclosure () -> String) {
+    if ProcessInfo.processInfo.environment["MAILO_DIAG"] != nil {
+        FileHandle.standardError.write(Data("[DIAG] \(message())\n".utf8))
+    }
+}
 import MailProtoKit
 import MirrorKit
 
@@ -113,6 +120,7 @@ public final class MailoAppModel: ObservableObject {
         }
         phase = .connected(email: account.username)
         try load(bucket: selectedBucket)
+        backfillMissingDates() // JOURNEY-020：存量无日期邮件按信封补
         syncElapsed = Date().timeIntervalSince(started)
         lastSyncSummary = L10n.t("sync.summary.synced", count, String(format: "%.1f", syncElapsed), bucketCounts["imbox"] ?? 0, bucketCounts["feed"] ?? 0, bucketCounts["paperTrail"] ?? 0, screenerCount)
         return outcome
@@ -145,11 +153,41 @@ public final class MailoAppModel: ObservableObject {
             try await attach(account: config, transport: transport)
             try? accountStore().save(AccountRecord(email: email, clientId: clientId,
                                                    accountKind: account, secretRef: config.secretRef))
+            installReconnect(email: email, clientId: clientId, vault: vault, kind: account)
             startPolling()
             startBackfill()
         } catch {
             phase = .failed(String(describing: error))
             throw error
+        }
+    }
+
+    /// 安装连接重建句柄（JOURNEY-020：日期回填被服务器踢线后自动重连续跑）。
+    /// refresh token → 新 TLS 连接 → 换 runner.transport（SyncRunner.transport 为 var）。
+    private func installReconnect(email: String, clientId: String,
+                                  vault: (any CredentialVault)?, kind: DeviceCodeFlow.MicrosoftAccount) {
+        let vault = vault ?? KeychainVault()
+        reconnectHandler = { [weak self] in
+            guard let self else { return false }
+            do {
+                guard let secret = try vault.load("mailo.acct.outlook.\(email)") else { return false }
+                let granted = try await DeviceCodeClient().refresh(clientId: clientId, account: kind, refreshToken: secret)
+                // refresh token 可能轮换：回存保证下次可用
+                let rotated = granted.refreshToken
+                if rotated != secret {
+                    try? vault.save(rotated, for: "mailo.acct.outlook.\(email)")
+                }
+                let transport = TcpImapTransport(host: OAuthProviderConfig.outlookImapHost, port: 993, connectTimeout: 15)
+                try transport.connect(method: .xoauth2(user: email, accessToken: granted.accessToken))
+                guard var r = self.runner else { return false }
+                r.transport = transport
+                self.runner = r
+                diagLog("reconnect ok")
+                return true
+            } catch {
+                diagLog("reconnect failed: \(String(describing: error))")
+                return false
+            }
         }
     }
 
@@ -186,6 +224,7 @@ public final class MailoAppModel: ObservableObject {
                                        smtpHost: OAuthProviderConfig.outlookSmtpHost,
                                        username: record.email, secretRef: record.secretRef)
             try await attach(account: config, transport: transport)
+            installReconnect(email: record.email, clientId: record.clientId, vault: vault, kind: kind)
             startPolling()
             startBackfill()
             return true
@@ -383,7 +422,9 @@ public final class MailoAppModel: ObservableObject {
                     subject: event.subject ?? parsed.subject,
                     fromAddress: from,
                     snippet: rawBody.isEmpty ? nil : parsed.textBody.map { String($0.prefix(200)) },
-                    date: parsed.date, raw: rawBody.isEmpty ? nil : Data(rawBody))
+                    // JOURNEY-020：日期规范化 ISO 入库（信封 Date 头或 MIME 头；字符串序=时间序）
+                    date: MailDateFormat.normalized(parsed.date ?? event.date),
+                    raw: rawBody.isEmpty ? nil : Data(rawBody))
                 let fromParsed = EmailAddress.parse(from)
                 let signal = MailSignal(
                     messageID: event.stableMessageID,
@@ -602,6 +643,10 @@ public protocol MlGuessProviding: Sendable {
     /// 测试钩子：装配后的传输（假服务器断言服务器侧 flags）。
     public var runnerDebugTransport: (any ImapTransport)? { runner?.transport }
 
+    /// 测试钩子：runner 访问/替换（重连测试）。
+    public func runnerSnapshotForTesting() -> SyncRunner? { runner }
+    public func swapRunnerForTesting(_ r: SyncRunner) { runner = r }
+
     /// Set Aside（JOURNEY-012）：仅本封迁移（不生成发件人规则）；⌘Z 可撤销。
     public func setAside(stableId: String) throws {
         let previous = try store.classificationBucket(stableId: stableId) ?? selectedBucket
@@ -697,6 +742,73 @@ public protocol MlGuessProviding: Sendable {
         searchResults = []
         lastSyncSummary = ""
         phase = .empty
+    }
+
+    /// 存量日期回填（JOURNEY-020）：date 断链时期入库的邮件按 ENVELOPE 重拉。
+    /// 服务器友好节奏（批 50、间隔 2s，实测 Outlook 高频大批 FETCH 会踢连接）；
+    /// **closed 自动重连**（reconnectHandler 由 connectOutlook/restore 注入：refresh token
+    /// → 新连接 → 换 runner.transport），重连后继续批次。
+    private var dateBackfillTask: Task<Void, Never>?
+
+    /// 连接重建句柄（生产注入；测试可注入换 transport 的假实现）。
+    public var reconnectHandler: (@MainActor () async -> Bool)?
+
+    public func backfillMissingDates(batchSize: Int = 50) {
+        guard runner != nil else { return }
+        dateBackfillTask?.cancel()
+        dateBackfillTask = Task { [weak self] in
+            while !Task.isCancelled, let self {
+                guard let r = self.runner else {
+                    diagLog("date-backfill no runner")
+                    return
+                }
+                let pending = (try? self.store.mailsWithoutDate()) ?? []
+                diagLog("date-backfill loop pending=\(pending.count)")
+                guard !pending.isEmpty else {
+                    try? self.load(bucket: self.selectedBucket) // 完成：刷新代际让时间列出现
+                    self.lastSyncSummary = L10n.t("sync.dateBackfillDone")
+                    return
+                }
+                let batch = pending.prefix(batchSize)
+                // 精确 uid 列表（逗号分隔，IMAP 标准）：不夹带区间外邮件
+                let range = batch.map(\.uid).map(String.init).joined(separator: ",")
+                diagLog("date-backfill pending=\(pending.count) range=\(range.prefix(60))")
+                do {
+                    let events = try r.engine.fetchRange(range, transport: r.transport)
+                    let byUid = Dictionary(uniqueKeysWithValues: events.map { ($0.uid, $0) })
+                    var fixed = 0
+                    var dateHit = 0
+                    for (stableId, uid) in batch {
+                        guard let event = byUid[uid] else { continue }
+                        if event.date != nil { dateHit += 1 }
+                        try? self.store.updateEnvelope(
+                            stableId: stableId,
+                            date: MailDateFormat.normalized(event.date),
+                            subject: event.subject, fromAddress: event.fromAddress)
+                        fixed += 1
+                    }
+                    diagLog("date-backfill events=\(events.count) matched=\(fixed) dateHit=\(dateHit)")
+                    if fixed == 0 {
+                        // 全批未命中（如服务器已无此 UID）：标记跳过防死循环——置一个不可解析但非空的占位
+                        for (stableId, _) in batch {
+                            try? self.store.updateEnvelope(stableId: stableId, date: "(unknown)",
+                                                           subject: nil, fromAddress: nil)
+                        }
+                    }
+                    try? self.load(bucket: self.selectedBucket)
+                    self.lastSyncSummary = L10n.t("sync.dateBackfillProgress", fixed, pending.count)
+                } catch {
+                    diagLog("date-backfill FAILED: \(String(describing: error))")
+                    // closed：经 reconnectHandler 重建连接后续跑（JOURNEY-020）
+                    if let reconnect = self.reconnectHandler, await reconnect() {
+                        continue
+                    }
+                    self.lastSyncSummary = L10n.t("sync.dateBackfillFailed")
+                    return // 无重连或重连失败：下个会话再续（断点续传——mailsWithoutDate 天然增量）
+                }
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+            }
+        }
     }
 
     /// 暂缓段数据（列表分段第三段「Set aside」直读该桶）。

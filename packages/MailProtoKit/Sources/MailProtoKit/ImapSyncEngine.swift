@@ -22,15 +22,18 @@ public struct MailEvent: Equatable, Sendable {
     public var raw: [UInt8]
     public var subject: String?
     public var fromAddress: String?
+    /// 邮件日期原文（JOURNEY-020：header-first 路径来自 ENVELOPE[0]，正文路径来自 MIME Date 头）。
+    public var date: String?
 
     public init(stableMessageID: StableMessageID, uid: Int, flags: [String],
-                raw: [UInt8], subject: String?, fromAddress: String?) {
+                raw: [UInt8], subject: String?, fromAddress: String?, date: String? = nil) {
         self.stableMessageID = stableMessageID
         self.uid = uid
         self.flags = flags
         self.raw = raw
         self.subject = subject
         self.fromAddress = fromAddress
+        self.date = date
     }
 }
 
@@ -107,7 +110,7 @@ public struct ImapSyncEngine: Sendable {
             let rawBody = fd.rawBody ?? []
             let parsed = rawBody.isEmpty
                 ? ParsedEmail(headers: [:], messageId: fd.messageId, subject: fd.subject,
-                              from: fd.fromAddress, date: nil, textBody: nil, htmlBody: nil, attachments: [])
+                              from: fd.fromAddress, date: fd.envelopeDate, textBody: nil, htmlBody: nil, attachments: [])
                 : MimeParser.parse(rawBody)
             guard !rawBody.isEmpty || fd.subject != nil || fd.fromAddress != nil else { continue }
             let stableID = StableMessageID(
@@ -117,7 +120,8 @@ public struct ImapSyncEngine: Sendable {
                                 subject: parsed.subject ?? fd.subject ?? ""))
             events.append(MailEvent(
                 stableMessageID: stableID, uid: fd.uid, flags: fd.flags, raw: rawBody,
-                subject: parsed.subject ?? fd.subject, fromAddress: parsed.from ?? fd.fromAddress))
+                subject: parsed.subject ?? fd.subject, fromAddress: parsed.from ?? fd.fromAddress,
+                date: parsed.date ?? fd.envelopeDate))
         }
         return events
     }

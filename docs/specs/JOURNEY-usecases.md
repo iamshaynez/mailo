@@ -169,6 +169,7 @@
 ## JOURNEY-020 邮件时间戳贯穿（信封日期入库 → 列表/阅读窗格呈现）
 - **Given** header-first 同步（FETCH UID FLAGS ENVELOPE，Date 头存在于 ENVELOPE[0]）
 - **When** 引擎构造 MailEvent → apply 入库 → 列表/阅读窗格渲染
-- **Then** ENVELOPE 的 Date 头透传至 MailEvent.date 并入库（**规范化为 ISO8601 使字符串排序=时间序**，解析失败保原文兜底）；列表行时间与阅读窗格时间戳非空（解析支持 ISO 与存量 RFC2822 双格式）；多条邮件按收件时间倒序
-- **Status**: draft
+- **Then** ENVELOPE 的 Date 头透传至 MailEvent.date 并入库（**规范化为 ISO8601 使字符串排序=时间序**，解析失败保原文兜底；宽容解析 "…+0000 (UTC)" 类注释变体）；列表行时间与阅读窗格时间戳非空（解析支持 ISO 与存量 RFC2822 双格式）；多条邮件按收件时间倒序
+- **And** 存量无日期邮件（断链时期入库）在 attach 后自动按 ENVELOPE 分批回填（仅补 date/信封字段，**不动 flags/raw**；完成后列表代际刷新，时间列出现）
+- **Status**: green
 - **Tests**: `journey_020_timestamp_pipeline`

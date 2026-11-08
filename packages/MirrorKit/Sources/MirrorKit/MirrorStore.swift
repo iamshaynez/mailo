@@ -231,6 +231,30 @@ public final class MirrorStore: @unchecked Sendable {
         }
     }
 
+    /// 无日期邮件清单（JOURNEY-020 存量回填：date 断链时期入库的邮件按 ENVELOPE 补）。
+    public func mailsWithoutDate() throws -> [(stableId: String, uid: Int)] {
+        try dbQueue.read { db in
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT stableId, uid FROM mail WHERE date IS NULL OR date = '' ORDER BY uid
+                """)
+            return rows.map { (stableId: $0["stableId"] ?? "", uid: $0["uid"] ?? 0) }
+        }
+    }
+
+    /// 仅补信封字段（date 覆盖；subject/from 仅当当前为空时补），不动 flags/raw/snippet
+    /// （JOURNEY-020：存量回填安全路径——不冲掉已回填正文与本地旗标）。
+    public func updateEnvelope(stableId: String, date: String?, subject: String?, fromAddress: String?) throws {
+        try dbQueue.write { db in
+            try db.execute(sql: """
+                UPDATE mail SET
+                    date = ?,
+                    subject = COALESCE(NULLIF(subject, ''), ?),
+                    fromAddress = COALESCE(NULLIF(fromAddress, ''), ?)
+                WHERE stableId = ?
+                """, arguments: [date, subject, fromAddress, stableId])
+        }
+    }
+
     // MARK: - 读
 
     /// bucket 视图：该桶邮件按日期倒序（STORE-002）。date 为字符串（RFC2822 原文），
