@@ -7,7 +7,7 @@ public struct ComposeView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var to = ""
     @State private var subject = ""
-    @State private var body = ""
+    @State private var bodyText = ""
     @State private var sending = false
     @State private var errorText: String?
 
@@ -39,11 +39,11 @@ public struct ComposeView: View {
             .scrollContentBackground(.hidden)
             .frame(height: 120)
 
-            TextEditor(text: $body)
+            TextEditor(text: $bodyText)
                 .font(.system(size: 14))
                 .padding(12)
                 .overlay(alignment: .topLeading) {
-                    if body.isEmpty {
+                    if bodyText.isEmpty {
                         Text("正文…").foregroundColor(DesignTokens.inkFaint).padding(16)
                     }
                 }
@@ -62,7 +62,7 @@ public struct ComposeView: View {
                     Task {
                         defer { sending = false }
                         do {
-                            try await model.composeAndSend(to: to, subject: subject, body: body,
+                            try await model.composeAndSend(to: to, subject: subject, body: bodyText,
                                                            vault: KeychainVault())
                             dismiss()
                         } catch {
