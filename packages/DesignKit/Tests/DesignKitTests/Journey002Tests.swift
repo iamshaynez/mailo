@@ -100,3 +100,74 @@ struct RestoreSessionTests {
         #expect(noAccount2 == false)
     }
 }
+
+// MARK: JOURNEY-006/007
+
+@MainActor
+struct ComposeSearchTests {
+    @Test("JOURNEY-006 撰写并发送（注入）")
+    func journey_006_compose() async throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("compose-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let model = MailoAppModel.createLive(storeDirectory: dir)
+        let accounts = AccountStore(directory: dir)
+        try accounts.save(AccountRecord(email: "me@outlook.com", clientId: "cid",
+                                        accountKind: .personal, secretRef: "k.me"))
+        let vault = InMemoryVault()
+        try vault.save("refresh-1", for: "k.me")
+        let smtp = FakeSmtpServer()
+
+        try await model.composeAndSend(to: "friend@x.co", subject: "Hello", body: "line1\n.dot\nline3",
+                                       vault: vault, directory: dir,
+                                       tokenRefresher: { cid, rt in (cid == "cid" && rt == "refresh-1") ? "access-ok" : nil },
+                                       smtpTransport: smtp)
+        // 会话完整且走 XOAUTH2
+        let stages = smtp.executedCommands.map { c -> String in
+            switch c {
+            case .ehlo: return "EHLO"
+            case .authLogin, .authXoauth2: return "AUTH"
+            case .mailFrom: return "MAIL FROM"
+            case .rcptTo: return "RCPT TO"
+            case .data: return "DATA"
+            case .dotData: return "DOT"
+            case .quit: return "QUIT"
+            }
+        }
+        #expect(stages == ["EHLO", "AUTH", "MAIL FROM", "RCPT TO", "DATA", "DOT", "QUIT"])
+        guard case .authXoauth2 = smtp.executedCommands[1] else {
+            Issue.record("expected xoauth2"); return
+        }
+        // 点填充生效
+        let block = String(decoding: smtp.lastDataBlock, as: UTF8.self)
+        #expect(block.contains("\r\n..dot\r\n"))
+    }
+
+    @Test("JOURNEY-007 全文搜索")
+    func journey_007_search_results() async throws {
+        let (model, _) = await ModelSupportTests_supportModel()
+        model.search("合同")  // 无中文邮件——空
+        #expect(model.searchResults.isEmpty)
+        model.search("mystery")
+        #expect(model.searchResults.map(\.fromAddress) == ["stranger@unknown.io"])
+        model.search("S")   // 多命中（S1/S3 主题）
+        #expect(model.searchResults.count >= 2)
+        model.search("")
+        #expect(model.searchResults.isEmpty)
+    }
+}
+
+@MainActor
+func ModelSupportTests_supportModel() async -> (MailoAppModel, FakeImapServer) {
+    let dir = FileManager.default.temporaryDirectory
+        .appendingPathComponent("search-\(UUID().uuidString)", isDirectory: true)
+    let model = MailoAppModel.createLive(storeDirectory: dir)
+    let server = FakeImapServer(mailboxes: ["INBOX": .init(uidValidity: 1, messages: [
+        Message(uid: 1, flags: [], raw: Array("Message-ID: <q1@x.t>\r\nFrom: news@netflix.com\r\nSubject: S1 queue\r\nDate: Sat, 8 Nov 2026 10:00:00 +0000\r\n\r\nbody alpha".utf8)),
+        Message(uid: 2, flags: [], raw: Array("Message-ID: <q2@x.t>\r\nFrom: stranger@unknown.io\r\nSubject: mystery\r\nDate: Sat, 8 Nov 2026 11:00:00 +0000\r\n\r\nbody beta".utf8)),
+        Message(uid: 3, flags: [], raw: Array("Message-ID: <q3@x.t>\r\nFrom: alerts@github.com\r\nSubject: S3 done\r\nDate: Sat, 8 Nov 2026 12:00:00 +0000\r\n\r\nbody gamma".utf8)),
+    ])])
+    let account = AccountConfig(displayName: "t", imapHost: "h", smtpHost: "h", username: "u@t.co", secretRef: "t")
+    try? await model.attach(account: account, transport: server)
+    return (model, server)
+}

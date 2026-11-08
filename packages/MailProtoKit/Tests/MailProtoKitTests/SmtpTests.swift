@@ -18,7 +18,7 @@ struct SmtpAccountTests {
         let stages = server.executedCommands.map { cmd -> String in
             switch cmd {
             case .ehlo: return "EHLO"
-            case .authLogin: return "AUTH"
+            case .authLogin, .authXoauth2: return "AUTH"
             case .mailFrom: return "MAIL FROM"
             case .rcptTo: return "RCPT TO"
             case .data: return "DATA"
@@ -81,5 +81,47 @@ struct SmtpAccountTests {
         #expect(!json.contains("password"))
         #expect(!json.contains("authCode"))
         #expect(json.contains("k1") == false || json.contains("\"secretRef\":\"k1\"")) // 只有引用字段
+    }
+}
+
+// MARK: MAIL-024
+
+struct SmtpXoauth2Tests {
+    @Test("MAIL-024 SMTP XOAUTH2 认证")
+    func mail_024_smtp_xoauth2() throws {
+        let server = FakeSmtpServer()
+        _ = try SmtpClient().send(
+            from: "me@outlook.com", to: "you@x.co", subject: "hi", body: "hello",
+            auth: .xoauth2(user: "me@outlook.com", accessToken: "tok123"), transport: server)
+
+        let stages = server.executedCommands.map(stageOf)
+        #expect(stages == ["EHLO", "AUTH", "MAIL FROM", "RCPT TO", "DATA", "DOT", "QUIT"])
+        // AUTH 阶段是 authXoauth2 且 SASL 载荷正确
+        guard case .authXoauth2(let u, let t) = server.executedCommands[1] else {
+            Issue.record("expected authXoauth2"); return
+        }
+        #expect(u == "me@outlook.com")
+        let decoded = String(decoding: Data(base64Encoded: Sasl.xoauth2(user: u, accessToken: t)) ?? Data(), as: UTF8.self)
+        #expect(decoded.contains("auth=Bearer tok123"))
+
+        // 注入 AUTH 失败同样中止
+        let bad = FakeSmtpServer()
+        bad.failAt["AUTH"] = 535
+        #expect(throws: SmtpError.self) {
+            try SmtpClient().send(from: "a@b.c", to: "d@e.f", subject: "s", body: "x",
+                                  auth: .xoauth2(user: "a@b.c", accessToken: "t"), transport: bad)
+        }
+    }
+
+    private func stageOf(_ c: SmtpCommand) -> String {
+        switch c {
+        case .ehlo: return "EHLO"
+        case .authLogin, .authXoauth2: return "AUTH"
+        case .mailFrom: return "MAIL FROM"
+        case .rcptTo: return "RCPT TO"
+        case .data: return "DATA"
+        case .dotData: return "DOT"
+        case .quit: return "QUIT"
+        }
     }
 }

@@ -5,6 +5,7 @@ import Foundation
 public enum SmtpCommand: Equatable, Sendable {
     case ehlo(domain: String)
     case authLogin(user: String, passRef: String) // passRef 由调用方从 Keychain 解出后注入传输层，此处只留痕迹
+    case authXoauth2(user: String, accessToken: String) // MAIL-024：OAuth 单命令认证
     case mailFrom(String)
     case rcptTo(String)
     case data
@@ -15,6 +16,7 @@ public enum SmtpCommand: Equatable, Sendable {
         switch self {
         case .ehlo(let d): return "EHLO \(d)"
         case .authLogin: return "AUTH LOGIN"
+        case .authXoauth2(let user, let token): return "AUTH XOAUTH2 \(Sasl.xoauth2(user: user, accessToken: token))"
         case .mailFrom(let a): return "MAIL FROM:<\(a)>"
         case .rcptTo(let a): return "RCPT TO:<\(a)>"
         case .data: return "DATA"
@@ -55,13 +57,30 @@ public struct SmtpClient: Sendable {
         self.domain = domain
     }
 
+    public enum Auth: Equatable, Sendable {
+        case login(user: String, password: String)
+        case xoauth2(user: String, accessToken: String) // MAIL-024
+    }
+
     /// 发送一封纯文本邮件。返回构造出的完整 DATA 块字节（供测试与 "Sent" 归档复用）。
     @discardableResult
     public func send(from: String, to: String, subject: String, body: String,
                      user: String, passRef: String, transport: any SmtpTransport) throws -> [UInt8] {
+        return try send(from: from, to: to, subject: subject, body: body,
+                        auth: .login(user: user, password: passRef), transport: transport)
+    }
+
+    /// 认证参数化发信（MAIL-024：xoauth2 走单命令；login 走交互轮询由传输层处理）。
+    public func send(from: String, to: String, subject: String, body: String,
+                     auth: Auth, transport: any SmtpTransport) throws -> [UInt8] {
+        let authCommand: SmtpCommand
+        switch auth {
+        case .login(let user, let password): authCommand = .authLogin(user: user, passRef: password)
+        case .xoauth2(let user, let token): authCommand = .authXoauth2(user: user, accessToken: token)
+        }
         let steps: [(String, SmtpCommand, Int)] = [
             ("EHLO", .ehlo(domain: domain), 250),
-            ("AUTH", .authLogin(user: user, passRef: passRef), 235),
+            ("AUTH", authCommand, 235),
             ("MAIL FROM", .mailFrom(from), 250),
             ("RCPT TO", .rcptTo(to), 250),
             ("DATA", .data, 354),
@@ -131,7 +150,7 @@ public final class FakeSmtpServer: SmtpTransport, @unchecked Sendable {
     private func stageName(_ c: SmtpCommand) -> String {
         switch c {
         case .ehlo: return "EHLO"
-        case .authLogin: return "AUTH"
+        case .authLogin, .authXoauth2: return "AUTH"
         case .mailFrom: return "MAIL FROM"
         case .rcptTo: return "RCPT TO"
         case .data: return "DATA"
