@@ -1,0 +1,111 @@
+/* Mailo · zh-Hans（简体中文，DESIGN-003 第一翻译语言） */
+
+/* Navigation */
+"nav.section.mailboxes" = "邮箱";
+"nav.section.decide" = "待定";
+"bucket.imbox" = "Imbox";
+"bucket.feed" = "Feed";
+"bucket.paperTrail" = "Paper Trail";
+"bucket.screener" = "Screener";
+"bucket.setAside" = "Set Aside";
+"bucket.blocked" = "已拦截";
+"privacy.ondevice" = "100% 本机处理";
+"privacy.tagline" = "无云端。无追踪。永不。";
+"account.notConnected" = "未连接";
+
+/* Toolbar */
+"toolbar.search.placeholder" = "搜索全部邮件…";
+"toolbar.compose" = "写邮件";
+
+/* Screener banner */
+"screener.banner" = "%d 位新发件人正在 Screener 等待——批准一次，永久归类。";
+"screener.review" = "去审核 →";
+
+/* Demo strip */
+"demo.badge" = "演示——样例邮箱，不会触碰你的真实账户。";
+"demo.exit" = "退出演示";
+
+/* List */
+"segment.new" = "新邮件";
+"segment.seen" = "看过的";
+"segment.aside" = "暂缓处理";
+"list.empty" = "这里很安静。";
+"list.backfill" = "正在导入历史邮件 · %d 封";
+"list.count" = "%d";
+"search.title" = "搜索结果";
+"search.empty" = "无结果";
+"row.noSubject" = "（无主题）";
+"row.unknown" = "未知发件人";
+"date.undated" = "未知日期";
+"date.today" = "今天";
+"date.yesterday" = "昨天";
+
+/* Reader */
+"reader.reply" = "回复";
+"reader.forward" = "转发";
+"reader.setAside" = "暂缓";
+"reader.loading" = "正在加载邮件…";
+"reader.retry" = "重试";
+"reader.bodyFailed" = "无法加载邮件正文：%@";
+"reader.missing" = "本地镜像中找不到这封邮件";
+"reader.screenerPrompt" = "这位发件人该去哪？";
+"reader.screenerTo" = "→ %@";
+"reader.screenerBlock" = "拦截";
+"reader.menu.notBucket" = "不属于「%@」→";
+"reader.menu.moveTo" = "移到「%@」";
+"reader.menu.blockSender" = "拦截此发件人";
+"reader.menu.markUnread" = "标为未读";
+"reader.menu.markRead" = "标为已读";
+"reader.menu.copySender" = "拷贝发件人地址";
+"reader.realPerson" = "真人 ✓";
+"reader.noBody" = "（无正文预览）";
+"reader.select" = "选择一封邮件";
+"reader.calm" = "Imbox 很安静。";
+
+/* Compose */
+"compose.title" = "新邮件";
+"compose.to" = "收件人";
+"compose.subject" = "主题";
+"compose.bodyPlaceholder" = "写点什么…";
+"compose.send" = "发送";
+"compose.sendFailed" = "发送失败：%@";
+
+/* Account setup */
+"setup.welcome" = "欢迎使用 Mailo";
+"setup.subtitle" = "无云端 · 零数据出设备。先连接你的邮箱：";
+"setup.emailPlaceholder" = "邮箱（you@outlook.com）";
+"setup.clientId" = "Entra Client ID";
+"setup.connect" = "连接 Outlook";
+"setup.tryDemo" = "先看看演示（无需账户）";
+"setup.devicecode.title" = "在浏览器完成登录";
+"setup.devicecode.open" = "打开 %@";
+"setup.devicecode.link" = "打开登录页面";
+"setup.devicecode.requesting" = "正在向 Microsoft 请求设备码…";
+
+/* Commands */
+"menu.newMessage" = "新邮件";
+"menu.search" = "搜索";
+"menu.syncNow" = "立即同步";
+"menu.undo" = "撤销「%@」";
+"menu.message" = "邮件";
+
+/* Settings */
+"settings.tab.account" = "账户";
+"settings.tab.privacy" = "隐私";
+"settings.tab.diagnostics" = "诊断";
+"settings.disconnect" = "断开账户";
+"settings.disconnect.confirm" = "将移除本机上的账户信息与凭证。服务器上的邮件不受影响。";
+"settings.remoteImages" = "默认加载远程图片";
+"settings.remoteImages.hint" = "关闭时为保护隐私默认拦截远程图片；你仍可对单封邮件放行。";
+"settings.diagnostics.schema" = "本地数据库";
+"settings.diagnostics.lastSync" = "最近同步";
+"settings.diagnostics.backfill" = "已导入历史";
+
+/* Sync status */
+"sync.summary.synced" = "已同步 %1$d 封 · %2$@s · Imbox %3$d / Feed %4$d / Paper %5$d / Screener %6$d";
+"sync.manualDone" = "手动同步完成";
+"sync.manualFailed" = "同步失败：%@";
+"sync.retrying" = "同步重试中：%@";
+"sync.backfillProgress" = "已回填 %1$d 封 · UID %2$d";
+"sync.backfillDone" = "历史回填完成：%d 封";
+"sync.sent" = "已发送至 %1@：%2@";

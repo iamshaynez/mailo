@@ -90,34 +90,34 @@ public struct MailoCommandMenu: Commands {
 
     public var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("New Message") { model.request(.compose) }
+            Button(L10n.t("menu.newMessage")) { model.request(.compose) }
                 .keyboardShortcut("n", modifiers: .command)
                 .disabled(!model.canCompose)
         }
-        CommandMenu("Message") {
-            Button("Search") { model.request(.focusSearch) }
+        CommandMenu(L10n.t("menu.message")) {
+            Button(L10n.t("menu.search")) { model.request(.focusSearch) }
                 .keyboardShortcut("k", modifiers: .command)
             Divider()
-            Button("Reply") { model.request(.reply) }
+            Button(L10n.t("reader.reply")) { model.request(.reply) }
                 .keyboardShortcut("r", modifiers: .command)
                 .disabled(!availability.canReply)
-            Button("Forward") { model.request(.forward) }
+            Button(L10n.t("reader.forward")) { model.request(.forward) }
                 .keyboardShortcut("f", modifiers: [.command, .shift])
                 .disabled(!availability.canForward)
-            Button("Set Aside") { model.request(.setAside) }
+            Button(L10n.t("reader.setAside")) { model.request(.setAside) }
                 .keyboardShortcut("s", modifiers: .command)
                 .disabled(!availability.canSetAside)
             Divider()
-            Button("Mark Unread") { model.request(.toggleUnread) }
+            Button(L10n.t("reader.menu.markUnread")) { model.request(.toggleUnread) }
                 .keyboardShortcut("u", modifiers: [.command, .shift])
                 .disabled(!availability.canToggleUnread)
             Divider()
-            Button("Sync Now") { model.syncNow() }
+            Button(L10n.t("menu.syncNow")) { model.syncNow() }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
                 .disabled(!model.isSyncCapable)
         }
         CommandGroup(replacing: .undoRedo) {
-            Button(model.lastAction.map { "Undo \($0.label)" } ?? "Undo") { model.undoLast() }
+            Button(model.lastAction.map { L10n.t("menu.undo", $0.label) } ?? L10n.t("menu.undo", "")) { model.undoLast() }
                 .keyboardShortcut("z", modifiers: .command)
                 .disabled(model.lastAction == nil)
         }

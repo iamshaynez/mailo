@@ -23,7 +23,11 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.xiaowenz.mailo
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
-        GENERATE_INFOPLIST_FILE: true
         CODE_SIGNING_ALLOWED: false
-        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: false
         SWIFT_STRICT_CONCURRENCY: minimal
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations: [en, zh-Hans]
+        ITSAppUsesNonExemptEncryption: false

@@ -13,6 +13,9 @@ public final class MailoRootModel: ObservableObject {
     @Published public private(set) var demo: MailoAppModel?
     public let live: MailoAppModel
 
+    /// 撰写会话（macOS 独立窗口 / iOS sheet 共享的草稿状态）。
+    @Published public var composeDraft: ComposeDraft?
+
     public init(live: MailoAppModel) {
         self.live = live
     }

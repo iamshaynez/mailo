@@ -72,9 +72,9 @@ public final class MailoAppModel: ObservableObject {
                                             highestUid: r.snapshot?.highestUid ?? 0)
                 }
                 try load(bucket: selectedBucket)
-                lastSyncSummary = "Manual sync completed"
+                lastSyncSummary = L10n.t("sync.manualDone")
             } catch {
-                lastSyncSummary = "Sync failed: \(error)"
+                lastSyncSummary = L10n.t("sync.manualFailed", String(describing: error))
             }
         }
     }
@@ -111,7 +111,7 @@ public final class MailoAppModel: ObservableObject {
         phase = .connected(email: account.username)
         try load(bucket: selectedBucket)
         syncElapsed = Date().timeIntervalSince(started)
-        lastSyncSummary = "Synced \(count) · \(String(format: "%.1f", syncElapsed))s · imbox \(bucketCounts["imbox"] ?? 0) / feed \(bucketCounts["feed"] ?? 0) / paper \(bucketCounts["paperTrail"] ?? 0) / screener \(screenerCount)"
+        lastSyncSummary = L10n.t("sync.summary.synced", count, String(format: "%.1f", syncElapsed), bucketCounts["imbox"] ?? 0, bucketCounts["feed"] ?? 0, bucketCounts["paperTrail"] ?? 0, screenerCount)
         return outcome
     }
 
@@ -218,14 +218,14 @@ public final class MailoAppModel: ObservableObject {
                 if let events = try? r.engine.fetchRange("\(low):\(floor)", transport: r.transport), !events.isEmpty {
                     try? await self.apply(events)
                     self.backfilledCount += events.count
-                    self.lastSyncSummary = "Backfilled \(self.backfilledCount) · UID \(low)"
+                    self.lastSyncSummary = L10n.t("sync.backfillProgress", self.backfilledCount, low)
                     self.backfillProgress = BackfillProgress(fetched: self.backfilledCount,
                                                              total: max(floor0 - 1, self.backfilledCount))
                     self.refreshCounts()
                     self.entries = (try? self.store.entries(bucket: self.selectedBucket)) ?? self.entries
                 }
                 if low <= 1 {
-                    self.lastSyncSummary = "Backfill complete: \(self.backfilledCount) mails"
+                    self.lastSyncSummary = L10n.t("sync.backfillDone", self.backfilledCount)
                     self.backfillProgress = nil
                     return
                 }
@@ -262,7 +262,7 @@ public final class MailoAppModel: ObservableObject {
                     try self.load(bucket: self.selectedBucket)
                 } catch {
                     // 轮询失败不降级 UI（连接仍在、退避重试；MAIL-025）
-                    self.lastSyncSummary = "Sync retrying: \(error)"
+                    self.lastSyncSummary = L10n.t("sync.retrying", String(describing: error))
                 }
             }
         }
@@ -309,7 +309,7 @@ public final class MailoAppModel: ObservableObject {
         _ = try SmtpClient().send(from: record.email, to: to, subject: subject, body: body,
                                   auth: .xoauth2(user: record.email, accessToken: accessToken),
                                   transport: transport)
-        lastSyncSummary = "Sent to \(to): \(subject)"
+        lastSyncSummary = L10n.t("sync.sent", to, subject)
     }
 
     public enum ComposeError: Error, Equatable {
@@ -587,6 +587,7 @@ public protocol MlGuessProviding: Sendable {
         let previous = try store.classificationBucket(stableId: stableId) ?? selectedBucket
         try refreeze(stableId: stableId, to: .setAside, reason: "setAside")
         try load(bucket: selectedBucket)
+        loadAsideEntries()
         registerUndo(label: "Set Aside") { [weak self] in
             guard let self else { return }
             try? self.refreeze(stableId: stableId, to: previous, reason: "undoSetAside")
@@ -656,6 +657,33 @@ public protocol MlGuessProviding: Sendable {
     public func undoLast() {
         lastAction?.perform()
         lastAction = nil
+    }
+
+    // MARK: - 断开与暂缓段（JOURNEY-016 / 分段「Set aside」数据面）
+
+    /// 断开连接（JOURNEY-016）：停轮询/回填、清凭证与账户记录、回账户页。
+    /// 只清本机状态与凭证——镜像数据保留（下次连接增量续传）。
+    public func disconnect(vault: (any CredentialVault)? = nil, directory: URL? = nil) {
+        stopPolling()
+        cancelBackfill()
+        runner = nil
+        let accountStore = directory.map { AccountStore(directory: $0) } ?? accountStore()
+        if let record = accountStore.loadPrimary() {
+            try? vault?.delete(record.secretRef)
+        }
+        accountStore.wipe()
+        entries = []
+        asideEntries = []
+        searchResults = []
+        lastSyncSummary = ""
+        phase = .empty
+    }
+
+    /// 暂缓段数据（列表分段第三段「Set aside」直读该桶）。
+    @Published public private(set) var asideEntries: [BucketEntry] = []
+
+    public func loadAsideEntries() {
+        asideEntries = (try? store.entries(bucket: .setAside)) ?? []
     }
 
     // MARK: - 撰写预填（JOURNEY-011）

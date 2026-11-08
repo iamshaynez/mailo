@@ -20,11 +20,11 @@ public struct AccountSetupView: View {
     public var body: some View {
         VStack(spacing: 24) {
             Image(systemName: "envelope.badge.shield.half.filled")
-                .font(.system(size: 56))
+                .font(DesignTokens.Typo.iconHero)
                 .foregroundStyle(DesignTokens.brandBlue)
-            Text("Welcome to Mailo")
-                .font(.system(size: 28, weight: .heavy))
-            Text("No cloud. Zero data leaves your device. Connect your mailbox:")
+            Text(L10n.t("setup.welcome"))
+                .font(DesignTokens.Typo.title)
+            Text(L10n.t("setup.subtitle"))
                 .foregroundColor(DesignTokens.inkMuted)
 
             switch model.phase {
@@ -34,7 +34,7 @@ public struct AccountSetupView: View {
             case .failed(let message):
                 Label(message, systemImage: "exclamationmark.triangle")
                     .foregroundColor(.red)
-                    .font(.system(size: 12))
+                    .font(DesignTokens.Typo.meta.weight(.regular))
                     .multilineTextAlignment(.center)
                 connectForm
 
@@ -42,10 +42,10 @@ public struct AccountSetupView: View {
                 connectForm
             }
 
-            Button("Try the demo (no account needed)") {
+            Button(L10n.t("setup.tryDemo")) {
                 root.enterDemo()
             }
-            .font(.system(size: 12))
+            .font(DesignTokens.Typo.meta.weight(.regular))
             .foregroundColor(DesignTokens.inkMuted)
         }
         .padding(48)
@@ -54,13 +54,13 @@ public struct AccountSetupView: View {
 
     private var connectForm: some View {
         VStack(spacing: 12) {
-            TextField("Email (you@outlook.com)", text: $email)
+            TextField(L10n.t("setup.emailPlaceholder"), text: $email)
                 .textFieldStyle(.roundedBorder)
                 .autocorrectionDisabled()
             #if os(iOS)
                 .textInputAutocapitalization(.never)
             #endif
-            TextField("Entra Client ID", text: $clientId)
+            TextField(L10n.t("setup.clientId"), text: $clientId)
                 .textFieldStyle(.roundedBorder)
                 .autocorrectionDisabled()
             #if os(iOS)
@@ -75,7 +75,7 @@ public struct AccountSetupView: View {
                 }
             } label: {
                 if busy { ProgressView().frame(maxWidth: .infinity) }
-                else { Text("Connect Outlook").frame(maxWidth: .infinity) }
+                else { Text(L10n.t("setup.connect")).frame(maxWidth: .infinity) }
             }
             .buttonStyle(.borderedProminent)
             .tint(DesignTokens.brandBlue)
@@ -87,22 +87,22 @@ public struct AccountSetupView: View {
     private func promptView(_ prompt: DeviceCodeClient.Prompt?) -> some View {
         if let prompt {
             VStack(spacing: 12) {
-                Text("Finish sign-in in your browser").font(.headline)
-                Text("Open \(prompt.verificationURI)")
-                    .font(.system(size: 12))
+                Text(L10n.t("setup.devicecode.title")).font(.headline)
+                Text(L10n.t("setup.devicecode.open", prompt.verificationURI))
+                    .font(DesignTokens.Typo.meta.weight(.regular))
                     .foregroundColor(DesignTokens.inkMuted)
                 Text(prompt.userCode)
-                    .font(.system(size: 40, weight: .heavy, design: .monospaced))
+                    .font(DesignTokens.Typo.deviceCode)
                     .tracking(4)
                     .foregroundStyle(DesignTokens.brandBlue)
                 if let url = URL(string: prompt.verificationURI) {
-                    Link("Open sign-in page", destination: url)
+                    Link(L10n.t("setup.devicecode.link"), destination: url)
                         .buttonStyle(.bordered)
                 }
                 ProgressView().padding(.top, 8)
             }
         } else {
-            ProgressView("Requesting a device code from Microsoft…")
+            ProgressView(L10n.t("setup.devicecode.requesting"))
         }
     }
 }

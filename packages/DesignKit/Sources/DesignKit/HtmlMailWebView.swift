@@ -3,34 +3,32 @@ import SwiftUI
 import WebKit
 #endif
 
-/// HTML 邮件沙箱渲染（JOURNEY-004，规范 §7）：
-/// CSP `default-src 'none'; style-src 'unsafe-inline'; img-src data:` ——远程图片默认禁（隐私+防追踪），
-/// 仅内联样式与内嵌 data 图生效；用户"显示远程图片"开关后续迭代接入。
+/// HTML 邮件沙箱渲染（JOURNEY-004/016，规范 §7）：
+/// CSP `default-src 'none'; style-src 'unsafe-inline'; img-src data:` ——远程图片默认禁
+///（隐私+防追踪）；Settings 的「默认加载远程图片」开关（JOURNEY-016）放开 img-src https:。
 struct HtmlMailWebView: View {
     let html: String
+    var allowRemoteImages: Bool = false
 
     var body: some View {
         #if canImport(WebKit)
-        MailWebViewRepresentable(sandboxedHTML: Self.sandboxed(html))
-            #if os(macOS)
+        MailWebViewRepresentable(sandboxedHTML: Self.sandboxed(html, allowRemoteImages: allowRemoteImages))
             .background(Color.white)
-            #else
-            .background(Color.white)
-            #endif
         #else
         Text(html)
-            .font(.system(size: 13, design: .monospaced))
+            .font(DesignTokens.Typo.body.monospaced())
             .foregroundColor(DesignTokens.inkMuted)
             .padding()
         #endif
     }
 
     /// 注入 CSP 与基础排版（邮件 HTML 常缺 body 样式，兜底字体与边距）。
-    static func sandboxed(_ html: String) -> String {
-        """
+    static func sandboxed(_ html: String, allowRemoteImages: Bool = false) -> String {
+        let imgPolicy = allowRemoteImages ? "img-src data: https:" : "img-src data:"
+        return """
         <!DOCTYPE html><html><head><meta charset="utf-8">
         <meta http-equiv="Content-Security-Policy"
-              content="default-src 'none'; style-src 'unsafe-inline'; img-src data:;">
+              content="default-src 'none'; style-src 'unsafe-inline'; \(imgPolicy);">
         <style>
           body { font: -apple-system 14px; color: #2a3444; margin: 0; padding: 4px 0;
                  word-break: break-word; line-height: 1.7; }

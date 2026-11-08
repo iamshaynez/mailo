@@ -20,6 +20,32 @@ struct MailoMacApp: App {
         }
         .defaultSize(width: 1280, height: 820)
         .commands { MailoCommandMenu(root: root) }
+
+        // 撰写独立窗口（Mac 惯例，JOURNEY-011）：root.composeDraft 为会话状态
+        Window(L10n.t("compose.title"), id: "compose") {
+            ComposeWindowHost(root: root)
+                .frame(minWidth: 520, minHeight: 460)
+        }
+        .defaultSize(width: 640, height: 520)
+        .windowResizability(.contentMinSize)
+
+        // 设置（⌘,，JOURNEY-016）
+        Settings {
+            MailoSettingsView(root: root)
+        }
+    }
+}
+
+/// 撰写窗口宿主：有草稿渲染撰写；无草稿（窗口被 ⌘W 关闭会话后残留）显示空态。
+struct ComposeWindowHost: View {
+    @ObservedObject var root: MailoRootModel
+
+    var body: some View {
+        if let draft = root.composeDraft {
+            ComposeView(model: root.active, draft: draft, onDismiss: { root.composeDraft = nil })
+        } else {
+            Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 }
 

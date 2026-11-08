@@ -120,7 +120,7 @@
 - **Given** 已连接应用
 - **When** 打开设置（⌘,）
 - **Then** 提供账户页（邮箱、断开连接/重新连接）、隐私页（远程图片默认开关）、诊断页（schema 诊断、最近同步摘要）；断开连接清除本地凭证与账户记录并回到账户页
-- **Status**: draft
+- **Status**: green
 - **Tests**: `journey_016_settings_scene`
 
 ## JOURNEY-017 手动纠正常驻入口（This isn't Imbox →）
@@ -134,19 +134,19 @@
 - **Given** 设计规范 §2-§6 的完整 token 表（排版 8 档/圆角 4 档/间距/阴影/状态色/blueBorder/surfaceWash/hairline）
 - **When** 读取 DesignTokens
 - **Then** 全部 token 有常量定义并被视图引用；视图层用户可见的颜色/字号零内联字面量；privacy 徽章等 7 处历史内联色改走 token（值与规范一致）
-- **Status**: draft
+- **Status**: green
 - **Tests**: `design_002_full_token_set`
 
 ## DESIGN-003 多语言（默认英文 + 简体中文）
 - **Given** String Catalog（Localizable.xcstrings）随 DesignKit 分发，开发语言 en
 - **When** 系统语言为 en / zh-Hans / 其他
 - **Then** en 与 zh-Hans 显示对应语言；其他语言回落英文；用户可见文案（含 Bucket 名、空态、按钮、错误）全部经 catalog 取出（零硬编码直出）；列表分段文案与规范一致（New / Previously seen / Set aside）
-- **Status**: draft
+- **Status**: green
 - **Tests**: `design_003_localization`
 
 ## DESIGN-004 动效规范落地
 - **Given** 规范 §6：微交互 120ms / 转场 220ms / 归类 320ms spring(0.32, 0.86)，动画只表达归类语义
 - **When** 桶切换、Screener 决策、选中变化
 - **Then** 对应动效以 token 时长/曲线执行；「减弱动态效果」开启时降级为无动画
-- **Status**: draft
+- **Status**: green
 - **Tests**: `design_004_motion_tokens`
