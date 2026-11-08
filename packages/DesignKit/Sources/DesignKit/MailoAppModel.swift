@@ -17,7 +17,6 @@ public final class MailoAppModel: ObservableObject {
     }
 
     @Published public private(set) var entries: [BucketEntry] = []
-    @Published public private(set) var screenerCount: Int = 0
     @Published public private(set) var selectedBucket: Bucket = .imbox
     @Published public private(set) var phase: Phase = .empty
     /// 最近一轮同步诊断（底部状态条；排查"授权成功但列表空"这类问题的第一现场）
@@ -112,7 +111,7 @@ public final class MailoAppModel: ObservableObject {
         phase = .connected(email: account.username)
         try load(bucket: selectedBucket)
         syncElapsed = Date().timeIntervalSince(started)
-        lastSyncSummary = "同步 \(count) 封 · \(String(format: "%.1f", syncElapsed))s · imbox \(bucketCounts["imbox"] ?? 0) / feed \(bucketCounts["feed"] ?? 0) / paper \(bucketCounts["paperTrail"] ?? 0) / screener \(screenerCount)"
+        lastSyncSummary = "Synced \(count) · \(String(format: "%.1f", syncElapsed))s · imbox \(bucketCounts["imbox"] ?? 0) / feed \(bucketCounts["feed"] ?? 0) / paper \(bucketCounts["paperTrail"] ?? 0) / screener \(screenerCount)"
         return outcome
     }
 
@@ -210,12 +209,12 @@ public final class MailoAppModel: ObservableObject {
                 if let events = try? r.engine.fetchRange("\(low):\(floor)", transport: r.transport), !events.isEmpty {
                     try? await self.apply(events)
                     self.backfilledCount += events.count
-                    self.lastSyncSummary = "回填 \(self.backfilledCount) 封历史 · 進度 UID \(low)"
+                    self.lastSyncSummary = "Backfilled \(self.backfilledCount) · UID \(low)"
                     self.refreshCounts()
                     self.entries = (try? self.store.entries(bucket: self.selectedBucket)) ?? self.entries
                 }
                 if low <= 1 { 
-                    self.lastSyncSummary = "同步 \(self.backfilledCount) 封历史完成"
+                    self.lastSyncSummary = "Backfill complete: \(self.backfilledCount) mails"
                     return 
                 }
                 floor = low - 1
@@ -244,7 +243,7 @@ public final class MailoAppModel: ObservableObject {
                     try self.load(bucket: self.selectedBucket)
                 } catch {
                     // 轮询失败不降级 UI（连接仍在、退避重试；MAIL-025）
-                    self.lastSyncSummary = "同步重试中：\(error)"
+                    self.lastSyncSummary = "Sync retrying: \(error)"
                 }
             }
         }
@@ -291,7 +290,7 @@ public final class MailoAppModel: ObservableObject {
         _ = try SmtpClient().send(from: record.email, to: to, subject: subject, body: body,
                                   auth: .xoauth2(user: record.email, accessToken: accessToken),
                                   transport: transport)
-        lastSyncSummary = "已发送至 \(to)：\(subject)"
+        lastSyncSummary = "Sent to \(to): \(subject)"
     }
 
     public enum ComposeError: Error, Equatable {
@@ -307,16 +306,6 @@ public final class MailoAppModel: ObservableObject {
             return
         }
         searchResults = (try? store.search(query)) ?? []
-    }
-
-    /// Demo 模式切换（UI"先看看"入口）。
-    public func switchToDemo() {
-        Task { @MainActor in
-            let demo = await MailoAppModel.bootstrapDemo(store: store)
-            screenerCount = demo.screenerCount
-            phase = .demo
-            try? load(bucket: selectedBucket)
-        }
     }
 
     // MARK: - 事件应用（入库 + 分类 + 冻结，JOURNEY-001 核心）
@@ -373,7 +362,6 @@ public final class MailoAppModel: ObservableObject {
             case .bucket(let bucket, let reason):
                 newFrozen.append((stable, bucket, "\(reason)"))
             case .screener:
-                screenerCount += 1
                 newFrozen.append((stable, .screener, "belowThreshold"))
             }
         }
@@ -403,6 +391,8 @@ public protocol MlGuessProviding: Sendable {
         public var htmlBody: String?
         public var attachmentNames: [String]
         public var flags: [String]
+        /// 邮件自身的归类桶（徽标/头像语义色用这个，而非当前列表桶）
+        public var bucket: Bucket?
 
         public var isUnread: Bool { !flags.contains("\\Seen") }
     }
@@ -417,10 +407,11 @@ public protocol MlGuessProviding: Sendable {
                 try? store.upsert(row)
             }
         }
+        let ownBucket = try? store.classificationBucket(stableId: stableId)
         guard let raw = row.raw else {
             return MailDetail(stableId: stableId, subject: row.subject, fromAddress: row.fromAddress,
                               date: row.date, textBody: nil, htmlBody: nil,
-                              attachmentNames: [], flags: row.flagList)
+                              attachmentNames: [], flags: row.flagList, bucket: ownBucket)
         }
         let parsed = MimeParser.parse([UInt8](raw))
         return MailDetail(
@@ -431,30 +422,166 @@ public protocol MlGuessProviding: Sendable {
             textBody: parsed.textBody,
             htmlBody: parsed.htmlBody,
             attachmentNames: parsed.attachments.compactMap(\.filename),
-            flags: row.flagList)
+            flags: row.flagList,
+            bucket: ownBucket)
     }
 
     /// 桶计数（load 后刷新，供侧栏徽章）。
     public private(set) var bucketCounts: [String: Int] = [:]
 
+    /// Screener 待定数（STORE-006 计数的单一来源；决策/Block 后自动消减）。
+    public var screenerCount: Int { bucketCounts[Bucket.screener.rawValue] ?? 0 }
+
     public func refreshCounts() {
         bucketCounts = (try? store.bucketCounts()) ?? [:]
     }
 
-    /// Screener 决策（CLS-010）：批准即显式规则，下一封同发件人直接命中；更新桶并刷新。
+    // MARK: - 阅读与桶动作（JOURNEY-012/013/017 · CLS-011）
+
+    /// 当前阅读选中（菜单可用性与 Reply/Forward 目标；壳层在 selection 变化时同步）。
+    @Published public private(set) var readingStableId: String?
+
+    public func setReading(_ stableId: String?) {
+        readingStableId = stableId
+    }
+
+    /// 最近一次可撤销动作（Edit ⌘Z 消费）。
+    @Published public private(set) var lastAction: UndoableAction?
+
+    /// 打开即标已读（JOURNEY-013）：本地 flags 并集（未读点立即消失），
+    /// 服务器 UID STORE 写回在后台尽力而为，失败不回滚本地。
+    public func markRead(stableId: String) {
+        try? store.setFlags(stableId: stableId, merge: ["\\Seen"])
+        entries = (try? store.entries(bucket: selectedBucket)) ?? entries
+        refreshCounts()
+        // 服务器写回（尽力而为）：后台线程，失败不回滚本地（JOURNEY-013）
+        guard let runner, let row = try? store.mail(stableId: stableId) else { return }
+        let engine = runner.engine, transport = runner.transport, uid = row.uid
+        Task.detached(priority: .utility) {
+            _ = try? engine.storeFlags(uid: uid, flags: ["\\Seen"], transport: transport)
+        }
+    }
+
+    /// 标回未读（仅本地；服务器写回不做——重新打开会再次标读）。
+    public func markUnread(stableId: String) {
+        try? store.setFlags(stableId: stableId, remove: ["\\Seen"])
+        entries = (try? store.entries(bucket: selectedBucket)) ?? entries
+    }
+
+    public func toggleUnread(stableId: String) {
+        let isUnread = (try? store.mail(stableId: stableId))?.flagList.contains("\\Seen") != true
+        if isUnread { markRead(stableId: stableId) } else { markUnread(stableId: stableId) }
+    }
+
+    /// 服务器写回（MAIL-026；可测入口）：UID STORE +FLAGS (\\Seen)。
+    public func storeSeenOnServer(stableId: String) throws {
+        guard let runner, let row = try store.mail(stableId: stableId) else { return }
+        try runner.engine.storeFlags(uid: row.uid, flags: ["\\Seen"], transport: runner.transport)
+    }
+
+    /// 测试钩子：装配后的传输（假服务器断言服务器侧 flags）。
+    public var runnerDebugTransport: (any ImapTransport)? { runner?.transport }
+
+    /// Set Aside（JOURNEY-012）：仅本封迁移（不生成发件人规则）；⌘Z 可撤销。
+    public func setAside(stableId: String) throws {
+        let previous = try store.classificationBucket(stableId: stableId) ?? selectedBucket
+        try refreeze(stableId: stableId, to: .setAside, reason: "setAside")
+        try load(bucket: selectedBucket)
+        registerUndo(label: "Set Aside") { [weak self] in
+            guard let self else { return }
+            try? self.refreeze(stableId: stableId, to: previous, reason: "undoSetAside")
+            try? self.load(bucket: self.selectedBucket)
+        }
+    }
+
+    /// Screener 决策（CLS-010/011）：批准/拦截均生成显式规则（Block → blocked 桶），
+    /// 同发件人待定件全部迁移；下一封同发件人直接命中规则。
     public func decideScreener(stableId: String, to bucket: Bucket) throws {
+        try reclassify(stableId: stableId, to: bucket, label: "Screener Decision")
+    }
+
+    /// 手动纠正（JOURNEY-017 / CLS-006 语义）：senderExact→目标桶 显式规则 +
+    /// 同发件人既有待定件全部迁移；撤销回原桶并移除规则。
+    public func reclassify(stableId: String, to bucket: Bucket) throws {
+        try reclassify(stableId: stableId, to: bucket, label: "Reclassify")
+    }
+
+    private func reclassify(stableId: String, to bucket: Bucket, label: String) throws {
         guard let row = try store.mail(stableId: stableId) else { return }
-        if bucket != .screener, let from = row.fromAddress {
+        let previous = try store.classificationBucket(stableId: stableId) ?? selectedBucket
+        var ruleId: UUID?
+        if let from = row.fromAddress {
             let rule = UserRule.correction(senderAddress: from, bucket: bucket,
                                            deviceId: deviceId, ts: Int64(Date().timeIntervalSince1970 * 1000))
             pipeline.rules.append(rule)
+            ruleId = rule.id
         }
-        try store.freeze(ClassificationRow(stableId: stableId, bucket: bucket, reason: "screenerDecision"))
+        // 同发件人待定件（含本封若在 Screener）全部迁移
+        var moved: [(String, Bucket)] = [(stableId, previous)]
+        if let from = row.fromAddress {
+            let pending = (try? store.entries(bucket: .screener))?
+                .filter { $0.fromAddress == from && $0.stableId != stableId } ?? []
+            for entry in pending {
+                moved.append((entry.stableId, .screener))
+                try refreeze(stableId: entry.stableId, to: bucket, reason: "ruleMigration")
+            }
+        }
+        try refreeze(stableId: stableId, to: bucket, reason: "manualCorrection")
+        try load(bucket: selectedBucket)
+        let capturedRuleId = ruleId
+        registerUndo(label: label) { [weak self] in
+            guard let self else { return }
+            if let capturedRuleId {
+                self.pipeline.rules.removeAll { $0.id == capturedRuleId }
+            }
+            for (id, back) in moved {
+                try? self.refreeze(stableId: id, to: back, reason: "undoCorrection")
+            }
+            try? self.load(bucket: self.selectedBucket)
+        }
+    }
+
+    private func refreeze(stableId: String, to bucket: Bucket, reason: String) throws {
+        try store.freeze(ClassificationRow(stableId: stableId, bucket: bucket, reason: reason))
         if let existing = pipeline.frozen.first(where: { $0.key.value == stableId })?.key {
             pipeline.frozen[existing] = bucket
         }
-        try load(bucket: selectedBucket)
-        refreshCounts()
+    }
+
+    private func registerUndo(label: String, perform: @escaping @MainActor () -> Void) {
+        lastAction = UndoableAction(label: label, perform: perform)
+    }
+
+    /// Edit ▸ Undo（⌘Z）：撤销最近一次桶动作。
+    public func undoLast() {
+        lastAction?.perform()
+        lastAction = nil
+    }
+
+    // MARK: - 撰写预填（JOURNEY-011）
+
+    /// Reply/Forward 草稿构造（不触发网络；正文引用用 snippet/已回填正文）。
+    public func composeDraft(for stableId: String, kind: ComposeDraft.Kind) -> ComposeDraft? {
+        guard let row = try? store.mail(stableId: stableId) else { return nil }
+        let quote: String?
+        if let raw = row.raw {
+            quote = MimeParser.parse([UInt8](raw)).textBody ?? row.snippet
+        } else {
+            quote = row.snippet
+        }
+        switch kind {
+        case .compose:
+            return ComposeDraft()
+        case .reply:
+            return ComposeDraft(kind: .reply, to: row.fromAddress ?? "",
+                                subject: ComposeDraft.replySubject(row.subject),
+                                body: ComposeDraft.replyBody(quote: quote, from: row.fromAddress))
+        case .forward:
+            return ComposeDraft(kind: .forward, to: "",
+                                subject: ComposeDraft.forwardSubject(row.subject),
+                                body: ComposeDraft.forwardBody(quote: quote, from: row.fromAddress,
+                                                               subject: row.subject, date: row.date))
+        }
     }
 
     public func load(bucket: Bucket) throws {

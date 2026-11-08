@@ -70,5 +70,5 @@
 - **Given** 已入库邮件 X（flags 不含 \Seen）
 - **When** store.setFlags(stableId:, merge: ["\\Seen"])
 - **Then** flags 为并集且幂等（重复调用不重复追加）；分类行与其余字段不受影响；无 schema 迁移（UPDATE 既有列）
-- **Status**: draft
+- **Status**: green
 - **Tests**: `store_010_set_flags`

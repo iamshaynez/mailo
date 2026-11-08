@@ -130,6 +130,16 @@ public struct ImapSyncEngine: Sendable {
 
     /// 单封正文按需拉取（SYNC-014）：`FETCH uid (UID BODY.PEEK[])`——PEEK 不置 \Seen。
     /// 返回完整原文字节；邮件不在（已删）返回 nil。
+    /// UID STORE 标记写回（MAIL-026）：\Seen 等本地动作尽力同步到服务器。
+    /// FLAGS.SILENT 不回传新 flags（省流量）；失败抛错由调用方降级，不回滚本地。
+    public func storeFlags(uid: Int, flags: [String], transport: any ImapTransport) throws {
+        let response = String(decoding: try transport.send(.storeFlags(uid: uid, flags: flags)), as: UTF8.self)
+        let failed = response.split(separator: "\r\n").contains { line in
+            (line.hasPrefix("A") || line.hasPrefix("a")) && (line.contains(" NO ") || line.contains(" BAD "))
+        }
+        if failed { throw ImapStoreError.serverRejected }
+    }
+
     public func fetchBody(uid: Int, transport: any ImapTransport) throws -> [UInt8]? {
         let lines = try ImapParser.parse(try transport.send(.fetchUid(range: "\(uid)", items: "(UID BODY.PEEK[])")))
         for line in lines {
@@ -150,4 +160,8 @@ public struct ImapSyncEngine: Sendable {
         }
         return 0
     }
+}
+/// STORE 写回失败（MAIL-026）。
+public enum ImapStoreError: Error, Equatable {
+    case serverRejected
 }

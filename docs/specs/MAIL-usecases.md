@@ -182,5 +182,5 @@
 - **Given** 已连接 IMAP 会话（假服务器可测）
 - **When** 引擎对 uid N 执行 markSeen（UID STORE N +FLAGS (\Seen)）
 - **Then** wire 命令合规（tag 前缀 + UID STORE + FLAGS.SILENT）；服务器侧 flags 更新；失败抛错由调用方降级（尽力而为，不阻塞本地已读）
-- **Status**: draft
+- **Status**: green
 - **Tests**: `mail_026_uid_store_flags`

@@ -2,24 +2,63 @@ import CoreKit
 import MirrorKit
 import SwiftUI
 
-/// 三栏主壳（JOURNEY-008 骨架原生化）：
+/// 三栏主壳（JOURNEY-008 骨架原生化 / JOURNEY-010 demo 隔离）：
 /// `NavigationSplitView`（212 侧栏 / 392 列表 / flex 阅读，可拖动、⌘⇧C 折叠）+
 /// 系统 toolbar 以运通蓝着色承载搜索与 Compose（Blue Box 身份的规范表达）。
-/// 窄屏（iPhone）自动退化为 NavigationStack 单栏 + 覆盖式阅读 + bucket 菜单。
+/// root 持有 live/demo 双模型：demo 时常驻水印条并可一键退出（内存库随弃）。
 public struct MailoShell: View {
-    @ObservedObject var model: MailoAppModel
+    @ObservedObject var root: MailoRootModel
     @State private var selection: String?
-    @State private var composing = false
+    @State private var composeDraft: ComposeDraft?
     @State private var searchText = ""
     @FocusState private var searchFocused: Bool
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @Environment(\.horizontalSizeClass) private var sizeClass
 
+    /// 便捷入口（测试/预览）：单模型直接成壳。
     public init(model: MailoAppModel) {
-        self.model = model
+        self.root = MailoRootModel(live: model)
+    }
+
+    public init(root: MailoRootModel) {
+        self.root = root
     }
 
     public var body: some View {
+        MainSurface(
+            root: root, selection: $selection, composeDraft: $composeDraft,
+            searchText: $searchText, searchFocused: $searchFocused,
+            columnVisibility: $columnVisibility, sizeClass: sizeClass ?? .regular
+        )
+        .preferredColorScheme(.light) // 设计规范 §7：v1 锁浅色
+    }
+}
+
+/// 实际表面（持有 active 模型的观察）：active 切换（进/出 demo）时整体重建。
+private struct MainSurface: View {
+    @ObservedObject var root: MailoRootModel
+    @ObservedObject var model: MailoAppModel
+    @Binding var selection: String?
+    @Binding var composeDraft: ComposeDraft?
+    @Binding var searchText: String
+    @FocusState.Binding var searchFocused: Bool
+    @Binding var columnVisibility: NavigationSplitViewVisibility
+    let sizeClass: UserInterfaceSizeClass
+
+    init(root: MailoRootModel, selection: Binding<String?>, composeDraft: Binding<ComposeDraft?>,
+         searchText: Binding<String>, searchFocused: FocusState<Bool>.Binding,
+         columnVisibility: Binding<NavigationSplitViewVisibility>, sizeClass: UserInterfaceSizeClass) {
+        self.root = root
+        self.model = root.active
+        _selection = selection
+        _composeDraft = composeDraft
+        _searchText = searchText
+        _searchFocused = searchFocused
+        _columnVisibility = columnVisibility
+        self.sizeClass = sizeClass
+    }
+
+    var body: some View {
         Group {
             switch model.phase {
             case .demo, .connected:
@@ -29,22 +68,34 @@ public struct MailoShell: View {
                     wideLayout
                 }
             case .empty, .connecting, .failed:
-                AccountSetupView(model: model)
+                AccountSetupView(root: root)
             }
         }
-        .preferredColorScheme(.light) // 设计规范 §7：v1 锁浅色
-        .sheet(isPresented: $composing) { ComposeView(model: model) }
+        .sheet(item: $composeDraft) { draft in
+            ComposeView(model: model, draft: draft)
+        }
         .onChange(of: model.commandRequest) { request in
             guard let request else { return }
             handle(request.command)
         }
+        .onChange(of: selection) { model.setReading($0) }
         .onChange(of: model.selectedBucket) { _ in selection = nil }
     }
 
     private func handle(_ command: MailoUICommand) {
         switch command {
-        case .compose: composing = true
-        case .focusSearch: searchFocused = true
+        case .compose:
+            composeDraft = ComposeDraft()
+        case .reply:
+            if let id = model.readingStableId { composeDraft = model.composeDraft(for: id, kind: .reply) }
+        case .forward:
+            if let id = model.readingStableId { composeDraft = model.composeDraft(for: id, kind: .forward) }
+        case .setAside:
+            if let id = model.readingStableId { try? model.setAside(stableId: id) }
+        case .toggleUnread:
+            if let id = model.readingStableId { model.toggleUnread(stableId: id) }
+        case .focusSearch:
+            searchFocused = true
         }
     }
 
@@ -52,6 +103,7 @@ public struct MailoShell: View {
 
     private var wideLayout: some View {
         VStack(spacing: 0) {
+            if root.demo != nil { demoStrip }
             screenerBanner
             NavigationSplitView(columnVisibility: $columnVisibility) {
                 SidebarView(model: model)
@@ -78,6 +130,27 @@ public struct MailoShell: View {
         #endif
         .toolbar { toolbarContent }
         .background(DesignTokens.surfaceMain)
+    }
+
+    /// Demo 水印条（JOURNEY-010）：常驻 + 一键退出。
+    private var demoStrip: some View {
+        HStack(spacing: 8) {
+            Circle().fill(DesignTokens.bucketColor(.setAside)).frame(width: 7, height: 7)
+            Text("Demo — sample mailbox, nothing touches your real account.")
+                .font(.system(size: 12))
+            Spacer()
+            Button("Exit Demo") { root.exitDemo() }
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(DesignTokens.brandBlue)
+                .buttonStyle(.plain)
+        }
+        .foregroundColor(DesignTokens.inkSecondary)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 6)
+        .background(DesignTokens.brandBlueWash)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(DesignTokens.brandBlueBorder).frame(height: 1)
+        }
     }
 
     @ViewBuilder
@@ -117,7 +190,7 @@ public struct MailoShell: View {
         }
         ToolbarItem(placement: .primaryAction) {
             Button {
-                composing = true
+                composeDraft = ComposeDraft()
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "pencil")
@@ -236,7 +309,7 @@ public struct MailoShell: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button { composing = true } label: { Image(systemName: "pencil") }
+                    Button { composeDraft = ComposeDraft() } label: { Image(systemName: "pencil") }
                         .disabled(!model.canCompose)
                 }
                 ToolbarItem(placement: .navigation) {
@@ -291,6 +364,7 @@ struct SearchResultsView: View {
                             .listRowBackground(row.stableId == selection
                                 ? DesignTokens.brandBlueWash
                                 : DesignTokens.surfaceMain)
+                            .contextMenu { rowContextMenu(row) }
                     }
                 }
                 .listStyle(.plain)
@@ -298,5 +372,33 @@ struct SearchResultsView: View {
             }
         }
         .background(DesignTokens.surfaceMain)
+    }
+
+    @ViewBuilder
+    private func rowContextMenu(_ row: MirrorKit.MailRow) -> some View {
+        Button("Reply") {
+            model.setReading(row.stableId)
+            model.request(.reply)
+        }
+        Button("Set Aside") { try? model.setAside(stableId: row.stableId) }
+        if row.flagList.contains("\\Seen") {
+            Button("Mark Unread") { model.markUnread(stableId: row.stableId) }
+        } else {
+            Button("Mark as Read") { model.markRead(stableId: row.stableId) }
+        }
+        Divider()
+        Button("Copy Sender") { Clipboard.copy(row.fromAddress ?? "") }
+    }
+}
+
+/// 剪贴板抽象（context menu 用；macOS NSPasteboard / iOS UIPasteboard）。
+enum Clipboard {
+    static func copy(_ text: String) {
+        #if os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        #elseif canImport(UIKit)
+        UIPasteboard.general.string = text
+        #endif
     }
 }

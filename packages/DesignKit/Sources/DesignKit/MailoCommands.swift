@@ -2,7 +2,7 @@ import CoreKit
 import MirrorKit
 import SwiftUI
 
-// MARK: - 用例库：docs/specs/JOURNEY-usecases.md（JOURNEY-008 / JOURNEY-009）
+// MARK: - 用例库：docs/specs/JOURNEY-usecases.md（JOURNEY-008 / JOURNEY-009 · 批次 2 扩充）
 
 /// UI 意图（JOURNEY-009）：菜单/快捷键 → 壳层动作的唯一通道。
 /// Commands 场景在 App 壳里，动作目标（sheet/焦点/选中）在 MailoShell 里，
@@ -12,6 +12,14 @@ public enum MailoUICommand: Equatable, Sendable {
     case compose
     /// ⌘K：聚焦搜索框
     case focusSearch
+    /// ⌘R：回复当前阅读邮件（JOURNEY-011）
+    case reply
+    /// ⌘⇧F：转发（JOURNEY-011）
+    case forward
+    /// ⌘S：Set Aside（JOURNEY-012）
+    case setAside
+    /// ⌘⇧U：标未读/已读切换（JOURNEY-013）
+    case toggleUnread
 }
 
 /// 命令请求（单调递增 id：同一命令重复触发也能被 onChange 观察）。
@@ -25,18 +33,22 @@ public struct MailCommandRequest: Equatable, Sendable {
     }
 }
 
-/// 菜单可用性矩阵（JOURNEY-009）：动作要求「有选中且处于阅读态」。
+/// 菜单可用性矩阵（JOURNEY-009）：邮件动作要求「有选中且处于阅读态」。
 /// 纯函数：菜单打开时求值，测试直接锁行为。
 public struct MailCommandAvailability: Equatable, Sendable {
     public let canReply: Bool
     public let canForward: Bool
     public let canAct: Bool
+    public let canSetAside: Bool
+    public let canToggleUnread: Bool
 
     public init(selection: String?, isReading: Bool) {
         let ready = selection != nil && isReading
         canReply = ready
         canForward = ready
         canAct = ready
+        canSetAside = ready
+        canToggleUnread = ready
     }
 }
 
@@ -68,12 +80,12 @@ public struct MailSelectionBridge: Equatable, Sendable {
 }
 
 /// App 壳挂载的命令面（JOURNEY-009）：MailoMac/MailoIOS 的 `.commands` 直接复用。
-/// 菜单项在打开时求值 disabled——model 按引用持有，状态即时读取。
+/// 菜单项在打开时求值 disabled——root.active 按引用读取，demo/真实切换即时生效。
 public struct MailoCommandMenu: Commands {
-    let model: MailoAppModel
+    let root: MailoRootModel
 
-    public init(model: MailoAppModel) {
-        self.model = model
+    public init(root: MailoRootModel) {
+        self.root = root
     }
 
     public var body: some Commands {
@@ -82,13 +94,38 @@ public struct MailoCommandMenu: Commands {
                 .keyboardShortcut("n", modifiers: .command)
                 .disabled(!model.canCompose)
         }
-        CommandMenu("Mail") {
+        CommandMenu("Message") {
             Button("Search") { model.request(.focusSearch) }
                 .keyboardShortcut("k", modifiers: .command)
+            Divider()
+            Button("Reply") { model.request(.reply) }
+                .keyboardShortcut("r", modifiers: .command)
+                .disabled(!availability.canReply)
+            Button("Forward") { model.request(.forward) }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
+                .disabled(!availability.canForward)
+            Button("Set Aside") { model.request(.setAside) }
+                .keyboardShortcut("s", modifiers: .command)
+                .disabled(!availability.canSetAside)
+            Divider()
+            Button("Mark Unread") { model.request(.toggleUnread) }
+                .keyboardShortcut("u", modifiers: [.command, .shift])
+                .disabled(!availability.canToggleUnread)
             Divider()
             Button("Sync Now") { model.syncNow() }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
                 .disabled(!model.isSyncCapable)
         }
+        CommandGroup(replacing: .undoRedo) {
+            Button(model.lastAction.map { "Undo \($0.label)" } ?? "Undo") { model.undoLast() }
+                .keyboardShortcut("z", modifiers: .command)
+                .disabled(model.lastAction == nil)
+        }
+    }
+
+    private var model: MailoAppModel { root.active }
+
+    private var availability: MailCommandAvailability {
+        MailCommandAvailability(selection: model.readingStableId, isReading: model.readingStableId != nil)
     }
 }

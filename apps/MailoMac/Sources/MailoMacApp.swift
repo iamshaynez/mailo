@@ -4,22 +4,22 @@ import SwiftUI
 
 @main
 struct MailoMacApp: App {
-    @StateObject private var model = MailoAppModel.createLive()
+    @StateObject private var root = MailoRootModel(live: MailoAppModel.createLive())
     @NSApplicationDelegateAdaptor(WindowAutosaveDelegate.self) private var appDelegate
 
     var body: some Scene {
         WindowGroup {
-            MailoShell(model: model)
+            MailoShell(root: root)
                 .task {
                     // 启动恢复上次会话（JOURNEY-005）：refresh token 免设备码；失败留在欢迎页
-                    if case .empty = model.phase {
-                        _ = await model.restoreSavedAccount(vault: KeychainVault())
+                    if case .empty = root.live.phase {
+                        _ = await root.live.restoreSavedAccount(vault: KeychainVault())
                     }
                 }
                 .frame(minWidth: 960, minHeight: 600)
         }
         .defaultSize(width: 1280, height: 820)
-        .commands { MailoCommandMenu(model: model) }
+        .commands { MailoCommandMenu(root: root) }
     }
 }
 

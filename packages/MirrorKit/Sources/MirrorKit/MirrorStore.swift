@@ -218,6 +218,19 @@ public final class MirrorStore: @unchecked Sendable {
         }
     }
 
+    /// 本地 flags 并集/差集更新（STORE-010）：markSeen/markUnread 的本地优先路径。
+    /// 幂等：merge 不重复追加；stableId 不存在时静默无操作。不动服务器、不动分类行。
+    public func setFlags(stableId: String, merge: [String] = [], remove: [String] = []) throws {
+        try dbQueue.write { db in
+            guard var row = try MailRow.fetchOne(db, key: stableId) else { return }
+            var flags = row.flagList
+            for flag in merge where !flags.contains(flag) { flags.append(flag) }
+            if !remove.isEmpty { flags.removeAll { remove.contains($0) } }
+            row.flags = flags.joined(separator: " ")
+            try row.update(db)
+        }
+    }
+
     // MARK: - 读
 
     /// bucket 视图：该桶邮件按日期倒序（STORE-002）。date 为字符串（RFC2822 原文），
@@ -249,6 +262,14 @@ public final class MirrorStore: @unchecked Sendable {
                 db,
                 sql: "SELECT * FROM mail WHERE subject LIKE ? OR fromAddress LIKE ? OR snippet LIKE ? LIMIT ?",
                 arguments: [like, like, like, limit])
+        }
+    }
+
+    /// 邮件当前归类桶（阅读页 bucket 徽标取邮件自身而非当前列表，JOURNEY-003）。
+    public func classificationBucket(stableId: String) throws -> Bucket? {
+        try dbQueue.read { db in
+            try String.fetchOne(db, sql: "SELECT bucket FROM classification WHERE stableId = ?",
+                                arguments: [stableId]).flatMap(Bucket.init(rawValue:))
         }
     }
 

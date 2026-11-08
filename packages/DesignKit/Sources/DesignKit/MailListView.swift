@@ -29,6 +29,7 @@ struct MailListView: View {
                                     .listRowBackground(entry.stableId == selection
                                         ? DesignTokens.brandBlueWash
                                         : DesignTokens.surfaceMain)
+                                    .contextMenu { rowContextMenu(entry) }
                             }
                         } header: {
                             Text(group.label)
@@ -97,6 +98,22 @@ struct MailListView: View {
                 .foregroundColor(DesignTokens.inkMuted)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private func rowContextMenu(_ entry: BucketEntry) -> some View {
+        Button("Reply") {
+            model.setReading(entry.stableId)
+            model.request(.reply)
+        }
+        Button("Set Aside") { try? model.setAside(stableId: entry.stableId) }
+        if entry.flags.contains("\\Seen") {
+            Button("Mark Unread") { model.markUnread(stableId: entry.stableId) }
+        } else {
+            Button("Mark as Read") { model.markRead(stableId: entry.stableId) }
+        }
+        Divider()
+        Button("Copy Sender") { Clipboard.copy(entry.fromAddress ?? "") }
     }
 
     // MARK: 过滤与分组

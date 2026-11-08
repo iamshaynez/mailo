@@ -81,6 +81,19 @@ public final class FakeImapServer: ImapTransport, @unchecked Sendable {
             fetchBytes += Array("\(tag) OK FETCH completed\r\n".utf8)
             return Array(out.utf8) + fetchBytes
 
+        case .storeFlags(let uid, let flags):
+            guard var box = mailboxes["INBOX"] else {
+                out += "\(tag) NO STORE no mailbox\r\n"
+                break
+            }
+            guard let index = box.messages.firstIndex(where: { $0.uid == uid }) else {
+                out += "\(tag) NO STORE no such message\r\n"
+                break
+            }
+            box.messages[index].flags.formUnion(flags)
+            mailboxes["INBOX"] = box
+            out += "\(tag) OK STORE completed\r\n"
+
         case .noop:
             out += "\(tag) OK NOOP completed\r\n"
         }
