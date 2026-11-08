@@ -13,20 +13,32 @@ struct MailReaderView: View {
             actionBar
             Divider().overlay(DesignTokens.borderDefault)
             if let detail {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        metaRow
-                        subjectBlock
-                        Divider().overlay(DesignTokens.borderDefault).padding(.vertical, 16)
-                        bodyText
-                        if !detail.attachmentNames.isEmpty {
-                            attachments
+                VStack(spacing: 0) {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            metaRow
+                            subjectBlock
+                            Divider().overlay(DesignTokens.borderDefault).padding(.vertical, 16)
                         }
-                        Spacer(minLength: 40)
+                        .frame(maxWidth: 680, alignment: .leading)
+                        .padding(.horizontal, 30)
+                        .padding(.top, 24)
                     }
-                    .frame(maxWidth: 680, alignment: .leading)
-                    .padding(.horizontal, 30)
-                    .padding(.vertical, 24)
+                    .frame(height: detail.htmlBody == nil ? 0 : nil, alignment: .top)
+                    .frame(maxHeight: detail.htmlBody == nil ? 0 : .infinity, alignment: .top)
+
+                    // 正文：HTML 走 WKWebView 沙箱（自滚动）；纯文本走原生 Text
+                    if let html = detail.htmlBody {
+                        HtmlMailWebView(html: html)
+                            .padding(.horizontal, 26)
+                            .padding(.bottom, 12)
+                    } else {
+                        ScrollView {
+                            bodyText
+                            if !detail.attachmentNames.isEmpty { attachments }
+                            Spacer(minLength: 40)
+                        }
+                    }
                 }
             } else {
                 Text("选择一封邮件")

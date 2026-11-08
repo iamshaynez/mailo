@@ -72,3 +72,35 @@ struct ModelSupportTests {
         #expect(seenDetail.isUnread == false)
     }
 }
+
+// MARK: JOURNEY-004
+
+@MainActor
+struct HtmlDetailTests {
+    @Test("JOURNEY-004 HTML 邮件详情分离")
+    func journey_004_html_detail_separated() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("html-\(UUID().uuidString)", isDirectory: true)
+        let model = MailoAppModel.createLive(storeDirectory: dir)
+        let htmlMail = "Message-ID: <h1@x.t>\r\nFrom: news@netflix.com\r\nSubject: HTML\r\nDate: Fri, 7 Nov 2026 15:00:00 +0000\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<p><b>New season</b> is out</p>"
+        try model.apply([MailEvent(
+            stableMessageID: StableMessageID(messageId: "<h1@x.t>", accountFingerprint: "primary"),
+            uid: 1, flags: [], raw: Array(htmlMail.utf8),
+            subject: "HTML", fromAddress: "news@netflix.com")])
+        try model.load(bucket: .feed)
+        let entry = try #require(model.entries.first { $0.subject == "HTML" })
+        let detail = try #require(model.mailDetail(stableId: entry.stableId))
+        #expect(detail.textBody == nil)                    // 无纯文本部分
+        #expect(detail.htmlBody?.contains("<b>New season</b>") == true)
+
+        // 沙壳 HTML 构造：CSP 注入（远程图片默认禁）
+        let sandboxed = DesignKitTests_sandbox(html: detail.htmlBody ?? "")
+        #expect(sandboxed.contains("Content-Security-Policy"))
+        #expect(sandboxed.contains("img-src data:"))
+    }
+}
+
+// 跨 struct 访问 internal 的便捷转发（HtmlMailWebView.sandboxed 为 static）
+func DesignKitTests_sandbox(html: String) -> String {
+    HtmlMailWebView.sandboxed(html)
+}

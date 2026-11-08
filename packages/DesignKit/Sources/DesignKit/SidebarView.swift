@@ -72,6 +72,7 @@ struct SidebarView: View {
                             .frame(width: 9, height: 9)
                         Text(bucket.title)
                             .font(.system(size: 13.5, weight: isActive ? .semibold : .regular))
+                            .foregroundColor(isActive ? .white : DesignTokens.inkSecondary)
                         Spacer(minLength: 0)
                         if count > 0 {
                             Text("\(count)")

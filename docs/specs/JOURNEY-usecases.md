@@ -27,3 +27,10 @@
 - **Then** 详情含完整正文（从 raw 重新解析，非 200 字 snippet）；未读判定 = flags 不含 \\Seen（列表"New"分段依据）
 - **Status**: draft
 - **Tests**: `journey_003_detail_and_unread`
+
+## JOURNEY-004 HTML 邮件详情分离与沙箱渲染
+- **Given** 一封 HTML-only 邮件（无 text/plain 部分）
+- **When** mailDetail
+- **Then** textBody 为 nil、htmlBody 携带 HTML 原文；渲染层用 WKWebView + CSP（default-src 'none'; style-src 'unsafe-inline'; img-src data:）——远程图片默认禁（规范 §7），纯文本邮件仍走原生 Text
+- **Status**: draft
+- **Tests**: `journey_004_html_detail_separated`
