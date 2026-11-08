@@ -183,4 +183,18 @@ public final class MirrorStore: @unchecked Sendable {
             try MailRow.fetchOne(db, key: stableId)
         }
     }
+
+    /// 各桶邮件数（侧栏徽章数据源，STORE-006）。
+    public func bucketCounts() throws -> [String: Int] {
+        try dbQueue.read { db in
+            var out: [String: Int] = [:]
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT bucket, COUNT(*) AS n FROM classification GROUP BY bucket
+                """)
+            for row in rows {
+                out[row["bucket"] ?? ""] = row["n"] ?? 0
+            }
+            return out
+        }
+    }
 }

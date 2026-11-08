@@ -66,3 +66,10 @@
 - **Then** 种子命中正确桶（订阅/通知→feed、收据/账单→paperTrail）；覆盖表优先于种子；银行等歧义域名**不在种子**（宁缺勿滥，交 Screener）
 - **Status**: draft
 - **Tests**: `cls_009_roster_seed_and_overrides`
+
+## CLS-010 Screener 决策流（批准即规则）
+- **Given** 未知发件人邮件 X 处于 Screener 待定（冻结为 screener 桶）
+- **When** 用户决定 decideScreener(X, to: .feed)
+- **Then** 生成该发件人的显式规则（senderExact→feed）并入管线；X 的桶更新为 feed；**下一封同发件人邮件直接命中规则进 feed**（不再待定）；Block（= .screener 保持）不生成规则
+- **Status**: draft
+- **Tests**: `cls_010_screener_decision_flow`

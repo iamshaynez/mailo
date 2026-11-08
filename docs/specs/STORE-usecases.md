@@ -37,3 +37,10 @@
 - **Then** 仍只有一行，uid=101（分类标注不丢——STORE-004 的主键保证）
 - **Status**: draft
 - **Tests**: `store_005_uid_refresh_on_reset`
+
+## STORE-006 桶计数查询
+- **Given** 多封邮件分属各桶
+- **When** bucketCounts
+- **Then** 每桶数量正确（侧栏徽章数据源）
+- **Status**: draft
+- **Tests**: `store_006_bucket_counts`
