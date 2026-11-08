@@ -70,6 +70,13 @@
 ## CLS-010 Screener 决策流（批准即规则）
 - **Given** 未知发件人邮件 X 处于 Screener 待定（冻结为 screener 桶）
 - **When** 用户决定 decideScreener(X, to: .feed)
-- **Then** 生成该发件人的显式规则（senderExact→feed）并入管线；X 的桶更新为 feed；**下一封同发件人邮件直接命中规则进 feed**（不再待定）；Block（= .screener 保持）不生成规则
+- **Then** 生成该发件人的显式规则（senderExact→feed）并入管线；X 的桶更新为 feed；**下一封同发件人邮件直接命中规则进 feed**（不再待定）；Block 分支语义 v2 移交 CLS-011（blocked 桶 + 显式规则），不再保持 .screener
 - **Status**: draft
 - **Tests**: `cls_010_screener_decision_flow`
+
+## CLS-011 Block 桶语义（Screener 的第四键）
+- **Given** 未知发件人邮件 X 处于 Screener 待定，用户决定 Block
+- **When** decideScreener(X, to: .blocked)
+- **Then** 生成 senderExact→blocked 显式规则（同 CLS-010 批准语义）；X 冻结为 blocked 桶；blocked 邮件不出现在任何导航桶（含 Screener 计数递减）；下一封同发件人邮件直接命中规则进 blocked（永不再打扰）
+- **Status**: draft
+- **Tests**: `cls_011_block_bucket_semantics`

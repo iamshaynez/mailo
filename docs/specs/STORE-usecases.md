@@ -65,3 +65,10 @@
 - **Then** 已应用迁移清单与登记表**完全一致**（顺序+内容）；二次打开幂等；schema 版本可查询（诊断可见）；meta 表记录 schema/app 版本
 - **Status**: draft
 - **Tests**: `store_009_migration_contract`
+
+## STORE-010 本地 flags 更新（markSeen）
+- **Given** 已入库邮件 X（flags 不含 \Seen）
+- **When** store.setFlags(stableId:, merge: ["\\Seen"])
+- **Then** flags 为并集且幂等（重复调用不重复追加）；分类行与其余字段不受影响；无 schema 迁移（UPDATE 既有列）
+- **Status**: draft
+- **Tests**: `store_010_set_flags`
