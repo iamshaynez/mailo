@@ -156,3 +156,10 @@
 - **Then** 提取 exists 与 uidNext（探针据此只拉最近 N 封，不再全量 FETCH）
 - **Status**: draft
 - **Tests**: `mail_022_select_state_parse`
+
+## MAIL-023 发件人地址解析（显示名剥离）
+- **Given** 真实邮件 From 头三种形态：`"Sarah Chen" <sarah@wave.co>`、`sarah@wave.co`、`sarah@wave.co (comment)`
+- **When** EmailAddress.parse
+- **Then** 统一提取出干净的 local@domain（小写规范化、可带尖括号/显示名/注释）；无地址返回 nil——分类管线的域名匹配依赖此净化
+- **Status**: draft
+- **Tests**: `mail_023_from_display_name_parse`
