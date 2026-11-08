@@ -163,3 +163,10 @@
 - **Then** 统一提取出干净的 local@domain（小写规范化、可带尖括号/显示名/注释）；无地址返回 nil——分类管线的域名匹配依赖此净化
 - **Status**: draft
 - **Tests**: `mail_023_from_display_name_parse`
+
+## MAIL-024 SMTP XOAUTH2 认证
+- **Given** OAuth 会话（access token）
+- **When** SmtpClient 以 .xoauth2 认证发信
+- **Then** 会话序列 EHLO → AUTH XOAUTH2 <sasl>（单命令 235，非交互）→ MAIL FROM → RCPT → DATA → DOT → QUIT；SASL 载荷与 IMAP 同构
+- **Status**: draft
+- **Tests**: `mail_024_smtp_xoauth2`

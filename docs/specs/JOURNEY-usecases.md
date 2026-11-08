@@ -41,3 +41,15 @@
 - **Then** 免设备码直接完成"刷新→连接→增量同步"；无存档或刷新失败返回 false（回设置页）
 - **Status**: draft
 - **Tests**: `journey_005_restore_session`
+
+## JOURNEY-006 撰写并发送（compose）
+- **Given** 已连接账户（vault 有 refresh token；token 刷新与 SMTP 传输均为注入点）
+- **When** composeAndSend(to:subject:body:)
+- **Then** 刷新 access token → SMTP XOAUTH2 会话 → 发出 DATA（点填充）→ 状态反馈成功；失败带错误信息
+
+## JOURNEY-007 全文搜索呈现
+- **Given** 已入库邮件（含中文主题）
+- **When** AppModel.search("关键词")
+- **Then** 返回命中行（FTS/底层搜索映射）；UI 搜索框输入即搜、清空恢复列表
+- **Status**: draft
+- **Tests**: `journey_007_search_results`
