@@ -127,7 +127,7 @@ public final class MailoAppModel: ObservableObject {
         let kind = DeviceCodeFlow.MicrosoftAccount(rawValue: record.accountKind) ?? .personal
         do {
             let accessToken: String?
-            if let refresher {
+            if let refresher = tokenRefresher {
                 accessToken = try await refresher(record.clientId, secret)
             } else {
                 let granted = try await DeviceCodeClient().refresh(
