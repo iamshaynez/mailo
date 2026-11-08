@@ -231,6 +231,14 @@ public final class MirrorStore: @unchecked Sendable {
         }
     }
 
+    /// 无正文邮件清单（诊断探针：raw 未回填的邮件）。
+    public func mailsWithoutBody() throws -> [(stableId: String, uid: Int)] {
+        try dbQueue.read { db in
+            let rows = try Row.fetchAll(db, sql: "SELECT stableId, uid FROM mail WHERE raw IS NULL ORDER BY uid LIMIT 1")
+            return rows.map { (stableId: $0["stableId"] ?? "", uid: $0["uid"] ?? 0) }
+        }
+    }
+
     /// 无日期邮件清单（JOURNEY-020 存量回填：date 断链时期入库的邮件按 ENVELOPE 补）。
     public func mailsWithoutDate() throws -> [(stableId: String, uid: Int)] {
         try dbQueue.read { db in

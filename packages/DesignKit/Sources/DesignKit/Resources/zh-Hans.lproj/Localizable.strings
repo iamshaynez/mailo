@@ -112,3 +112,4 @@
 "sync.dateBackfillDone" = "时间戳回补完成";
 "sync.dateBackfillProgress" = "正在回补时间戳 %1$d / %2$d";
 "sync.dateBackfillFailed" = "时间戳回补暂停（下轮同步重试）";
+"reader.noBody.hint" = "正文尚未下载。重新打开或点「重试」拉取。";

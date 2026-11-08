@@ -10,7 +10,7 @@ struct MailReaderView: View {
 
     @State private var loadState: MailoAppModel.DetailLoadState?
     @AppStorage("allowRemoteImages") private var remoteImagesAllowed = false
-    @State private var retryNonce = 0
+    @State private var loadTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,15 +26,27 @@ struct MailReaderView: View {
             }
         }
         .background(DesignTokens.surfaceWash)
-        .task(id: "\(stableId)#\(retryNonce)") {
-            loadState = .loading
-            var state = await model.loadDetail(stableId: stableId)
+        // JOURNEY-014 v2：显式驱动——每次选中变化必触发加载（.task(id:) 在快速连续选中时实测丢触发）
+        .onAppear { startLoad() }
+        .onChange(of: stableId) { _ in startLoad() }
+        .onDisappear { loadTask?.cancel() }
+    }
+
+    /// 加载正文（JOURNEY-014 v2）：取消旧任务，后台拉取，主线程零等待。
+    private func startLoad() {
+        loadTask?.cancel()
+        loadState = .loading
+        let target = stableId
+        loadTask = Task {
+            var state = await model.loadDetail(stableId: target)
+            guard !Task.isCancelled else { return }
             // 打开即标已读（JOURNEY-013）：正文到手后生效
             if case .loaded(var d) = state, d.isUnread {
-                model.markRead(stableId: stableId)
+                model.markRead(stableId: target)
                 d.flags.append("\\Seen")
                 state = .loaded(d)
             }
+            guard !Task.isCancelled else { return }
             loadState = state
         }
     }
@@ -60,7 +72,7 @@ struct MailReaderView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
             Button {
-                retryNonce += 1 // .task(id:) 重跑（JOURNEY-014 重试）
+                startLoad() // JOURNEY-014 重试
             } label: {
                 Text(L10n.t("reader.retry"))
                     .font(DesignTokens.Typo.caption)
@@ -75,33 +87,43 @@ struct MailReaderView: View {
     @ViewBuilder
     private func detailContent(_ detail: MailoAppModel.MailDetail) -> some View {
         VStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 0) {
-                            metaRow
-                            subjectBlock
-                            Divider().overlay(DesignTokens.borderDefault).padding(.vertical, 16)
-                        }
-                        .frame(maxWidth: 680, alignment: .leading)
-                        .padding(.horizontal, 30)
-                        .padding(.top, 24)
-                    }
-                    .frame(height: detail.htmlBody == nil ? 0 : nil, alignment: .top)
-                    .frame(maxHeight: detail.htmlBody == nil ? 0 : .infinity, alignment: .top)
-
-                    // 正文：HTML 走 WKWebView 沙箱（自滚动）；纯文本走原生 Text
-                    if let html = detail.htmlBody {
-                        HtmlMailWebView(html: html, allowRemoteImages: remoteImagesAllowed)
-                            .padding(.horizontal, 26)
-                            .padding(.bottom, 12)
-                    } else {
-                        ScrollView {
-                            bodyText
-                            if !detail.attachmentNames.isEmpty { attachments }
-                            Spacer(minLength: 40)
-                        }
-                    }
+            // 头部恒显（JOURNEY-014 v2：不再因无正文塌陷——发件人/主题/时间戳永远可见）
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    metaRow
+                    subjectBlock
+                    Divider().overlay(DesignTokens.borderDefault).padding(.vertical, 16)
                 }
+                .frame(maxWidth: 680, alignment: .leading)
+                .padding(.horizontal, DesignTokens.spacingReading)
+                .padding(.top, 24)
+            }
+            .fixedSize(horizontal: false, vertical: true) // 头部取自然高度
+
+            // 正文：HTML 走 WKWebView 沙箱（自滚动）；纯文本走原生 Text；双缺失给明确占位
+            if let html = detail.htmlBody {
+                HtmlMailWebView(html: html, allowRemoteImages: remoteImagesAllowed)
+                    .padding(.horizontal, 26)
+                    .padding(.bottom, 12)
+            } else if detail.textBody != nil {
+                ScrollView {
+                    bodyText
+                    if !detail.attachmentNames.isEmpty { attachments }
+                    Spacer(minLength: 40)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(L10n.t("reader.noBody"))
+                        .font(DesignTokens.Typo.body)
+                        .foregroundColor(DesignTokens.inkMuted)
+                    Text(L10n.t("reader.noBody.hint"))
+                        .font(DesignTokens.Typo.meta.weight(.regular))
+                        .foregroundColor(DesignTokens.inkFaint)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(.horizontal, DesignTokens.spacingReading)
+                .padding(.top, 8)
+            }
         }
     }
 
@@ -269,7 +291,7 @@ struct MailReaderView: View {
     }
 
     private var bodyText: some View {
-        Text(detail?.textBody ?? L10n.t("reader.noBody"))
+        Text(detail?.textBody ?? "")
             .font(DesignTokens.Typo.body)
             .lineSpacing(7)
             .foregroundColor(DesignTokens.inkBody)
