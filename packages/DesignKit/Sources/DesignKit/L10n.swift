@@ -16,12 +16,15 @@ public enum L10n {
     }
 
     /// 测试/预览：指定语言取词（读对应 lproj 子包）。
+    /// lproj 目录名在不同工具链下可能被规范为小写（CI 实测 zh-Hans → zh-hans），两级尝试。
     public static func t(_ key: String, languageCode: String) -> String {
-        guard let path = Bundle.module.path(forResource: languageCode, ofType: "lproj"),
-              let bundle = Bundle(path: path) else {
-            return NSLocalizedString(key, bundle: .module, comment: "") // 回落开发语言
+        for code in [languageCode, languageCode.lowercased()] {
+            if let path = Bundle.module.path(forResource: code, ofType: "lproj"),
+               let bundle = Bundle(path: path) {
+                return NSLocalizedString(key, bundle: bundle, comment: "")
+            }
         }
-        return NSLocalizedString(key, bundle: bundle, comment: "")
+        return NSLocalizedString(key, bundle: .module, comment: "") // 回落开发语言
     }
 
     /// 可用翻译语言（en 恒在）。

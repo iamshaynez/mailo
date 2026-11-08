@@ -73,7 +73,8 @@ struct PolishTests {
     @Test("DESIGN-003 en/zh-Hans 双语齐备、键位对齐、未知语言回落 en")
     func design_003_localization() throws {
         #expect(L10n.availableLanguages.contains("en"))
-        #expect(L10n.availableLanguages.contains("zh-Hans"))
+        // CI 工具链可能把 lproj 规范为小写 zh-hans（实测），大小写不敏感断言
+        #expect(L10n.availableLanguages.contains { $0.caseInsensitiveCompare("zh-Hans") == .orderedSame })
 
         // 双语取词
         #expect(L10n.t("segment.new", languageCode: "en") == "New")
