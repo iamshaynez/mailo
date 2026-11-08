@@ -158,3 +158,10 @@
 - **And** 分段控件（New / Previously seen / Set aside）与阅读窗格胶囊按钮的点击命中区域为整个胶囊区域，而非文字笔画
 - **Status**: green
 - **Tests**: `journey_018_segment_membership_stable_on_read`
+
+## JOURNEY-019 未读/已读行的字重编码
+- **Given** 列表行 / 搜索结果行（视觉由 MailRowView 统一渲染）
+- **When** isUnread == true / false
+- **Then** 未读：发件人与主题走**粗体字重**且保留蓝色未读点；已读：发件人与主题走 regular 字重、无蓝点；字重映射由 RowEmphasis 纯函数提供（测试锁映射语义，视图零分叉）
+- **Status**: draft
+- **Tests**: `journey_019_unread_bold_emphasis`
