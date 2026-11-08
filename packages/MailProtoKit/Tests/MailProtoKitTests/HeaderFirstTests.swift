@@ -102,3 +102,31 @@ struct HeaderFirstTests {
         #expect(batchElapsed < max(0.5, loopElapsed / 3), "batch=\(batchElapsed)s loop=\(loopElapsed)s")
     }
 }
+
+// MARK: SYNC-016
+
+struct BackfillTests {
+    @Test("SYNC-016 历史回填（任意区间拉取）")
+    func sync_016_backfill_range() throws {
+        // UID 1..1000，含空洞（删除了 500 附近）
+        var messages = (1...1000).map(mail)
+        messages.removeAll { (500...560).contains($0.uid) }
+        let server = FakeImapServer(mailboxes: ["INBOX": .init(uidValidity: 9, messages: messages)])
+        let engine = ImapSyncEngine(accountFingerprint: "a")
+
+        // 首轮窗口：最近 20（1000..981）
+        _ = try engine.sync(folder: "INBOX", snapshot: nil, transport: server)
+
+        // 回填批 1：801..980
+        let batch1 = try engine.fetchRange("801:980", transport: server)
+        #expect(batch1.count == 180)
+        #expect(batch1.map(\.uid).max() == 980)
+
+        // 空洞区间（500..560 被删）：返回空但机制可继续
+        let hole = try engine.fetchRange("501:560", transport: server)
+        #expect(hole.isEmpty)
+
+        // 事件形态与列表同步一致（ENVELOPE、有摘要无正文）
+        #expect(batch1.allSatisfy { $0.subject != nil && $0.raw.isEmpty })
+    }
+}

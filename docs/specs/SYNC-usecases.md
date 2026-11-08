@@ -107,3 +107,10 @@
 - **Then** 只产生 1 个事件（增量）；FETCH 区间为高水位+1 而非全窗口
 - **Status**: draft
 - **Tests**: `sync_015_snapshot_persisted`
+
+## SYNC-016 历史回填（任意区间拉取）
+- **Given** 已完成最近窗口同步的邮箱（更早的邮件未拉）
+- **When** 引擎 `fetchRange("N:M")`（后台回填器逐批调用，每批一条命令）
+- **Then** 返回该 UID 区间的事件（ENVELOPE 模式、事件构造与列表同步一致）；AppModel 回填循环从窗口下沿逐批向 UID 1 推进直至覆盖全量（空批=UID 空洞，继续）
+- **Status**: draft
+- **Tests**: `sync_016_backfill_range`
