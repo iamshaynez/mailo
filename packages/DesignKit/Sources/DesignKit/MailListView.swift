@@ -52,22 +52,23 @@ struct MailListView: View {
             }
         }
         .background(DesignTokens.surfaceMain)
+        // JOURNEY-018 v2：任何数据刷新（阅读标记/轮询/回填/同步）都走 merge——
+        // 只增不删：已读留原位、移出桶的行消失、新邮件插入；后台刷新永不抽走阅读中的行。
         .onAppear { rebuildSnapshot() }
-        // JOURNEY-018：entries 变化分两类——flags 原位合并（阅读标记）只同步旗标；
-        // 代际变化（load/同步/回填）才重建段快照（重新过滤成员）。
-        .onChange(of: model.entries) {
-            segmentSnapshot = SegmentSnapshot.mergeFlags(into: segmentSnapshot, from: $0)
+        .onChange(of: model.entries) { _ in
+            segmentSnapshot = SegmentSnapshot.merge(segment: segment,
+                                                    snapshot: segmentSnapshot,
+                                                    incoming: model.entries)
             rebuildIndex()
         }
-        .onChange(of: model.entriesGeneration) { _ in rebuildSnapshot() }
-        .onChange(of: model.selectedBucket) { _ in rebuildSnapshot() }
+        .onChange(of: model.selectedBucket) { _ in rebuildSnapshot() } // 显式切桶 → 全量重算
         .onChange(of: segment) { newSegment in
             if newSegment == 2 { model.loadAsideEntries() } // 第三段直读 Set Aside 桶
-            rebuildSnapshot()
+            rebuildSnapshot() // 显式切段 → 全量重算
         }
     }
 
-    /// 重建段快照（成员按当前段过滤；JOURNEY-018 入口）。
+    /// 重建段快照（显式切换入口：按最新 flags 全量重算）。
     private func rebuildSnapshot() {
         segmentSnapshot = SegmentSnapshot.build(segment: segment, entries: model.entries)
         rebuildIndex()
@@ -176,8 +177,11 @@ struct MailListView: View {
 
 // MARK: - 分段快照（JOURNEY-018：段内成员稳定，flags 原位合并）
 
-/// 分段快照的纯函数面（测试锁定）：
-/// build = 进段/代际变化时按 flags 过滤成员；mergeFlags = 段内阅读标记只改旗标不动成员。
+/// 分段快照的纯函数面（JOURNEY-018 v2，测试锁定）：
+/// build = 显式切换（切段/切桶/进入视图）时按最新 flags 全量重算；
+/// merge = 任意后台数据刷新的合并语义——**只增不删**：
+/// 已在快照的行 flags 原位合并（已读变轻但不消失）、被移出桶的行删除、
+/// 新到达的合格行按 date 归位插入；其余不动。
 @MainActor
 enum SegmentSnapshot {
     static func build(segment: Int, entries: [BucketEntry]) -> [BucketEntry] {
@@ -188,15 +192,29 @@ enum SegmentSnapshot {
         }
     }
 
-    static func mergeFlags(into snapshot: [BucketEntry], from updated: [BucketEntry]) -> [BucketEntry] {
-        let byId = Dictionary(uniqueKeysWithValues: updated.map { ($0.stableId, $0.flags) })
-        var out = snapshot
+    static func merge(segment: Int, snapshot: [BucketEntry], incoming: [BucketEntry]) -> [BucketEntry] {
+        let latest = Set(incoming.map(\.stableId))
+        var out = snapshot.filter { latest.contains($0.stableId) } // 移出桶的行删除（用户显式移走）
+
+        // flags 原位合并（已读变轻、未读点熄灭——成员不动）
+        let byId = Dictionary(uniqueKeysWithValues: incoming.map { ($0.stableId, $0.flags) })
         for i in out.indices {
             if let flags = byId[out[i].stableId] {
                 out[i].flags = flags
             }
         }
-        return out
+
+        // 只增：不在快照中且符合当前段的合格新行（新邮件到达）
+        let existing = Set(out.map(\.stableId))
+        let additions = build(segment: segment, entries: incoming).filter { !existing.contains($0.stableId) }
+        out.append(contentsOf: additions)
+
+        // 稳定按 date 倒序（ISO 字符串序；已有相对顺序保持）
+        let withIndex = out.enumerated().map { (i: $0.offset, e: $0.element) }
+        return withIndex.sorted {
+            let l = $0.e.date ?? "", r = $1.e.date ?? ""
+            return l == r ? $0.i < $1.i : l > r
+        }.map(\.e)
     }
 }
 
