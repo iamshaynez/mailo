@@ -42,10 +42,10 @@ draft（写用例）→ red（写测试并确认失败，占位实现）→ gree
 - 用例变更（改行为）= 改 Given/When/Then + 版本号 +1，禁止静默改语义
 - 实现不许为通过测试而在用例之外发明行为
 
-## 用例索引（113 条；green 66 / draft 47，2026-11-09 同步提速）
+## 用例索引（114 条；green 67 / draft 47，2026-11-09 空闲后台回填）
 
 - [CLS-usecases.md](CLS-usecases.md)：分类管线 11 条（含 CLS-011 Block 桶）
-- [SYNC-usecases.md](SYNC-usecases.md)：CRDT 合并与同步 18 条（SYNC-018 按需历史回填）
+- [SYNC-usecases.md](SYNC-usecases.md)：CRDT 合并与同步 19 条（SYNC-018 按需回填、SYNC-019 空闲后台补全）
 - [MAIL-usecases.md](MAIL-usecases.md)：协议域 27 条（含 MAIL-026 UID STORE、MAIL-027 UID MOVE）
 - [STORE-usecases.md](STORE-usecases.md)：镜像与 migration 契约 12 条
 - [ML-usecases.md](ML-usecases.md)：模型网关 5 条

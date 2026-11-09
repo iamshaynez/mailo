@@ -122,5 +122,16 @@
 - **Status**: green
 - **Tests**: `sync_017_backfill_progress`
 
-**Status**: green
+## SYNC-018 按需历史回填控制流（滚动驱动）
+- **Given** 已装配会话，首屏最近窗口已入库（库内最早已知 uid = min(uid)，即回填水位上界）
+- **When** 调用 fetchMoreHistory()（列表滚动到底触发；进行中/已到底时为无操作）
+- **Then** 拉取水位下一批（区间 [max(1, floor-batch+1), floor]，floor 从 min(uid)-1 起，批后推进）；空批（UID 空洞）水位照常推进；low<=1 后 hasMoreHistory=false；批间节流 ≤ 200ms（PERF-006，不再固定 2s）
+- **Status**: green
 - **Tests**: `sync_018_fetch_more_history`, `sync_018_no_more_when_oldest_is_one`
+
+## SYNC-019 空闲后台信封回填（渐进补全）
+- **Given** 已装配会话（首屏窗口已入库，仍有更早历史；正文按需不变——SYNC-014）
+- **When** 装配完成后空闲后台循环启动（逐批复用 SYNC-018 fetchMoreHistory，与滚动触发共享防重入）
+- **Then** 批间节流 ≥500ms（Outlook 高频 FETCH 踢线教训；交互拉取进行中天然让路）；失败不推进水位、下轮重试；断开连接即停；拉完（hasMoreHistory=false）自然结束——搜索逐步覆盖全部历史的信封维度
+- **Status**: green
+- **Tests**: `sync_019_idle_backfill_completes`, `sync_019_idle_backfill_stops_on_disconnect`
