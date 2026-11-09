@@ -721,6 +721,34 @@ public protocol MlGuessProviding: Sendable {
         try runner.engine.storeFlags(uid: row.uid, flags: ["\\Seen"], transport: runner.transport)
     }
 
+    /// 服务器写回（MAIL-027/JOURNEY-022；可测入口）：UID MOVE 到 Trash。
+    public func moveToTrashOnServer(stableId: String) throws {
+        guard let runner, let row = try store.mail(stableId: stableId) else { return }
+        try runner.engine.move(uid: row.uid, to: Self.trashFolder, transport: runner.transport)
+    }
+
+    /// 删除邮件（JOURNEY-022）：本地行删除（列表即刻消失、计数消减）+
+    /// 服务器 UID MOVE 到 Trash 后台尽力写回（失败不回滚本地，与 markRead 同策略）。
+    public func delete(stableId: String) throws {
+        guard let row = try? store.mail(stableId: stableId) else { return }
+        try store.deleteMail(stableId: stableId)
+        entries.removeAll { $0.stableId == stableId }
+        asideEntries.removeAll { $0.stableId == stableId }
+        searchResults.removeAll { $0.stableId == stableId }
+        refreshCounts()
+        if readingStableId == stableId { setReading(nil) }
+        lastSyncSummary = L10n.t("sync.movedToTrash")
+        guard let runner else { return }
+        let engine = runner.engine, transport = runner.transport, uid = row.uid
+        Task.detached(priority: .utility) {
+            _ = try? engine.move(uid: uid, to: Self.trashFolder, transport: transport)
+        }
+    }
+
+    /// 删除目标文件夹（JOURNEY-022）：v1 硬编码 Trash；provider 特殊文件夹
+    /// （Gmail [Gmail]/Trash、Outlook Deleted）探测留待后续。
+    static let trashFolder = "Trash"
+
     /// 测试钩子：装配后的传输（假服务器断言服务器侧 flags）。
     public var runnerDebugTransport: (any ImapTransport)? { runner?.transport }
 

@@ -59,6 +59,7 @@
 "reader.menu.markUnread" = "标为未读";
 "reader.menu.markRead" = "标为已读";
 "reader.menu.copySender" = "拷贝发件人地址";
+"reader.menu.delete" = "删除";
 "reader.realPerson" = "真人 ✓";
 "reader.noBody" = "（无正文预览）";
 "reader.select" = "选择一封邮件";
@@ -90,6 +91,7 @@
 "menu.syncNow" = "立即同步";
 "menu.undo" = "撤销「%@」";
 "menu.message" = "邮件";
+"menu.delete" = "删除";
 
 /* Settings */
 "settings.tab.account" = "账户";
@@ -115,6 +117,7 @@
 "sync.backfillProgress" = "已回填 %1$d 封 · UID %2$d";
 "sync.backfillDone" = "历史回填完成：%d 封";
 "sync.sent" = "已发送至 %1@：%2@";
+"sync.movedToTrash" = "已移到废纸篓";
 "sync.dateBackfillDone" = "时间戳回补完成";
 "sync.dateBackfillProgress" = "正在回补时间戳 %1$d / %2$d";
 "sync.dateBackfillFailed" = "时间戳回补暂停（下轮同步重试）";

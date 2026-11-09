@@ -19,7 +19,7 @@
 | D2 | 平台 | **仅 iOS + macOS**（v3 修订，删 Android/Windows 二期） | min iOS 17 / macOS 14；Foundation Models（iOS/macOS 26+）用 `#available` 门控，老系统降级 embedding |
 | D3 | 后端 | **无**（v2 修订，原为轻量云元数据服务） | 规避服务器开发/运维/数据处理合规 |
 | D4 | 账号体系 | 无 | 无服务器即无账号 |
-| D5 | 归类模型 | 派生视图层：不移动邮件，本地标注；可选写回服务端 label **默认关** | 保"不破坏"承诺 |
+| D5 | 归类模型 | 派生视图层：不移动邮件，本地标注；可选写回服务端 label **默认关**。用户显式**删除**除外（JOURNEY-022/MAIL-027）：UID MOVE 到 Trash，属用户主动破坏性操作，非自动归类 | 保"不破坏"承诺；删除是用户意图，非系统行为 |
 | D6 | 多端同步 | 邮箱即通道：`Mailo/Sync` 约定文件夹，append-only JSON + CRDT | 详见 §6 |
 | D7 | iOS 后台推送 | **接受无推送**：前台 IDLE 实时 + 打开秒同步 + BGAppRefresh 尽力而为 | 零后端唯一产品级代价 |
 | D8 | 分类管线 | 规则 > 名单库 > Foundation Models > embedding 原型向量 > Screener | 详见 §5 |

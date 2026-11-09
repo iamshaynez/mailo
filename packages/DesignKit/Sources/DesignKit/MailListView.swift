@@ -32,6 +32,13 @@ struct MailListView: View {
                                     .listRowSeparator(.hidden)
                                     .listRowBackground(DesignTokens.surfaceList)
                                     .contextMenu { rowContextMenu(entry) }
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                        Button(role: .destructive) {
+                                            deleteWithSelectionHandoff(entry.stableId)
+                                        } label: {
+                                            Label(L10n.t("reader.menu.delete"), systemImage: "trash")
+                                        }
+                                    }
                             }
                         } header: {
                             Text(group.label)
@@ -191,6 +198,14 @@ struct MailListView: View {
         }
         Divider()
         Button(L10n.t("reader.menu.copySender")) { Clipboard.copy(entry.fromAddress ?? "") }
+        Button(L10n.t("reader.menu.delete"), role: .destructive) { deleteWithSelectionHandoff(entry.stableId) }
+    }
+
+    /// 删除并交接选中（JOURNEY-022）：删除前按当前可见顺序算相邻回退，避免阅读窗格悬空。
+    private func deleteWithSelectionHandoff(_ stableId: String) {
+        let replacement = MailSelectionBridge(entries: displayEntries).replacement(after: stableId)
+        try? model.delete(stableId: stableId)
+        if selection == stableId { selection = replacement }
     }
 }
 

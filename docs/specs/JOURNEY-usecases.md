@@ -202,3 +202,11 @@
 - **And** 轮询遇传输失败同样静默自愈（重建连接，下轮恢复；MAIL-025「失败不降级 UI」语义不变）
 - **Status**: green
 - **Tests**: `journey_021_body_load_reconnects`
+
+## JOURNEY-022 删除邮件（移到 Trash）
+- **Given** 已装配会话（列表含邮件 X，服务器 INBOX 同步持有）
+- **When** 用户触发删除（阅读窗格菜单 / 列表右键 / 消息菜单 ⌫）
+- **Then** 本地行删除（列表即刻消失、桶计数消减）；选中移到相邻邮件（无相邻则清空回占位）；服务器 UID MOVE 写回在后台尽力而为（成功则 INBOX 消失、Trash 出现；失败不回滚本地，仅诊断提示）
+- **And** 命令面：MailoUICommand.delete 经壳层 handle 消费；菜单可用性要求「有选中且处于阅读态」（与 Reply/Forward 同矩阵）
+- **Status**: green
+- **Tests**: `journey_022_delete_moves_to_trash`, `journey_022_delete_command_routing`

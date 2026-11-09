@@ -197,6 +197,8 @@ struct MailReaderView: View {
             Divider()
             Button(L10n.t("reader.menu.markUnread")) { model.markUnread(stableId: stableId) }
             Button(L10n.t("reader.menu.copySender")) { Clipboard.copy(senderAddress) }
+            Divider()
+            Button(L10n.t("reader.menu.delete"), role: .destructive) { model.request(.delete) }
         } label: {
             Image(systemName: "ellipsis")
                 .font(DesignTokens.Typo.iconCompact)

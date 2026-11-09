@@ -109,6 +109,16 @@ private struct MainSurface: View {
             if let id = model.readingStableId { try? model.setAside(stableId: id) }
         case .toggleUnread:
             if let id = model.readingStableId { model.toggleUnread(stableId: id) }
+        case .delete:
+            // JOURNEY-022：删除后选中移到相邻邮件（next 优先、末位回退），无相邻回占位
+            if let id = model.readingStableId {
+                let visible = searchText.isEmpty ? model.entries : model.searchResults.map {
+                    BucketEntry(stableId: $0.stableId, bucket: "search", flags: $0.flags)
+                }
+                let replacement = MailSelectionBridge(entries: visible).replacement(after: id)
+                try? model.delete(stableId: id)
+                selection = replacement
+            }
         case .focusSearch:
             searchFocused = true
         }
@@ -501,6 +511,14 @@ struct SearchResultsView: View {
         }
         Divider()
         Button(L10n.t("reader.menu.copySender")) { Clipboard.copy(row.fromAddress ?? "") }
+        Button(L10n.t("reader.menu.delete"), role: .destructive) {
+            let bridge = MailSelectionBridge(entries: model.searchResults.map {
+                BucketEntry(stableId: $0.stableId, bucket: "search", flags: $0.flags)
+            })
+            let replacement = bridge.replacement(after: row.stableId)
+            try? model.delete(stableId: row.stableId)
+            if selection == row.stableId { selection = replacement }
+        }
     }
 }
 

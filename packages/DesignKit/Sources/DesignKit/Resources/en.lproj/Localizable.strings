@@ -59,6 +59,7 @@
 "reader.menu.markUnread" = "Mark Unread";
 "reader.menu.markRead" = "Mark as Read";
 "reader.menu.copySender" = "Copy Sender";
+"reader.menu.delete" = "Delete";
 "reader.realPerson" = "Real person ✓";
 "reader.noBody" = "(no body preview)";
 "reader.select" = "Select a message";
@@ -90,6 +91,7 @@
 "menu.syncNow" = "Sync Now";
 "menu.undo" = "Undo %@";
 "menu.message" = "Message";
+"menu.delete" = "Delete";
 
 /* Settings */
 "settings.tab.account" = "Account";
@@ -115,6 +117,7 @@
 "sync.backfillProgress" = "Backfilled %1$d · UID %2$d";
 "sync.backfillDone" = "Backfill complete: %d mails";
 "sync.sent" = "Sent to %1@: %2@";
+"sync.movedToTrash" = "Moved to Trash";
 "sync.dateBackfillDone" = "Date backfill complete";
 "sync.dateBackfillProgress" = "Restoring timestamps %1$d / %2$d";
 "sync.dateBackfillFailed" = "Date backfill paused (will retry next sync)";
