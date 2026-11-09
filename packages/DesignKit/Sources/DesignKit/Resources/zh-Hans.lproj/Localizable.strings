@@ -1,8 +1,8 @@
 /* Mailo · zh-Hans（简体中文，DESIGN-003 第一翻译语言） */
 
 /* Navigation */
-"nav.section.mailboxes" = "邮箱";
-"nav.section.decide" = "待定";
+"nav.section.mailboxes" = "导航";
+"nav.section.decide" = "归类";
 "bucket.imbox" = "Imbox";
 "bucket.feed" = "Feed";
 "bucket.paperTrail" = "Paper Trail";
@@ -14,8 +14,10 @@
 "account.notConnected" = "未连接";
 
 /* Toolbar */
-"toolbar.search.placeholder" = "搜索全部邮件…";
+"toolbar.search.placeholder" = "搜索邮件、联系人或内容…";
 "toolbar.compose" = "写邮件";
+"account.online" = "在线";
+"account.menu" = "账户与设置";
 
 /* Screener banner */
 "screener.banner" = "%d 位新发件人正在 Screener 等待——批准一次，永久归类。";
@@ -93,6 +95,10 @@
 "settings.tab.account" = "账户";
 "settings.tab.privacy" = "隐私";
 "settings.tab.diagnostics" = "诊断";
+"settings.appearance" = "外观";
+"settings.appearance.system" = "跟随系统";
+"settings.appearance.light" = "浅色";
+"settings.appearance.dark" = "深色";
 "settings.disconnect" = "断开账户";
 "settings.disconnect.confirm" = "将移除本机上的账户信息与凭证。服务器上的邮件不受影响。";
 "settings.remoteImages" = "默认加载远程图片";

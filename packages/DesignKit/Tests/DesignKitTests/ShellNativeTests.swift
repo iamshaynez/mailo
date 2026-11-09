@@ -1,4 +1,5 @@
 import CoreKit
+import MailProtoKit
 import MirrorKit
 import SwiftUI
 import Testing
@@ -27,6 +28,32 @@ struct ShellNativeTests {
         #endif
         #expect(model.phase == .demo)
         #expect(!model.entries.isEmpty, "demo 装配后列表非空")
+    }
+
+    @Test("JOURNEY-008 HTML 阅读态在固定尺寸三栏壳中离屏渲染")
+    func journey_008_html_reader_fixed_size() async throws {
+        #if os(macOS)
+        let model = await MailoAppModel.bootstrapDemo()
+        let stableID = StableMessageID(messageId: "<html-layout@x>", accountFingerprint: "demo")
+        let html = "Message-ID: <html-layout@x>\r\nFrom: layout@x.co\r\nSubject: HTML layout\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<div style=\"color:#18202B\"><h1>Layout</h1><p>Body</p></div>"
+        try await model.apply([MailEvent(stableMessageID: stableID, uid: 99, flags: [],
+                                        raw: Array(html.utf8), subject: "HTML layout",
+                                        fromAddress: "layout@x.co")])
+        try model.load(bucket: .screener)
+
+        let host = NSHostingView(rootView: MailoShell(model: model, initialSelection: stableID.value))
+        host.frame = NSRect(x: 0, y: 0, width: 1280, height: 820)
+        host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(120))
+        host.layoutSubtreeIfNeeded()
+
+        let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: image)
+        #expect(image.size.width == 1280 && image.size.height == 820)
+        if ProcessInfo.processInfo.environment["MAILO_CAPTURE"] != nil {
+            try image.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "/tmp/mailo-shell-html.png"))
+        }
+        #endif
     }
 
     @Test("JOURNEY-008 列表 selection 桥接：stableId 即 tag，↑↓ 邻位移动")

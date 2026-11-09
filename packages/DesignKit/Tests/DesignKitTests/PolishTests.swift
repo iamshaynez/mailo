@@ -18,22 +18,28 @@ struct PolishTests {
     func design_002_full_token_set() throws {
         // 形状与动效（§4/§6）
         #expect(DesignTokens.radiusWindow == 14)
-        #expect(DesignTokens.radiusCard == 10)
+        #expect(DesignTokens.radiusCard == 7)
         #expect(DesignTokens.radiusButton == 8)
-        #expect(DesignTokens.avatarSize == 36)
+        #expect(DesignTokens.radiusSearch == 6)
+        #expect(DesignTokens.avatarSize == 22)
+        #expect(DesignTokens.readerAvatarSize == 36)
+        #expect(DesignTokens.readingMeasure == 520)
+        #expect(DesignTokens.rowHeight == 96)
         #expect(DesignTokens.Motion.micro == 0.12)
         #expect(DesignTokens.Motion.transition == 0.22)
         #expect(DesignTokens.Motion.classification == 0.32)
         #expect(DesignTokens.Motion.classificationSpringResponse == 0.32)
         #expect(DesignTokens.Motion.classificationSpringDamping == 0.86)
+        #expect(DesignTokens.Motion.readerOffset(reduceMotion: false) == 6)
+        #expect(DesignTokens.Motion.readerOffset(reduceMotion: true) == 0)
 
-        // 补齐的规范色（§2）：blueBorder/surfaceWash/hairline/状态色
-        #expect(DesignTokens.brandBlueBorderHex == 0xCFE2F6)
-        #expect(DesignTokens.surfaceWashHex == 0xF7FAFE)
-        #expect(DesignTokens.borderHairlineHex == 0xF1F4F8)
-        #expect(DesignTokens.statusSuccessBgHex == 0xF0F7EE)
-        #expect(DesignTokens.statusSuccessFgHex == 0x2E7D32)
-        #expect(DesignTokens.inkBodyHex == 0x2A3444)
+        // Slate Concept 浅色角色（§2）；双主题完整解析由 DESIGN-005 锁定
+        #expect(DesignTokens.brandBlueBorderHex == 0xC8E0FA)
+        #expect(DesignTokens.surfaceWashHex == 0xEDF1F6)
+        #expect(DesignTokens.borderHairlineHex == 0xE9EEF4)
+        #expect(DesignTokens.statusSuccessBgHex == 0xE7F5EC)
+        #expect(DesignTokens.statusSuccessFgHex == 0x237A46)
+        #expect(DesignTokens.inkBodyHex == 0x283444)
 
         // 源码扫描：视图层禁止内联 Color(red:) 与 .font(.system(size:))（DesignTokens 除外）
         let violations = try Self.scanSources()

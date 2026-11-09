@@ -15,6 +15,8 @@ import MirrorKit
 /// 三种数据源：demo（进程内假服务器）/ 真实 Outlook（设备码授权+TCP）/ 注入传输（测试）。
 @MainActor
 public final class MailoAppModel: ObservableObject {
+    /// PERF-005 测试观测口：正文解析是否发生在主线程。
+    nonisolated(unsafe) static var detailParseIsMainThread: Bool?
     public enum Phase: Equatable {
         case empty
         case demo
@@ -65,12 +67,31 @@ public final class MailoAppModel: ObservableObject {
         commandRequest = MailCommandRequest(id: commandSeq, command: command)
     }
 
+    /// 同步命令仍按原路径串行执行，只在后台等待 socket/解析（PERF-005 / MAIL-025）。
+    nonisolated private static func runOnceInBackground(_ runner: SyncRunner) async throws
+        -> (outcome: SyncOutcome, runner: SyncRunner) {
+        try await Task.detached(priority: .userInitiated) {
+            var copy = runner
+            let outcome = try copy.runOnce()
+            return (outcome, copy)
+        }.value
+    }
+
+    nonisolated private static func fetchRangeInBackground(_ range: String,
+                                                            runner: SyncRunner) async throws -> [MailEvent] {
+        try await Task.detached(priority: .utility) {
+            try runner.engine.fetchRange(range, transport: runner.transport)
+        }.value
+    }
+
     /// 手动同步（JOURNEY-009 菜单）：立即跑一轮增量并刷新列表；失败写入同步摘要不弹窗。
     public func syncNow() {
         Task { @MainActor in
             guard var r = runner else { return }
             do {
-                let outcome = try r.runOnce()
+                let result = try await Self.runOnceInBackground(r)
+                r = result.runner
+                let outcome = result.outcome
                 runner = r
                 if case .synced(let events, _) = outcome {
                     try? await apply(events)
@@ -105,7 +126,9 @@ public final class MailoAppModel: ObservableObject {
             r.restoreSnapshot(SyncSnapshot(folder: "INBOX", uidValidity: saved.uidValidity, highestUid: saved.highestUid))
         }
         let started = Date()
-        let outcome = try r.runOnce()
+        let result = try await Self.runOnceInBackground(r)
+        r = result.runner
+        let outcome = result.outcome
         runner = r
         try store.saveSnapshot(folder: "INBOX", uidValidity: r.snapshot?.uidValidity ?? 0,
                                highestUid: r.snapshot?.highestUid ?? 0)
@@ -141,7 +164,9 @@ public final class MailoAppModel: ObservableObject {
                 try? vault.save(granted.refreshToken ?? granted.accessToken, for: "mailo.acct.outlook.\(email)")
             }
             let transport = TcpImapTransport(host: OAuthProviderConfig.outlookImapHost, port: 993, connectTimeout: 15)
-            try transport.connect(method: .xoauth2(user: email, accessToken: granted.accessToken))
+            try await Task.detached(priority: .userInitiated) {
+                try transport.connect(method: .xoauth2(user: email, accessToken: granted.accessToken))
+            }.value
 
             let config = AccountConfig(
                 displayName: email, imapHost: OAuthProviderConfig.outlookImapHost,
@@ -226,7 +251,9 @@ public final class MailoAppModel: ObservableObject {
             }
             guard let token = accessToken else { return false }
             let transport = transportFactory(OAuthProviderConfig.outlookImapHost)
-            try (transport as? TcpImapTransport)?.connect(method: .xoauth2(user: record.email, accessToken: token))
+            try await Task.detached(priority: .userInitiated) {
+                try (transport as? TcpImapTransport)?.connect(method: .xoauth2(user: record.email, accessToken: token))
+            }.value
             let config = AccountConfig(displayName: record.email,
                                        imapHost: OAuthProviderConfig.outlookImapHost,
                                        smtpHost: OAuthProviderConfig.outlookSmtpHost,
@@ -265,7 +292,7 @@ public final class MailoAppModel: ObservableObject {
             while !Task.isCancelled, let self {
                 guard let r = self.runner else { return }
                 let low = max(1, floor - batchSize + 1)
-                if let events = try? r.engine.fetchRange("\(low):\(floor)", transport: r.transport), !events.isEmpty {
+                if let events = try? await Self.fetchRangeInBackground("\(low):\(floor)", runner: r), !events.isEmpty {
                     try? await self.apply(events)
                     self.backfilledCount += events.count
                     self.lastSyncSummary = L10n.t("sync.backfillProgress", self.backfilledCount, low)
@@ -301,7 +328,9 @@ public final class MailoAppModel: ObservableObject {
                 guard !Task.isCancelled, let self else { return }
                 guard var r = self.runner else { continue }
                 do {
-                    let outcome = try r.runOnce()
+                    let result = try await Self.runOnceInBackground(r)
+                    r = result.runner
+                    let outcome = result.outcome
                     self.runner = r
                     if case .synced(let events, _) = outcome {
                         try? await self.apply(events)
@@ -503,12 +532,34 @@ public protocol MlGuessProviding: Sendable {
         case failed(String)
     }
 
+    /// 测试观测口同时记录真实解析线程；生产实现只在后台调用（PERF-005）。
+    nonisolated private static func parseDetailBytes(_ bytes: [UInt8]) -> ParsedEmail {
+        detailParseIsMainThread = Thread.isMainThread
+        return MimeParser.parse(bytes)
+    }
+
+    nonisolated private static func makeDetail(from row: MailRow, parsed: ParsedEmail?,
+                                               bucket: Bucket?) -> MailDetail {
+        guard row.raw != nil else {
+            return MailDetail(stableId: row.stableId, subject: row.subject, fromAddress: row.fromAddress,
+                              date: row.date, textBody: nil, htmlBody: nil,
+                              attachmentNames: [], flags: row.flagList, bucket: bucket)
+        }
+        let parsed = parsed ?? parseDetailBytes([UInt8](row.raw!))
+        return MailDetail(stableId: row.stableId, subject: row.subject ?? parsed.subject,
+                          fromAddress: row.fromAddress ?? parsed.from, date: row.date ?? parsed.date,
+                          textBody: parsed.textBody, htmlBody: parsed.htmlBody,
+                          attachmentNames: parsed.attachments.compactMap(\.filename),
+                          flags: row.flagList, bucket: bucket)
+    }
+
     /// 异步详情加载（JOURNEY-014）：正文网络回填在后台线程，主线程零等待；
     /// 失败返回 failed（阅读窗格给重试），成功后 raw 已持久化（下次零网络）。
     public func loadDetail(stableId: String) async -> DetailLoadState {
         guard var row = try? store.mail(stableId: stableId) else {
             return .failed(L10n.t("reader.missing"))
         }
+        var parsedBody: ParsedEmail?
         if row.raw == nil, let currentRunner = runner {
             let body: [UInt8]?
             do {
@@ -535,15 +586,20 @@ public protocol MlGuessProviding: Sendable {
                 }
             }
             if let body {
-                let parsed = MimeParser.parse(body)
+                parsedBody = await Task.detached(priority: .userInitiated) {
+                    Self.parseDetailBytes(body)
+                }.value
                 row.raw = Data(body)
-                row.snippet = row.snippet ?? parsed.textBody.map { String($0.prefix(200)) }
+                row.snippet = row.snippet ?? parsedBody?.textBody.map { String($0.prefix(200)) }
                 try? store.upsert(row)
             } else {
             }
         } else if row.raw == nil {
         }
-        return .loaded(buildDetail(from: row))
+        let ownBucket = try? store.classificationBucket(stableId: row.stableId)
+        return await Task.detached(priority: .userInitiated) {
+            .loaded(Self.makeDetail(from: row, parsed: parsedBody, bucket: ownBucket))
+        }.value
     }
 
     private func buildDetail(from row: MailRow) -> MailDetail {
@@ -611,6 +667,7 @@ public protocol MlGuessProviding: Sendable {
     @Published public private(set) var readingStableId: String?
 
     public func setReading(_ stableId: String?) {
+        guard readingStableId != stableId else { return }
         readingStableId = stableId
     }
 
@@ -798,7 +855,7 @@ public protocol MlGuessProviding: Sendable {
                 let range = batch.map(\.uid).map(String.init).joined(separator: ",")
                 diagLog("date-backfill pending=\(pending.count) range=\(range.prefix(60))")
                 do {
-                    let events = try r.engine.fetchRange(range, transport: r.transport)
+                    let events = try await Self.fetchRangeInBackground(range, runner: r)
                     let byUid = Dictionary(uniqueKeysWithValues: events.map { ($0.uid, $0) })
                     var fixed = 0
                     var dateHit = 0

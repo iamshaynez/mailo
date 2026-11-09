@@ -27,17 +27,17 @@ struct DesignKitTests {
         #expect(model.screenerCount == 1)
     }
 
-    @Test("DESIGN-001 设计 token 与规范一致")
+    @Test("DESIGN-001 Slate Concept token 与规范一致")
     func design_001_tokens_match_spec() {
-        #expect(DesignTokens.brandBlueHex == 0x006FCF)      // 运通蓝
-        #expect(DesignTokens.imboxHex == 0x006FCF)
+        #expect(DesignTokens.brandBlueHex == 0x0078FF)
+        #expect(DesignTokens.imboxHex == 0x0078FF)
         #expect(DesignTokens.feedHex == 0xE8710A)
         #expect(DesignTokens.paperTrailHex == 0x64748B)
-        #expect(DesignTokens.screenerHex == 0x7C3AED)
+        #expect(DesignTokens.screenerHex == 0x9561D9)
         #expect(DesignTokens.setAsideHex == 0xC4A35A)
-        #expect(DesignTokens.sidebarWidth == 212)
-        #expect(DesignTokens.listWidth == 392)
-        #expect(DesignTokens.selectionBarWidth == 3)
-        #expect(DesignTokens.titleBarHeight == 52)
+        #expect(DesignTokens.sidebarWidth == 172)
+        #expect(DesignTokens.listWidth == 388)
+        #expect(DesignTokens.selectionBarWidth == 2)
+        #expect(DesignTokens.titleBarHeight == 64)
     }
 }
