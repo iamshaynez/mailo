@@ -79,3 +79,6 @@
 - **Then** 同一事务内 mail 行与 classification 行一并删除；FTS 由既有 AFTER DELETE 触发器自动一致（搜索不再命中）；桶计数随之消减；幂等（重复删除/不存在静默无操作）；无 schema 迁移
 - **Status**: green
 - **Tests**: `store_011_delete_mail`
+
+**Status**: green
+- **Tests**: `store_012_oldest_uid`

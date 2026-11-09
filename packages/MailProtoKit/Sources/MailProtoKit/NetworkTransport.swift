@@ -8,6 +8,16 @@ import Network
 /// 生产与测试共用：生产由 NWConnection 分片喂入，测试直接喂任意切分。
 public final class ImapLineReader: @unchecked Sendable {
     private var buffer: [UInt8] = []
+    /// 有效区起点（PERF-007）：提取行只推进游标，feed 尾部定期压缩——
+    /// 避免旧实现每行 `removeFirst` 的 O(缓冲区) 头部移位（大响应二次方退化）。
+    private var head = 0
+    /// 已确认不含 CRLF 起点的前缀边界（绝对坐标，PERF-007）：避免分片喂入时
+    /// 对「未到齐的行尾」反复全量重扫（每 feed 一次 O(剩余缓冲) 的二次方退化）。
+    private var scanFloor = 0
+    /// 累计逐字节扫描量（PERF-007 门禁）：线性实现 ≈ 输入量的常数倍；
+    /// 反复重扫/头部移位的退化实现随样本平方增长。
+    public private(set) var scannedBytes = 0
+    private static let compactThreshold = 1 << 16
 
     public init() {}
 
@@ -18,36 +28,52 @@ public final class ImapLineReader: @unchecked Sendable {
         while let line = tryExtractLine() {
             lines.append(line)
         }
+        if head >= Self.compactThreshold {
+            buffer.removeFirst(head)
+            // 相对坐标平移（scanFloor 恒 ≤ head+consumed，平移后取 0 下界）
+            scanFloor = max(0, scanFloor - head)
+            head = 0
+        }
         return lines
     }
 
     private func tryExtractLine() -> [UInt8]? {
         // 游标式提取：行(CRLF) [字面量 N 字节 + 行剩余(CRLF)]*
         // RFC3501：{N}\r\n 后紧跟 N 字节数据，其后直接是行剩余部分（无额外 CRLF）
-        guard let firstCRLF = findCRLF(from: 0) else { return nil }
-        var line = Array(buffer[0..<firstCRLF])
-        var consumed = firstCRLF + 2
+        guard let firstCRLF = findCRLF(from: head) else { return nil }
+        var line = Array(buffer[head..<firstCRLF])
+        var consumed = (firstCRLF - head) + 2
 
         while let count = trailingLiteralCount(in: line) {
-            guard buffer.count >= consumed + count else { return nil } // 数据未到齐，整体不消费
+            guard buffer.count >= head + consumed + count else { return nil } // 数据未到齐，整体不消费
             line += [13, 10]
-            line += Array(buffer[consumed..<(consumed + count)])
+            line += Array(buffer[(head + consumed)..<(head + consumed + count)])
             consumed += count
             // 字面量数据直接接行剩余（无额外 CRLF，RFC3501）；剩余到下一 CRLF
-            guard let c2 = findCRLF(from: consumed) else { return nil }
-            line += Array(buffer[consumed..<c2])
-            consumed = c2 + 2
+            guard let c2 = findCRLF(from: head + consumed) else { return nil }
+            line += Array(buffer[(head + consumed)..<c2])
+            consumed = (c2 - head) + 2
         }
-        buffer.removeFirst(consumed)
+        head += consumed
         return line
     }
 
-    private func findCRLF(from: Int) -> Int? {
-        var i = from
+    private func findCRLF(from start: Int) -> Int? {
+        // 起点单调（head 与 head+consumed 均只前进），[start, scanFloor) 已被
+        // 此前调用确认无 CRLF 起点，直接跳过；成功时推进边界到命中点。
+        // 失败时边界留在 count-1：末字节可能是未配对的 CR，跨界 CRLF 待下个分片判定。
+        var i = max(start, scanFloor)
+        let scanStart = i
         while i + 1 < buffer.count {
-            if buffer[i] == 13, buffer[i + 1] == 10 { return i }
+            if buffer[i] == 13, buffer[i + 1] == 10 {
+                scanFloor = i
+                scannedBytes += i - scanStart + 2
+                return i
+            }
             i += 1
         }
+        scannedBytes += buffer.count - scanStart
+        scanFloor = max(0, buffer.count - 1)
         return nil
     }
 

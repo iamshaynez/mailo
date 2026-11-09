@@ -35,3 +35,9 @@
 - **And** 网络、MIME 解析不在 MainActor 上同步等待；runner 仍保持 MAIL-025 的命令序列化
 - **Status**: green
 - **Tests**: `perf_005_webview_reload_guard`, `perf_005_flags_only_reuses_date_index`, `perf_005_latest_selection_wins`, `perf_005_detail_parse_off_main`
+
+**Status**: green
+- **Tests**: `perf_006_pacing_and_window`
+
+**Status**: green
+- **Tests**: `perf_007_line_reader_throughput`

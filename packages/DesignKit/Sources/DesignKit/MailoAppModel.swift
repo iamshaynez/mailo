@@ -120,7 +120,8 @@ public final class MailoAppModel: ObservableObject {
     /// 快照从本地库恢复（SYNC-015：重启只拉增量），同步后持久化。
     @discardableResult
     public func attach(account: CoreKit.AccountConfig, transport: any ImapTransport) async throws -> SyncOutcome {
-        var r = SyncRunner(accountFingerprint: account.fingerprint, transport: transport)
+        var r = SyncRunner(accountFingerprint: account.fingerprint, transport: transport,
+                                                initialWindow: Self.syncInitialWindow)
         // 恢复持久化快照（若上次同步过）
         if let saved = store.loadSnapshot(folder: "INBOX") {
             r.restoreSnapshot(SyncSnapshot(folder: "INBOX", uidValidity: saved.uidValidity, highestUid: saved.highestUid))
@@ -176,8 +177,8 @@ public final class MailoAppModel: ObservableObject {
             try? accountStore().save(AccountRecord(email: email, clientId: clientId,
                                                    accountKind: account, secretRef: config.secretRef))
             installReconnect(email: email, clientId: clientId, vault: vault, kind: account)
+            installBodyChannel(email: email, clientId: clientId, vault: vault, kind: account)
             startPolling()
-            startBackfill()
         } catch {
             phase = .failed(String(describing: error))
             throw error
@@ -224,6 +225,32 @@ public final class MailoAppModel: ObservableObject {
         }
     }
 
+    /// 安装正文独立通道工厂（JOURNEY-023）：独立 XOAUTH2 连接，不与同步连接的
+    /// 命令锁（MAIL-025）竞争——点开正文不被回填批/轮询阻塞。与重连共用刷新逻辑。
+    private func installBodyChannel(email: String, clientId: String,
+                                    vault: (any CredentialVault)?, kind: DeviceCodeFlow.MicrosoftAccount) {
+        let vault = vault ?? KeychainVault()
+        bodyTransportFactory = {
+            do {
+                guard let secret = try vault.load("mailo.acct.outlook.\(email)") else { return nil }
+                let granted = try await DeviceCodeClient().refresh(clientId: clientId, account: kind, refreshToken: secret)
+                if granted.refreshToken != secret {
+                    try? vault.save(granted.refreshToken ?? secret, for: "mailo.acct.outlook.\(email)")
+                }
+                let transport = TcpImapTransport(host: OAuthProviderConfig.outlookImapHost, port: 993, connectTimeout: 15)
+                let user = email, token = granted.accessToken
+                try await Task.detached(priority: .userInitiated) {
+                    try transport.connect(method: .xoauth2(user: user, accessToken: token))
+                }.value
+                diagLog("body-channel ready")
+                return transport
+            } catch {
+                diagLog("body-channel build failed: \(String(describing: error))")
+                return nil // 回落主连接
+            }
+        }
+    }
+
     /// 恢复上次会话（JOURNEY-005）：refresh token 刷新 → 连接 → 增量同步，免设备码。
     /// tokenRefresher / transportFactory 为注入点（生产默认 DeviceCodeClient/TCP；测试注入假件）。
     @discardableResult
@@ -260,18 +287,13 @@ public final class MailoAppModel: ObservableObject {
                                        username: record.email, secretRef: record.secretRef)
             try await attach(account: config, transport: transport)
             installReconnect(email: record.email, clientId: record.clientId, vault: vault, kind: kind)
+            installBodyChannel(email: record.email, clientId: record.clientId, vault: vault, kind: kind)
             startPolling()
-            startBackfill()
             return true
         } catch {
             return false
         }
     }
-
-    /// 历史回填（SYNC-016）：从最近窗口下沿逐批向 UID 1 推进，覆盖全量信封。
-    /// 每批一条命令、间隔 2 秒防压服务器；空批 = UID 空洞继续；到 1 收尾。
-    private var backfillTask: Task<Void, Never>?
-    public private(set) var backfilledCount = 0
 
     /// 回填进度（SYNC-017）：进行中非 nil，完成/取消归 nil；UI 呈现"导入历史 n/total"。
     public struct BackfillProgress: Equatable, Sendable {
@@ -281,41 +303,66 @@ public final class MailoAppModel: ObservableObject {
 
     @Published public private(set) var backfillProgress: BackfillProgress?
 
-    public func startBackfill(batchSize: Int = 100) {
-        backfillTask?.cancel()
-        guard let runner else { return }
-        let floor0 = max(1, (runner.snapshot?.highestUid ?? 0) - runner.engine.initialWindow)
-        guard floor0 > 1 else { return }
-        backfillProgress = BackfillProgress(fetched: 0, total: floor0 - 1)
-        backfillTask = Task { [weak self] in
-            var floor = floor0
-            while !Task.isCancelled, let self {
-                guard let r = self.runner else { return }
-                let low = max(1, floor - batchSize + 1)
-                if let events = try? await Self.fetchRangeInBackground("\(low):\(floor)", runner: r), !events.isEmpty {
-                    try? await self.apply(events)
-                    self.backfilledCount += events.count
-                    self.lastSyncSummary = L10n.t("sync.backfillProgress", self.backfilledCount, low)
-                    self.backfillProgress = BackfillProgress(fetched: self.backfilledCount,
-                                                             total: max(floor0 - 1, self.backfilledCount))
-                    self.refreshCounts()
-                    self.entries = (try? self.store.entries(bucket: self.selectedBucket)) ?? self.entries
-                }
-                if low <= 1 {
-                    self.lastSyncSummary = L10n.t("sync.backfillDone", self.backfilledCount)
-                    self.backfillProgress = nil
-                    return
-                }
-                floor = low - 1
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-            }
+    /// 同步编排常量（PERF-006）：
+    /// 首屏窗口 50（原 200——一次拉 50 封信封，登录首屏快 3-4 倍；其余滚动按需取）；
+    /// 回填/回补批间节流 200ms（原固定 2s——万级邮箱纯睡眠 3 分钟+）。
+    public static let syncInitialWindow = 50
+    public static let backfillPacingNanos: UInt64 = 200_000_000
+
+    // MARK: - 按需历史回填（SYNC-016 v2/018：滚动到底触发，取代后台全量）
+
+    /// 是否还有更早历史可拉（到达 UID 1 置 false，列表隐藏加载行）。
+    @Published public private(set) var hasMoreHistory = true
+    /// 一批回填进行中（列表加载行转菊花 + 防重入）。
+    @Published public private(set) var fetchingHistory = false
+    /// 下一批上沿（内存水位；UID 空洞批不入库故不可由库内 min(uid) 推出）。
+    private var nextHistoryFloor: Int?
+    /// 累计按需回填入库数（Settings 诊断显示）。
+    public private(set) var backfilledCount = 0
+
+    /// 拉取下一批历史（SYNC-018）：列表滚动到底触发；进行中/已到底为无操作。
+    /// 空批（UID 空洞）水位照常推进不死循环；网络失败不推进（下次滚动重试）。
+    public func fetchMoreHistory(batchSize: Int = 100) async {
+        guard !fetchingHistory, hasMoreHistory, let runner else { return }
+        // 水位上沿：内存续推（空批不入库，不可由 min(uid) 推出）；首次从库内最早已知 uid 起
+        let floor: Int
+        if let pending = nextHistoryFloor {
+            floor = pending
+        } else if let oldest = (try? store.oldestUid(folder: "INBOX")) ?? nil, oldest > 1 {
+            floor = oldest - 1
+        } else {
+            hasMoreHistory = false
+            return
         }
+        guard floor >= 1 else { hasMoreHistory = false; return }
+        fetchingHistory = true
+        defer { fetchingHistory = false }
+        let low = max(1, floor - batchSize + 1)
+        backfillProgress = BackfillProgress(fetched: backfilledCount, total: backfilledCount + (floor - low + 1))
+        defer { backfillProgress = nil }
+        do {
+            let events = try await Self.fetchRangeInBackground("\(low):\(floor)", runner: runner)
+            if !events.isEmpty {
+                try? await apply(events)
+                backfilledCount += events.count
+                lastSyncSummary = L10n.t("sync.backfillProgress", backfilledCount, low)
+                refreshCounts()
+                try? load(bucket: selectedBucket)
+            }
+        } catch {
+            // 失败不推进水位（下次滚动重试）；轮询/正文不受影响
+            lastSyncSummary = L10n.t("sync.retrying", String(describing: error))
+            return
+        }
+        nextHistoryFloor = low - 1
+        if low <= 1 { hasMoreHistory = false }
     }
 
-    /// 取消回填（进度归零）。
-    public func cancelBackfill() {
-        backfillTask?.cancel()
-        backfillTask = nil
+    /// 重置按需回填状态（断开连接时）。
+    private func resetHistoryPaging() {
+        hasMoreHistory = true
+        fetchingHistory = false
+        nextHistoryFloor = nil
         backfillProgress = nil
     }
 
@@ -561,28 +608,46 @@ public protocol MlGuessProviding: Sendable {
         }
         var parsedBody: ParsedEmail?
         if row.raw == nil, let currentRunner = runner {
-            let body: [UInt8]?
-            do {
+            var body: [UInt8]?
+            // 独立通道优先（JOURNEY-023）：正文拉取不与同步连接的命令锁竞争（回填批/轮询不阻塞阅读）
+            if bodyChannel == nil, let factory = bodyTransportFactory {
+                bodyChannel = await factory()
+            }
+            if let dedicated = bodyChannel {
                 let engine = currentRunner.engine
-                let transport = currentRunner.transport
                 let uid = row.uid
-                body = try await Task.detached(priority: .userInitiated) {
-                    try engine.fetchBody(uid: uid, transport: transport)
+                let fetched = try? await Task.detached(priority: .userInitiated) {
+                    try engine.fetchBody(uid: uid, transport: dedicated)
                 }.value
-            } catch {
-                // 连接可能被服务器踢线（ENOTCONN/closed）：重连一次重试（JOURNEY-021）
-                guard await ensureConnection(), let retryRunner = runner else {
-                    return .failed(L10n.t("reader.bodyFailed", String(describing: error)))
+                if let fetched {
+                    body = fetched
+                } else {
+                    bodyChannel = nil // 通道失效：废弃，本次回落主连接、下次重建
                 }
+            }
+            if body == nil {
                 do {
-                    let engine = retryRunner.engine
-                    let transport = retryRunner.transport
+                    let engine = currentRunner.engine
+                    let transport = currentRunner.transport
                     let uid = row.uid
                     body = try await Task.detached(priority: .userInitiated) {
                         try engine.fetchBody(uid: uid, transport: transport)
                     }.value
                 } catch {
-                    return .failed(L10n.t("reader.bodyFailed", String(describing: error)))
+                    // 连接可能被服务器踢线（ENOTCONN/closed）：重连一次重试（JOURNEY-021）
+                    guard await ensureConnection(), let retryRunner = runner else {
+                        return .failed(L10n.t("reader.bodyFailed", String(describing: error)))
+                    }
+                    do {
+                        let engine = retryRunner.engine
+                        let transport = retryRunner.transport
+                        let uid = row.uid
+                        body = try await Task.detached(priority: .userInitiated) {
+                            try engine.fetchBody(uid: uid, transport: transport)
+                        }.value
+                    } catch {
+                        return .failed(L10n.t("reader.bodyFailed", String(describing: error)))
+                    }
                 }
             }
             if let body {
@@ -839,7 +904,9 @@ public protocol MlGuessProviding: Sendable {
     /// 只清本机状态与凭证——镜像数据保留（下次连接增量续传）。
     public func disconnect(vault: (any CredentialVault)? = nil, directory: URL? = nil) {
         stopPolling()
-        cancelBackfill()
+        resetHistoryPaging()
+        bodyChannel = nil
+        bodyTransportFactory = nil
         runner = nil
         let accountStore = directory.map { AccountStore(directory: $0) } ?? accountStore()
         if let record = accountStore.loadPrimary() {
@@ -854,13 +921,19 @@ public protocol MlGuessProviding: Sendable {
     }
 
     /// 存量日期回填（JOURNEY-020）：date 断链时期入库的邮件按 ENVELOPE 重拉。
-    /// 服务器友好节奏（批 50、间隔 2s，实测 Outlook 高频大批 FETCH 会踢连接）；
+    /// 服务器友好节奏（批 50、间隔 backfillPacingNanos——实测 Outlook 高频大批 FETCH 会踢连接）；
     /// **closed 自动重连**（reconnectHandler 由 connectOutlook/restore 注入：refresh token
     /// → 新连接 → 换 runner.transport），重连后继续批次。
     private var dateBackfillTask: Task<Void, Never>?
 
     /// 连接重建句柄（生产注入；测试可注入换 transport 的假实现）。
     public var reconnectHandler: (@MainActor () async -> Bool)?
+
+    /// 正文独立通道工厂（JOURNEY-023）：生产注入独立 XOAUTH2 连接——
+    /// 点开正文的 FETCH BODY 不与同步连接的命令锁（MAIL-025）竞争；
+    /// 未注入（demo/测试）回落主连接。通道失效即废弃，下次拉取重建。
+    public var bodyTransportFactory: (@MainActor () async -> (any ImapTransport)?)?
+    private var bodyChannel: (any ImapTransport)?
 
     public func backfillMissingDates(batchSize: Int = 50) {
         guard runner != nil else { return }
@@ -915,7 +988,7 @@ public protocol MlGuessProviding: Sendable {
                     self.lastSyncSummary = L10n.t("sync.dateBackfillFailed")
                     return // 无重连或重连失败：下个会话再续（断点续传——mailsWithoutDate 天然增量）
                 }
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                try? await Task.sleep(nanoseconds: Self.backfillPacingNanos)
             }
         }
     }

@@ -34,6 +34,8 @@
 "list.empty" = "All quiet here.";
 "list.backfill" = "Importing history · %d mails";
 "list.count" = "%d";
+"list.loadMore" = "Load earlier mail";
+"list.loadingMore" = "Loading earlier mail…";
 "search.title" = "Search Results";
 "search.empty" = "No results";
 "row.noSubject" = "(no subject)";

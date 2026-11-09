@@ -34,6 +34,8 @@
 "list.empty" = "这里很安静。";
 "list.backfill" = "正在导入历史邮件 · %d 封";
 "list.count" = "%d";
+"list.loadMore" = "加载更早邮件";
+"list.loadingMore" = "正在加载更早邮件…";
 "search.title" = "搜索结果";
 "search.empty" = "无结果";
 "row.noSubject" = "（无主题）";

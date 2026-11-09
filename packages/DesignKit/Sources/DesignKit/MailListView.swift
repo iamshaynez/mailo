@@ -49,6 +49,15 @@ struct MailListView: View {
                                 .padding(.top, 4)
                         }
                     }
+                    // 滚动按需回填（SYNC-016 v2/018）：滚到底自动拉下一批，取代后台全量
+                    if segment != 2, model.hasMoreHistory, !displayEntries.isEmpty {
+                        Section {
+                            historyFooter
+                                .listRowInsets(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(DesignTokens.surfaceList)
+                        }
+                    }
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
@@ -182,6 +191,23 @@ struct MailListView: View {
 
     private var displayGroups: [(label: String, entries: [BucketEntry])] {
         MailDateGrouping.group(entries: displayEntries, index: dateIndex)
+    }
+
+    /// 历史加载行：滚入视口即拉下一批；批进行中转菊花（fetchingHistory 防重入）。
+    @ViewBuilder
+    private var historyFooter: some View {
+        HStack(spacing: 8) {
+            if model.fetchingHistory {
+                ProgressView().controlSize(.small)
+                Text(L10n.t("list.loadingMore"))
+            } else {
+                Text(L10n.t("list.loadMore"))
+            }
+        }
+        .font(DesignTokens.Typo.caption)
+        .foregroundColor(DesignTokens.inkMuted)
+        .frame(maxWidth: .infinity)
+        .onAppear { Task { await model.fetchMoreHistory() } }
     }
 
     @ViewBuilder
