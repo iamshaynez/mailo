@@ -7,10 +7,10 @@
 - **Status**: green
 - **Tests**: `journey_001_bootstrap_end_to_end`
 
-## DESIGN-001 设计 token 与规范一致
-- **Given** docs/design/design-system.md 的关键值
+## DESIGN-001 Slate Concept 设计 token 与规范一致（v2.1）
+- **Given** docs/design/design-system.md v2.1 的关键值
 - **When** 读取 DesignTokens
-- **Then** brand 蓝 #006FCF、五 bucket 语义色、三栏宽 212/392、选中蓝条 3pt 与规范一致（防漂移）
+- **Then** brand 蓝 #0078FF、五 bucket 语义色、三栏 ideal 172/388、选中细条 2pt、中性顶栏 64pt 与规范一致（防漂移）
 - **Status**: green
 - **Tests**: `design_001_tokens_match_spec`
 
@@ -28,10 +28,11 @@
 - **Status**: green
 - **Tests**: `journey_003_detail_and_unread`
 
-## JOURNEY-004 HTML 邮件详情分离与沙箱渲染
-- **Given** 一封 HTML-only 邮件（无 text/plain 部分）
-- **When** mailDetail
-- **Then** textBody 为 nil、htmlBody 携带 HTML 原文；渲染层用 WKWebView + CSP（default-src 'none'; style-src 'unsafe-inline'; img-src data:）——远程图片默认禁（规范 §7），纯文本邮件仍走原生 Text
+## JOURNEY-004 HTML 邮件详情分离与沙箱渲染（v4：共享阅读色标且主题切换不重载）
+- **Given** 一封 HTML-only 邮件（无 text/plain 部分），外观为 Light 或 Dark；邮件可为简单 HTML 或带作者排版标记的 HTML
+- **When** mailDetail、沙箱 HTML 构建或主题切换
+- **Then** textBody 为 nil、htmlBody 携带 HTML 原文；渲染层用 WKWebView + CSP（default-src 'none'; style-src 'unsafe-inline'; img-src data:）——远程图片默认禁，纯文本邮件仍走原生 Text
+- **And** 简单 HTML 使用 reader 正文色标；含 style/class/bgcolor 等作者排版标记的邮件保留白色默认纸张底；CSS 色值来自同一 token，主题只经 media query 响应且不触发 reload；CSP/禁 JS/远程图片策略不变
 - **Status**: green
 - **Tests**: `journey_004_html_detail_separated`
 
@@ -60,10 +61,11 @@
 
 > 以下为 UI 基准线批次新增用例（docs/plan/ui-baseline-audit.md 批次 1-4），实现前保持 draft。
 
-## JOURNEY-008 三栏骨架原生化（NavigationSplitView + 键盘导航）
-- **Given** 已连接（或 demo）状态的三栏主界面
-- **When** 渲染主壳
-- **Then** 骨架用 `NavigationSplitView`（侧栏可折叠 ⌘⇧C、分栏可拖动、窄屏自动单栏）；邮件列表用 `List(selection:)`——↑↓ 移动选中、↩ 在阅读窗格打开；不再有自绘红绿灯 spacer；标题工具栏以 brandBlue 着色承载搜索与 Compose
+## JOURNEY-008 三栏骨架原生化（v3：Slate Concept 连续表面）
+- **Given** 已连接（或 demo）状态的三栏主界面，含选中 HTML 邮件
+- **When** 渲染主壳或切换选中
+- **Then** 骨架用 `NavigationSplitView`（侧栏可折叠 ⌘⇧C、分栏可拖动、窄屏自动单栏）；邮件列表用 `List(selection:)`——↑↓ 移动选中、↩ 在阅读窗格打开；不再有自绘红绿灯 spacer
+- **And** 中性 toolbar 承载 Search、右侧账户/设置；Compose 位于侧栏；ideal 栏宽 172/388；选中接触阴影跨分栏但 detail 使用固定视口，头部与列表不因 HTML 内容尺寸偏移
 - **Status**: green
 - **Tests**: `journey_008_splitview_skeleton`
 
@@ -102,13 +104,13 @@
 - **Status**: green
 - **Tests**: `journey_013_mark_seen_on_open`
 
-## JOURNEY-014 正文异步加载（v2：显式驱动与头部恒显）
-- **Given** 正文未回填的邮件 X（raw 为空，需网络拉 BODY）
-- **When** 打开 X / 切换到 X
-- **Then** 加载由 **onAppear + onChange(stableId) 显式驱动**（每次选中变化必触发；Task 取消旧的）；阅读窗格先渲染头部 + loading 态；正文在后台线程拉取；失败重连重试（JOURNEY-021）后仍败显示错误与「重试」按钮
-- **And** **头部（发件人/主题/时间戳）恒定显示**（不再因无正文塌陷）；text/html 双缺失时在完整头部下方显示明确占位；期间 UI 可交互（主线程无网络等待）
-- **Status**: green（v2：v1 的 .task(id:) 驱动在快速连续选中时不可靠——实测 10 次选中仅触发 1 次加载；头部塌陷 hack 使无正文邮件渲染成裸占位）
-- **Tests**: `journey_014_async_body_load`
+## JOURNEY-014 正文异步加载（v3：持久头部、单一视口与过期提交防护）
+- **Given** 正文未回填的邮件 X（raw 为空，需网络拉 BODY），并可快速连续切换选择
+- **When** 打开 X / 切换到 X / 旧任务晚于新任务完成
+- **Then** 加载由 onAppear + onChange(stableId) 显式驱动，Task 取消旧的；持久头部由 summary（含搜索结果）先渲染，正文后台拉取；失败重连重试后仍败显示错误与重试
+- **And** 头部发件人/主题/时间恒显，无硬 Divider；HTML 只使用 reader 提供的有限视口，不上传无限/零高度；只有最新 stableId 可提交 loadState；正文就绪后才执行进入动画；期间 UI 可交互
+- **Status**: green
+- **Tests**: `journey_014_async_body_load`, `journey_014_html_content_height_capped`, `perf_005_latest_selection_wins`, `perf_005_detail_parse_off_main`
 
 ## JOURNEY-015 搜索防抖与取消
 - **Given** 搜索框连续输入
@@ -117,12 +119,12 @@
 - **Status**: green
 - **Tests**: `journey_015_search_debounce`
 
-## JOURNEY-016 Settings 场景（⌘,）
-- **Given** 已连接应用
-- **When** 打开设置（⌘,）
-- **Then** 提供账户页（邮箱、断开连接/重新连接）、隐私页（远程图片默认开关）、诊断页（schema 诊断、最近同步摘要）；断开连接清除本地凭证与账户记录并回到账户页
+## JOURNEY-016 Settings 场景（v2：⌘, + Appearance）
+- **Given** 已连接应用，外观偏好为 System / Light / Dark 之一
+- **When** 打开设置（⌘,）或修改 Appearance
+- **Then** 提供账户页（邮箱、断开连接/重新连接）、隐私页（远程图片默认开关）、诊断页（schema 诊断、最近同步摘要）与 Appearance 选择；默认 System，选择本地持久化，并一致应用于主窗口、Compose、Settings 与 iOS sheet；断开连接清除本地凭证与账户记录并回到账户页
 - **Status**: green
-- **Tests**: `journey_016_settings_scene`
+- **Tests**: `journey_016_settings_scene`, `design_005_appearance_preference`
 
 ## JOURNEY-017 手动纠正常驻入口（This isn't Imbox →）
 - **Given** 阅读窗格打开桶 B 内邮件 X（发件人 sender@x.co）
@@ -131,10 +133,10 @@
 - **Status**: green
 - **Tests**: `journey_017_manual_correction_entry`
 
-## DESIGN-002 token 全集与内联色清零
-- **Given** 设计规范 §2-§6 的完整 token 表（排版 8 档/圆角 4 档/间距/阴影/状态色/blueBorder/surfaceWash/hairline）
+## DESIGN-002 Slate Concept token 全集与内联色清零（v2.1）
+- **Given** 设计规范 v2.1 §2-§9 的完整 token 表（双主题排版/圆角/间距/阴影/状态色/控件状态/渐变色标）
 - **When** 读取 DesignTokens
-- **Then** 全部 token 有常量定义并被视图引用；视图层用户可见的颜色/字号零内联字面量；privacy 徽章等 7 处历史内联色改走 token（值与规范一致）
+- **Then** 全部 token 有常量定义并被视图引用；视图层用户可见的颜色/字号零内联字面量；卡片/搜索/阅读宽度/渐变色标等新角色改走 token
 - **Status**: green
 - **Tests**: `design_002_full_token_set`
 
@@ -145,12 +147,28 @@
 - **Status**: green
 - **Tests**: `design_003_localization`
 
-## DESIGN-004 动效规范落地
-- **Given** 规范 §6：微交互 120ms / 转场 220ms / 归类 320ms spring(0.32, 0.86)，动画只表达归类语义
-- **When** 桶切换、Screener 决策、选中变化
-- **Then** 对应动效以 token 时长/曲线执行；「减弱动态效果」开启时降级为无动画
+## DESIGN-004 Slate Concept 动效规范落地（v2.1）
+- **Given** 规范 v2.1 §6/§9：微交互 120ms / 视图、主题与阅读转场 220ms / 归类 320ms spring(0.32, 0.86)
+- **When** hover/pressed/focus、桶切换、搜索、分段、阅读选中、主题切换、Screener 决策或紧凑阅读导航
+- **Then** 对应动效以 token 时长/曲线执行；阅读正文在**内容就绪后**以 opacity + 6pt 横移进入，持久头部不动；连接阴影使用固定几何 + opacity；「减弱动态效果」开启时无动画且无位移
 - **Status**: green
 - **Tests**: `design_004_motion_tokens`
+
+## DESIGN-005 双主题解析、外观偏好与控件状态（v2.1：含阅读色标）
+- **Given** Slate Concept v2.1 的语义色角色（含 reader/card 连接角色）、System/Light/Dark 外观偏好及共享控件状态
+- **When** 分别以 Light/Dark 解析色板，或读取/持久化外观偏好，或解析 default/hover/pressed/focus/disabled 状态
+- **Then** 每个语义角色返回规范指定的 light/dark hex；System 默认且 rawValue 可逆，选择可经 UserDefaults 跨会话恢复；控件状态只改变 token 化的表面/文字/边界/不透明度，禁用态不可交互
+- **And** 主窗口、Compose、Settings 与 iOS sheet 使用同一 Appearance 入口，深浅色切换不改变任何邮件行为；动态色按角色复用
+- **Status**: green
+- **Tests**: `design_005_theme_palette`, `design_005_appearance_preference`, `design_005_control_states`
+
+## DESIGN-006 阅读表面连续性与跨栏接触阴影（v2.1）
+- **Given** Light/Dark、选中/未选中邮件，以及简单或作者排版的 HTML
+- **When** 选中、切换、加载、失败或改变主题
+- **Then** 选中卡片右/下接触阴影穿越列表/阅读区分缝，阅读区使用规范指定的连续色标；无蓝色连接块、无硬 Divider、无布局 morph
+- **And** 持久头部在 summary/详情间保持稳定，正文列居中，空/加载/失败共用 ReaderSurface；作者排版 HTML 保留白色纸张；Reduce Motion 直接呈现最终表面
+- **Status**: green
+- **Tests**: `design_006_reader_surface_palette`, `design_006_connection_shadow_geometry`
 
 ## JOURNEY-018 分段成员稳定（v2：后台刷新永不删行）+ 分段控件命中区域
 - **Given** New 段打开，邮件 X 未读且在列表中
@@ -184,3 +202,11 @@
 - **And** 轮询遇传输失败同样静默自愈（重建连接，下轮恢复；MAIL-025「失败不降级 UI」语义不变）
 - **Status**: green
 - **Tests**: `journey_021_body_load_reconnects`
+
+## JOURNEY-022 删除邮件（移到 Trash）
+- **Given** 已装配会话（列表含邮件 X，服务器 INBOX 同步持有）
+- **When** 用户触发删除（阅读窗格菜单 / 列表右键 / 消息菜单 ⌫）
+- **Then** 本地行删除（列表即刻消失、桶计数消减）；选中移到相邻邮件（无相邻则清空回占位）；服务器 UID MOVE 写回在后台尽力而为（成功则 INBOX 消失、Trash 出现；失败不回滚本地，仅诊断提示）
+- **And** 命令面：MailoUICommand.delete 经壳层 handle 消费；菜单可用性要求「有选中且处于阅读态」（与 Reply/Forward 同矩阵）
+- **Status**: green
+- **Tests**: `journey_022_delete_moves_to_trash`, `journey_022_delete_command_routing`

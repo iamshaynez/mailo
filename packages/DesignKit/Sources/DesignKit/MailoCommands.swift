@@ -20,6 +20,8 @@ public enum MailoUICommand: Equatable, Sendable {
     case setAside
     /// ⌘⇧U：标未读/已读切换（JOURNEY-013）
     case toggleUnread
+    /// ⌫：删除当前阅读邮件（JOURNEY-022，移到 Trash）
+    case delete
 }
 
 /// 命令请求（单调递增 id：同一命令重复触发也能被 onChange 观察）。
@@ -41,6 +43,7 @@ public struct MailCommandAvailability: Equatable, Sendable {
     public let canAct: Bool
     public let canSetAside: Bool
     public let canToggleUnread: Bool
+    public let canDelete: Bool
 
     public init(selection: String?, isReading: Bool) {
         let ready = selection != nil && isReading
@@ -49,6 +52,7 @@ public struct MailCommandAvailability: Equatable, Sendable {
         canAct = ready
         canSetAside = ready
         canToggleUnread = ready
+        canDelete = ready
     }
 }
 
@@ -69,6 +73,13 @@ public struct MailSelectionBridge: Equatable, Sendable {
 
     public func previous(before tag: String) -> String? {
         neighbor(tag, offset: -1)
+    }
+
+    /// 删除后的相邻选中回退（JOURNEY-022）：next 优先、末位回退 previous、
+    /// 单封/未知 tag 返回 nil（清空选中回占位；不沿用键盘导航的「未知回首封」兜底）。
+    public func replacement(after tag: String) -> String? {
+        guard tags.contains(tag) else { return nil }
+        return next(after: tag) ?? previous(before: tag)
     }
 
     private func neighbor(_ tag: String, offset: Int) -> String? {
@@ -111,6 +122,9 @@ public struct MailoCommandMenu: Commands {
             Button(L10n.t("reader.menu.markUnread")) { model.request(.toggleUnread) }
                 .keyboardShortcut("u", modifiers: [.command, .shift])
                 .disabled(!availability.canToggleUnread)
+            Button(L10n.t("menu.delete")) { model.request(.delete) }
+                .keyboardShortcut(.delete, modifiers: [])
+                .disabled(!availability.canDelete)
             Divider()
             Button(L10n.t("menu.syncNow")) { model.syncNow() }
                 .keyboardShortcut("n", modifiers: [.command, .shift])

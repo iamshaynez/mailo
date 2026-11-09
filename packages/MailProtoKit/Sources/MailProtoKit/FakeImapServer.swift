@@ -94,6 +94,25 @@ public final class FakeImapServer: ImapTransport, @unchecked Sendable {
             mailboxes["INBOX"] = box
             out += "\(tag) OK STORE completed\r\n"
 
+        case .move(let uid, let folder):
+            // RFC 6851 UID MOVE（MAIL-027）：源邮箱移除、目标邮箱追加（flags 保留、新 uid 分配）。
+            // 真实服务器目标不存在时回 NO [TRYCREATE]；假服务器简化为自动创建（demo 无预置 Trash）。
+            guard var box = mailboxes["INBOX"] else {
+                out += "\(tag) NO MOVE no mailbox\r\n"
+                break
+            }
+            guard let index = box.messages.firstIndex(where: { $0.uid == uid }) else {
+                out += "\(tag) NO MOVE no such message\r\n"
+                break
+            }
+            var moved = box.messages.remove(at: index)
+            mailboxes["INBOX"] = box
+            var target = mailboxes[folder] ?? Mailbox(uidValidity: 1)
+            moved.uid = (target.messages.map(\.uid).max() ?? 0) + 1
+            target.messages.append(moved)
+            mailboxes[folder] = target
+            out += "\(tag) OK [COPYUID \(box.uidValidity) \(uid) \(moved.uid)] MOVE completed\r\n"
+
         case .noop:
             out += "\(tag) OK NOOP completed\r\n"
         }

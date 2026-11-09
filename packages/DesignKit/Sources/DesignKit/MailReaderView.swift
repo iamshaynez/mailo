@@ -1,189 +1,187 @@
 import CoreKit
+import MirrorKit
 import SwiftUI
 
-/// 阅读窗格（JOURNEY-011/012/013/017 · CLS-010/011）：
-/// 操作条动作全部接通（Reply/Forward/Set Aside/⋯ 纠正菜单），Screener 决策四键，
-/// 打开即标已读，bucket 徽标用邮件自身归类（而非当前列表桶）。
+/// Slate Concept v2.1 阅读窗格：持久头部 + 居中正文 + 固定 WebKit 视口。
+/// 内容就绪后才执行进入动画；过期加载由 ReaderLoadGate 拒绝（JOURNEY-014 / DESIGN-006）。
 struct MailReaderView: View {
     @ObservedObject var model: MailoAppModel
     let stableId: String
+    let viewportHeight: CGFloat?
+    let viewportWidth: CGFloat?
+
+    init(model: MailoAppModel, stableId: String, viewportHeight: CGFloat? = nil,
+         viewportWidth: CGFloat? = nil) {
+        self.model = model
+        self.stableId = stableId
+        self.viewportHeight = viewportHeight
+        self.viewportWidth = viewportWidth
+    }
 
     @State private var loadState: MailoAppModel.DetailLoadState?
     @AppStorage("allowRemoteImages") private var remoteImagesAllowed = false
     @State private var loadTask: Task<Void, Never>?
+    @State private var loadGate = ReaderLoadGate()
+    @State private var bodyOpacity = 1.0
+    @State private var bodyOffset: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
-            actionBar
-            Divider().overlay(DesignTokens.borderDefault)
-            switch loadState {
-            case .loaded(let detail):
-                detailContent(detail)
-            case .failed(let message):
-                failureView(message)
-            default:
-                loadingView
+            persistentHeader
+            if model.selectedBucket == .screener {
+                screenerDecisions
             }
+            bodyContent
+                .opacity(bodyOpacity)
+                .offset(x: bodyOffset)
         }
-        .background(DesignTokens.surfaceWash)
-        // JOURNEY-014 v2：显式驱动——每次选中变化必触发加载（.task(id:) 在快速连续选中时实测丢触发）
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(ReaderSurface())
         .onAppear { startLoad() }
         .onChange(of: stableId) { _ in startLoad() }
         .onDisappear { loadTask?.cancel() }
     }
 
-    /// 加载正文（JOURNEY-014 v2）：取消旧任务，后台拉取，主线程零等待。
+    @ViewBuilder
+    private var bodyContent: some View {
+        switch loadState {
+        case .loaded(let detail):
+            detailBody(detail)
+        case .failed(let message):
+            failureView(message)
+        default:
+            loadingView
+        }
+    }
+
     private func startLoad() {
         loadTask?.cancel()
-        loadState = .loading
         let target = stableId
+        let token = loadGate.begin(target)
+        loadState = .loading
+        bodyOpacity = 1
+        bodyOffset = 0
+
         loadTask = Task {
             var state = await model.loadDetail(stableId: target)
-            guard !Task.isCancelled else { return }
-            // 打开即标已读（JOURNEY-013）：正文到手后生效
-            if case .loaded(var d) = state, d.isUnread {
+            guard !Task.isCancelled, loadGate.canCommit(token, for: target) else { return }
+            if case .loaded(var detail) = state, detail.isUnread {
                 model.markRead(stableId: target)
-                d.flags.append("\\Seen")
-                state = .loaded(d)
+                detail.flags.append("\\Seen")
+                state = .loaded(detail)
             }
-            guard !Task.isCancelled else { return }
-            loadState = state
+            guard !Task.isCancelled, loadGate.canCommit(token, for: target) else { return }
+
+            if reduceMotion {
+                loadState = state
+                bodyOpacity = 1
+                bodyOffset = 0
+                return
+            }
+
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                bodyOpacity = 0
+                bodyOffset = DesignTokens.Motion.readerOffset(reduceMotion: false)
+                loadState = state
+            }
+            await Task.yield()
+            guard !Task.isCancelled, loadGate.canCommit(token, for: target) else { return }
+            withAnimation(DesignTokens.Motion.animation(duration: DesignTokens.Motion.transition,
+                                                        reduceMotion: false)) {
+                bodyOpacity = 1
+                bodyOffset = 0
+            }
         }
     }
 
-    private var loadingView: some View {
-        VStack(spacing: 10) {
-            ProgressView()
-            Text(L10n.t("reader.loading"))
-                .font(DesignTokens.Typo.meta)
-                .foregroundColor(DesignTokens.inkMuted)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
+    // MARK: 持久头部
 
-    private func failureView(_ message: String) -> some View {
-        VStack(spacing: 12) {
-            Image(systemName: "wifi.exclamationmark")
-                .font(DesignTokens.Typo.iconMedium)
-                .foregroundColor(DesignTokens.inkFaint.opacity(0.7))
-            Text(message)
-                .font(DesignTokens.Typo.caption.weight(.regular))
-                .foregroundColor(DesignTokens.inkMuted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            Button {
-                startLoad() // JOURNEY-014 重试
-            } label: {
-                Text(L10n.t("reader.retry"))
-                    .font(DesignTokens.Typo.caption)
-                    .padding(.horizontal, 16).padding(.vertical, 7)
-                    .background(Capsule().fill(DesignTokens.brandBlue).opacity(0.12))
+    private var persistentHeader: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: 10) {
+                if !hasAvatarGutter {
+                    MailoAvatar(address: senderAddress,
+                                color: DesignTokens.bucketColor(ownBucket),
+                                size: DesignTokens.readerAvatarSize)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(senderAddress)
+                        .font(DesignTokens.Typo.micro)
+                        .tracking(1.1)
+                        .foregroundColor(DesignTokens.inkSecondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text(ownBucket.title.uppercased())
+                        .font(DesignTokens.Typo.micro)
+                        .foregroundColor(DesignTokens.bucketColor(ownBucket))
+                }
+                Spacer(minLength: 8)
+                Text(formattedDate)
+                    .font(DesignTokens.Typo.meta)
+                    .foregroundColor(DesignTokens.inkMuted)
+                    .lineLimit(1)
+                readerActions
             }
-            .buttonStyle(.plain)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    @ViewBuilder
-    private func detailContent(_ detail: MailoAppModel.MailDetail) -> some View {
-        VStack(spacing: 0) {
-            // 头部块：自然高度（非 ScrollView——固定内容不需要滚动，ScrollView 的
-            // 无限理想高度会撑爆 SplitView 布局，v2 的塌陷根因）
-            VStack(alignment: .leading, spacing: 0) {
-                metaRow
-                subjectBlock
-                Divider().overlay(DesignTokens.borderDefault).padding(.vertical, 16)
+            .overlay(alignment: .leading) {
+                if hasAvatarGutter {
+                    MailoAvatar(address: senderAddress,
+                                color: DesignTokens.bucketColor(ownBucket),
+                                size: DesignTokens.readerAvatarSize)
+                        .offset(x: -50)
+                }
             }
-            .frame(maxWidth: 680, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, DesignTokens.spacingReading)
-            .padding(.top, 24)
 
-            // 正文：HTML 走 WKWebView 沙箱（自滚动）；显式跟随容器尺寸，
-            // 不把无限宽度/高度需求上传给 NavigationSplitView（挤压侧栏/列表的根因）
-            if let html = detail.htmlBody {
-                HtmlMailWebView(html: html, allowRemoteImages: remoteImagesAllowed)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(.horizontal, 26)
-                    .padding(.bottom, 12)
-            } else if detail.textBody != nil {
-                ScrollView {
-                    bodyText
-                        .frame(maxWidth: 680, alignment: .leading)
-                        .padding(.horizontal, DesignTokens.spacingReading)
-                    if !detail.attachmentNames.isEmpty {
-                        attachments
-                            .frame(maxWidth: 680, alignment: .leading)
-                            .padding(.horizontal, DesignTokens.spacingReading)
+            if !attachmentNames.isEmpty {
+                MailoChipFlowLayout(spacing: 6, rowSpacing: 4) {
+                    ForEach(attachmentNames, id: \.self) { name in
+                        MailoAttachmentChip(name: name)
                     }
-                    Spacer(minLength: 40)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(L10n.t("reader.noBody"))
-                        .font(DesignTokens.Typo.body)
-                        .foregroundColor(DesignTokens.inkMuted)
-                    Text(L10n.t("reader.noBody.hint"))
-                        .font(DesignTokens.Typo.meta.weight(.regular))
-                        .foregroundColor(DesignTokens.inkFaint)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.horizontal, DesignTokens.spacingReading)
-                .padding(.top, 8)
+                .padding(.top, 14)
             }
+
+            Text(subject)
+                .font(DesignTokens.Typo.title)
+                .foregroundColor(DesignTokens.inkPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 24)
         }
-        // 整体约束：占满可用空间、不越界（宽度需求不上传）
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: DesignTokens.readingMeasure, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.top, 22)
+        .padding(.bottom, 18)
     }
 
-    // MARK: 操作条（动作全部接通，JOURNEY-011/012）
-
-    private var actionBar: some View {
-        HStack(spacing: 8) {
-            if model.selectedBucket == .screener {
-                screenerDecisions
-            } else {
-                Button {
-                    model.request(.reply)
-                } label: {
-                    Label(L10n.t("reader.reply"), systemImage: "arrow.turn.up.left")
-                        .font(DesignTokens.Typo.caption)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 14).padding(.vertical, 7)
-                        .background(Capsule().fill(DesignTokens.brandBlue)
-                            .modifier(DesignTokens.primaryShadow()))
-                }
-                .buttonStyle(.plain)
-                .help(L10n.t("reader.reply"))
-                Button {
-                    model.request(.forward)
-                } label: {
-                    ghostLabel(L10n.t("reader.forward"))
-                }
-                Button {
-                    try? model.setAside(stableId: stableId)
-                } label: {
-                    ghostLabel(L10n.t("reader.setAside"))
-                }
-                Spacer()
-                correctionMenu
+    private var readerActions: some View {
+        HStack(spacing: 2) {
+            Button { model.request(.reply) } label: {
+                Image(systemName: "arrow.turn.up.left")
             }
+            .buttonStyle(MailoButtonStyle(variant: .ghost, isIcon: true))
+            .help(L10n.t("reader.reply"))
+            .accessibilityLabel(L10n.t("reader.reply"))
+
+            Button { model.request(.forward) } label: {
+                Image(systemName: "arrow.turn.up.right")
+            }
+            .buttonStyle(MailoButtonStyle(variant: .ghost, isIcon: true))
+            .help(L10n.t("reader.forward"))
+            .accessibilityLabel(L10n.t("reader.forward"))
+
+            Button { try? model.setAside(stableId: stableId) } label: {
+                Image(systemName: "bookmark")
+            }
+            .buttonStyle(MailoButtonStyle(variant: .ghost, isIcon: true))
+            .help(L10n.t("reader.setAside"))
+            .accessibilityLabel(L10n.t("reader.setAside"))
+
+            correctionMenu
         }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 12)
     }
 
-    private func ghostLabel(_ title: String) -> some View {
-        Text(title)
-            .font(DesignTokens.Typo.caption)
-            .foregroundColor(DesignTokens.inkSecondary)
-            .padding(.horizontal, 13).padding(.vertical, 7)
-            .background(Capsule().strokeBorder(DesignTokens.borderStrong, lineWidth: 1))
-            .contentShape(Rectangle()) // 命中区域铺满胶囊（JOURNEY-018）
-    }
-
-    /// ⋯ 菜单（JOURNEY-017 手动纠正常驻入口 + 标未读 + 拷贝）。
     private var correctionMenu: some View {
         Menu {
             Section(L10n.t("reader.menu.notBucket", ownBucket.title)) {
@@ -198,13 +196,15 @@ struct MailReaderView: View {
             }
             Divider()
             Button(L10n.t("reader.menu.markUnread")) { model.markUnread(stableId: stableId) }
-            Button(L10n.t("reader.menu.copySender")) { Clipboard.copy(currentDetail?.fromAddress ?? "") }
+            Button(L10n.t("reader.menu.copySender")) { Clipboard.copy(senderAddress) }
+            Divider()
+            Button(L10n.t("reader.menu.delete"), role: .destructive) { model.request(.delete) }
         } label: {
             Image(systemName: "ellipsis")
                 .font(DesignTokens.Typo.iconCompact)
                 .foregroundColor(DesignTokens.inkSecondary)
-                .padding(.horizontal, 13).padding(.vertical, 7)
-                .background(Capsule().strokeBorder(DesignTokens.borderStrong, lineWidth: 1))
+                .frame(width: 30, height: 30)
+                .contentShape(RoundedRectangle(cornerRadius: DesignTokens.radiusButton))
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
@@ -212,119 +212,139 @@ struct MailReaderView: View {
         .accessibilityLabel(L10n.t("reader.menu.notBucket", ownBucket.title))
     }
 
-    /// Screener 决策条（CLS-010/011）：批准即规则，Block → blocked 桶。
     private var screenerDecisions: some View {
-        HStack(spacing: 8) {
-            Text(L10n.t("reader.screenerPrompt"))
-                .font(DesignTokens.Typo.caption)
-                .foregroundColor(DesignTokens.bucketColor(.screener))
-            decision(L10n.t("reader.screenerTo", Bucket.imbox.title), bucket: .imbox, color: DesignTokens.bucketColor(.imbox))
-            decision(L10n.t("reader.screenerTo", Bucket.feed.title), bucket: .feed, color: DesignTokens.bucketColor(.feed))
-            decision(L10n.t("reader.screenerTo", Bucket.paperTrail.title), bucket: .paperTrail, color: DesignTokens.bucketColor(.paperTrail))
-            decision(L10n.t("reader.screenerBlock"), bucket: .blocked, color: DesignTokens.bucketColor(.blocked))
-            Spacer()
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                Text(L10n.t("reader.screenerPrompt"))
+                    .font(DesignTokens.Typo.caption)
+                    .foregroundColor(DesignTokens.bucketColor(.screener))
+                decision(L10n.t("reader.screenerTo", Bucket.imbox.title), bucket: .imbox)
+                decision(L10n.t("reader.screenerTo", Bucket.feed.title), bucket: .feed)
+                decision(L10n.t("reader.screenerTo", Bucket.paperTrail.title), bucket: .paperTrail)
+                decision(L10n.t("reader.screenerBlock"), bucket: .blocked)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 8)
         }
     }
 
-    private func decision(_ label: String, bucket: Bucket, color: Color) -> some View {
+    private func decision(_ label: String, bucket: Bucket) -> some View {
         Button {
             try? model.decideScreener(stableId: stableId, to: bucket)
         } label: {
             Text(label)
-                .font(DesignTokens.Typo.caption)
-                .foregroundColor(color)
-                .padding(.horizontal, 10).padding(.vertical, 6)
-                .background(Capsule().strokeBorder(color.opacity(0.6), lineWidth: 1.2))
-                .contentShape(Rectangle()) // 命中区域铺满胶囊（JOURNEY-018）
         }
-        .buttonStyle(.plain)
+        .buttonStyle(MailoButtonStyle(variant: .secondary, accent: DesignTokens.bucketColor(bucket)))
     }
 
-    // MARK: 元信息（bucket 徽标用邮件自身归类，JOURNEY-003 正确性）
+    // MARK: 正文
 
-    private var ownBucket: Bucket { currentDetail?.bucket ?? model.selectedBucket }
+    @ViewBuilder
+    private func detailBody(_ detail: MailoAppModel.MailDetail) -> some View {
+        if let html = detail.htmlBody {
+            HtmlMailWebView(html: html, allowRemoteImages: remoteImagesAllowed,
+                            viewportHeight: viewportHeight, viewportWidth: viewportWidth)
+                .equatable()
+                .frame(width: viewportWidth.map { max(0, $0 - 52) },
+                       height: max(160, (viewportHeight ?? 820) - 220))
+                .padding(.horizontal, 26)
+                .padding(.bottom, 12)
+        } else if let text = detail.textBody {
+            ScrollView {
+                Text(text)
+                    .font(DesignTokens.Typo.body)
+                    .lineSpacing(7)
+                    .foregroundColor(DesignTokens.inkBody)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: DesignTokens.readingMeasure, alignment: .leading)
+                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                Spacer(minLength: 40)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(L10n.t("reader.noBody"))
+                    .font(DesignTokens.Typo.body)
+                    .foregroundColor(DesignTokens.inkMuted)
+                Text(L10n.t("reader.noBody.hint"))
+                    .font(DesignTokens.Typo.meta)
+                    .foregroundColor(DesignTokens.inkFaint)
+            }
+            .frame(maxWidth: DesignTokens.readingMeasure, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    private var loadingView: some View {
+        VStack(spacing: 10) {
+            ProgressView().tint(DesignTokens.brandBlue)
+            Text(L10n.t("reader.loading"))
+                .font(DesignTokens.Typo.meta)
+                .foregroundColor(DesignTokens.inkMuted)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func failureView(_ message: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(DesignTokens.Typo.iconMedium)
+                .foregroundColor(DesignTokens.inkFaint)
+            Text(message)
+                .font(DesignTokens.Typo.caption.weight(.regular))
+                .foregroundColor(DesignTokens.inkMuted)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Button(L10n.t("reader.retry")) { startLoad() }
+                .buttonStyle(MailoButtonStyle(variant: .secondary))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: 数据兜底
+
+    private var hasAvatarGutter: Bool {
+        (viewportWidth ?? 1000) >= ReaderSurfaceSpec.headerMeasure + 44
+    }
 
     private var currentDetail: MailoAppModel.MailDetail? {
-        if case .loaded(let d) = loadState { return d }
+        if case .loaded(let detail) = loadState { return detail }
         return nil
     }
 
-    /// 内容构建器沿用可选 detail 名（loading 期不渲染内容）。
-    private var detail: MailoAppModel.MailDetail? { currentDetail }
-
-    private var metaRow: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(DesignTokens.bucketColor(ownBucket))
-                Text(String((detail?.fromAddress ?? "?").prefix(1)).uppercased())
-                    .font(DesignTokens.Typo.sub)
-                    .foregroundColor(.white)
-            }
-            .frame(width: 46, height: 46)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(detail?.fromAddress ?? "")
-                    .font(DesignTokens.Typo.sub.weight(.bold))
-                    .foregroundColor(DesignTokens.inkPrimary)
-                Text(formattedDate)
-                    .font(DesignTokens.Typo.meta.weight(.regular))
-                    .foregroundColor(DesignTokens.inkFaint)
-            }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(ownBucket.title.uppercased())
-                    .font(DesignTokens.Typo.micro)
-                    .tracking(1.2)
-                    .foregroundColor(DesignTokens.bucketColor(ownBucket))
-                if ownBucket == .imbox {
-                    Text(L10n.t("reader.realPerson"))
-                        .font(DesignTokens.Typo.caption)
-                        .foregroundColor(DesignTokens.inkSecondary)
-                }
-            }
+    private var summary: BucketEntry? {
+        if let entry = model.entries.first(where: { $0.stableId == stableId })
+            ?? model.asideEntries.first(where: { $0.stableId == stableId }) {
+            return entry
         }
+        return model.searchResults.first(where: { $0.stableId == stableId }).map { row in
+            BucketEntry(stableId: row.stableId, subject: row.subject, fromAddress: row.fromAddress,
+                        snippet: row.snippet, date: row.date, bucket: "search", flags: row.flags)
+        }
+    }
+
+    private var ownBucket: Bucket {
+        currentDetail?.bucket
+            ?? summary.flatMap { Bucket(rawValue: $0.bucket) }
+            ?? model.selectedBucket
+    }
+
+    private var senderAddress: String {
+        currentDetail?.fromAddress ?? summary?.fromAddress ?? L10n.t("row.unknown")
+    }
+
+    private var subject: String {
+        currentDetail?.subject ?? summary?.subject ?? L10n.t("row.noSubject")
+    }
+
+    private var attachmentNames: [String] {
+        currentDetail?.attachmentNames ?? []
     }
 
     private var formattedDate: String {
-        guard let raw = currentDetail?.date else { return "" }
-        return MailDateGrouping.rfc2822.date(from: raw)?
-            .formatted(.dateTime.year().month(.abbreviated).day().hour().minute()) ?? raw
-    }
-
-    private var subjectBlock: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(detail?.subject ?? L10n.t("row.noSubject"))
-                .font(DesignTokens.Typo.title)
-                .foregroundColor(DesignTokens.inkPrimary)
-        }
-        .padding(.top, 18)
-    }
-
-    private var bodyText: some View {
-        Text(detail?.textBody ?? "")
-            .font(DesignTokens.Typo.body)
-            .lineSpacing(7)
-            .foregroundColor(DesignTokens.inkBody)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .textSelection(.enabled)
-    }
-
-    private var attachments: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(detail?.attachmentNames ?? [], id: \.self) { name in
-                HStack(spacing: 9) {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(DesignTokens.brandBlueWash)
-                        .frame(width: 30, height: 30)
-                        .overlay(Text("📎").font(DesignTokens.Typo.body))
-                    Text(name)
-                        .font(DesignTokens.Typo.caption)
-                        .foregroundColor(DesignTokens.inkSecondary)
-                }
-                .padding(.horizontal, 14).padding(.vertical, 10)
-                .background(RoundedRectangle(cornerRadius: 10).strokeBorder(DesignTokens.borderDefault, lineWidth: 1))
-            }
-        }
-        .padding(.top, 20)
+        guard let raw = currentDetail?.date ?? summary?.date,
+              let date = MailDateGrouping.parse(raw) else { return "" }
+        return date.formatted(.dateTime.year().month(.abbreviated).day().hour().minute())
     }
 }

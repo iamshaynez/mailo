@@ -2,10 +2,8 @@ import CoreKit
 import MirrorKit
 import SwiftUI
 
-/// 三栏主壳（JOURNEY-008/010 · DESIGN-003/004）：
-/// `NavigationSplitView` + 运通蓝 toolbar；root 持有 live/demo 双模型与撰写会话
-/// （macOS 独立窗口 / iOS sheet）。文案全部经 L10n，动效走 Motion token 并尊重
-/// 「减弱动态效果」。
+/// Slate Concept 三栏主壳（JOURNEY-008/010 · DESIGN-003/004/005）。
+/// 系统 NavigationSplitView + 中性 toolbar；外观、动效与所有窗口共享。
 public struct MailoShell: View {
     @ObservedObject var root: MailoRootModel
     @State private var selection: String?
@@ -20,6 +18,12 @@ public struct MailoShell: View {
         self.root = MailoRootModel(live: model)
     }
 
+    /// 测试/预览：以指定邮件直接装配阅读态（JOURNEY-008）。
+    init(model: MailoAppModel, initialSelection: String?) {
+        self.root = MailoRootModel(live: model)
+        _selection = State(initialValue: initialSelection)
+    }
+
     public init(root: MailoRootModel) {
         self.root = root
     }
@@ -31,11 +35,11 @@ public struct MailoShell: View {
             columnVisibility: $columnVisibility, sizeClass: sizeClass ?? .regular,
             openWindow: openWindow
         )
-        .preferredColorScheme(.light) // 设计规范 §7：v1 锁浅色
+        .mailoAppearance()
     }
 }
 
-/// 实际表面（持有 active 模型的观察）：active 切换（进/出 demo）时整体重建。
+/// 实际表面；live/demo 切换时整体重建，状态与转场保持在壳层。
 private struct MainSurface: View {
     @ObservedObject var root: MailoRootModel
     @ObservedObject var model: MailoAppModel
@@ -46,6 +50,8 @@ private struct MainSurface: View {
     let sizeClass: UserInterfaceSizeClass
     let openWindow: OpenWindowAction
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var selectedCardAnchor: CGRect?
 
     init(root: MailoRootModel, selection: Binding<String?>,
          searchText: Binding<String>, searchFocused: FocusState<Bool>.Binding,
@@ -85,10 +91,6 @@ private struct MainSurface: View {
         }
         .onChange(of: selection) { model.setReading($0) }
         .onChange(of: model.selectedBucket) { _ in selection = nil }
-        // DESIGN-004：桶切换转场 220ms easeOut；减弱动态时无动画
-        .animation(DesignTokens.Motion.animation(duration: DesignTokens.Motion.transition,
-                                                 reduceMotion: reduceMotion),
-                   value: model.selectedBucket)
     }
 
     private func handle(_ command: MailoUICommand) {
@@ -107,12 +109,21 @@ private struct MainSurface: View {
             if let id = model.readingStableId { try? model.setAside(stableId: id) }
         case .toggleUnread:
             if let id = model.readingStableId { model.toggleUnread(stableId: id) }
+        case .delete:
+            // JOURNEY-022：删除后选中移到相邻邮件（next 优先、末位回退），无相邻回占位
+            if let id = model.readingStableId {
+                let visible = searchText.isEmpty ? model.entries : model.searchResults.map {
+                    BucketEntry(stableId: $0.stableId, bucket: "search", flags: $0.flags)
+                }
+                let replacement = MailSelectionBridge(entries: visible).replacement(after: id)
+                try? model.delete(stableId: id)
+                selection = replacement
+            }
         case .focusSearch:
             searchFocused = true
         }
     }
 
-    /// 撰写会话：macOS 独立窗口（Mail 惯例）/ iOS sheet。
     private func openCompose(_ draft: ComposeDraft) {
         root.composeDraft = draft
         #if os(macOS)
@@ -120,7 +131,7 @@ private struct MainSurface: View {
         #endif
     }
 
-    // MARK: 宽屏三栏（NavigationSplitView）
+    // MARK: 宽屏三栏
 
     private var wideLayout: some View {
         VStack(spacing: 0) {
@@ -128,83 +139,101 @@ private struct MainSurface: View {
             screenerBanner
             NavigationSplitView(columnVisibility: $columnVisibility) {
                 SidebarView(model: model, root: root)
-                    .background(DesignTokens.surfaceMain)
-                    .navigationSplitViewColumnWidth(min: 180, ideal: DesignTokens.sidebarWidth, max: 320)
+                    .navigationSplitViewColumnWidth(min: 160, ideal: DesignTokens.sidebarWidth, max: 240)
             } content: {
                 listColumn
-                    .background(DesignTokens.surfaceMain)
-                    .navigationSplitViewColumnWidth(min: 320, ideal: DesignTokens.listWidth, max: 560)
+                    .navigationSplitViewColumnWidth(min: 340, ideal: DesignTokens.listWidth, max: 520)
             } detail: {
                 readerPane
+                    .animation(DesignTokens.Motion.animation(duration: DesignTokens.Motion.transition,
+                                                             reduceMotion: reduceMotion), value: colorScheme)
+                    .padding(.trailing, ReaderSurfaceSpec.trailingGutter)
+                    .padding(.bottom, ReaderSurfaceSpec.bottomGutter)
+                    .background(DesignTokens.surfaceToolbar)
             }
             .navigationSplitViewStyle(.balanced)
+            .coordinateSpace(name: "MailoShellCanvas")
+            .onPreferenceChange(SelectedCardAnchorPreference.self) { selectedCardAnchor = $0 }
+            .overlay {
+                if let selectedCardAnchor {
+                    ConnectionShadow(anchor: selectedCardAnchor)
+                        .transition(.opacity)
+                }
+            }
+            .animation(DesignTokens.Motion.animation(duration: DesignTokens.Motion.micro,
+                                                     reduceMotion: reduceMotion), value: selectedCardAnchor != nil)
         }
         .navigationTitle("Mailo")
         #if os(macOS)
-        .toolbarBackground(DesignTokens.brandBlue, for: .windowToolbar)
+        .toolbarBackground(DesignTokens.surfaceToolbar, for: .windowToolbar)
         .toolbarBackground(.visible, for: .windowToolbar)
-        .toolbarColorScheme(.dark, for: .windowToolbar) // 蓝底上系统自动用浅色内容
         #else
-        .toolbarBackground(DesignTokens.brandBlue, for: .navigationBar)
+        .toolbarBackground(DesignTokens.surfaceToolbar, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
         #endif
         .toolbar { toolbarContent }
-        .background(DesignTokens.surfaceMain)
+        .background(DesignTokens.surfaceToolbar)
     }
 
-    /// Demo 水印条（JOURNEY-010）：常驻 + 一键退出。
     private var demoStrip: some View {
         HStack(spacing: 8) {
-            Circle().fill(DesignTokens.bucketColor(.setAside)).frame(width: 7, height: 7)
+            Circle().fill(DesignTokens.bucketColor(.setAside)).frame(width: 6, height: 6)
             Text(L10n.t("demo.badge"))
                 .font(DesignTokens.Typo.meta)
             Spacer()
             Button(L10n.t("demo.exit")) { root.exitDemo() }
-                .font(DesignTokens.Typo.caption)
-                .foregroundColor(DesignTokens.brandBlue)
-                .padding(.horizontal, 6).padding(.vertical, 2)
-                .contentShape(Rectangle())
-                .buttonStyle(.plain)
+                .buttonStyle(MailoButtonStyle(variant: .ghost))
         }
         .foregroundColor(DesignTokens.inkSecondary)
-        .padding(.horizontal, DesignTokens.spacingColumn + 4)
-        .padding(.vertical, 6)
-        .background(DesignTokens.brandBlueWash)
+        .padding(.horizontal, DesignTokens.spacingColumn)
+        .padding(.vertical, 3)
+        .background(DesignTokens.surfaceControl)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(DesignTokens.brandBlueBorder).frame(height: 1)
+            Rectangle().fill(DesignTokens.borderHairline).frame(height: 1)
         }
     }
 
     @ViewBuilder
     private var listColumn: some View {
-        if searchText.isEmpty {
-            MailListView(model: model, selection: $selection)
-        } else {
-            SearchResultsView(model: model, selection: $selection)
+        Group {
+            if searchText.isEmpty {
+                MailListView(model: model, selection: $selection)
+            } else {
+                SearchResultsView(model: model, selection: $selection)
+            }
         }
+        .transition(.opacity)
+        .background(DesignTokens.surfaceList)
+        .animation(DesignTokens.Motion.animation(duration: DesignTokens.Motion.transition,
+                                                 reduceMotion: reduceMotion), value: model.selectedBucket)
+        .animation(DesignTokens.Motion.animation(duration: DesignTokens.Motion.transition,
+                                                 reduceMotion: reduceMotion), value: searchText.isEmpty)
     }
 
     @ViewBuilder
     private var readerPane: some View {
         if let selection {
-            MailReaderView(model: model, stableId: selection)
+            GeometryReader { proxy in
+                MailReaderView(model: model, stableId: selection, viewportHeight: proxy.size.height,
+                                   viewportWidth: proxy.size.width)
+            }
         } else {
-            VStack {
+            VStack(spacing: 12) {
                 Spacer()
                 Image(systemName: "envelope.open")
                     .font(DesignTokens.Typo.iconLarge)
-                    .foregroundColor(DesignTokens.inkFaint.opacity(0.6))
+                    .foregroundColor(DesignTokens.inkFaint)
                 Text(L10n.t("reader.calm"))
+                    .font(DesignTokens.Typo.body)
                     .foregroundColor(DesignTokens.inkMuted)
                 Spacer()
             }
-            .frame(maxWidth: .infinity)
-            .background(DesignTokens.surfaceWash)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(ReaderSurface())
         }
     }
 
-    // MARK: 品牌工具栏（mockup §4：运通蓝标题栏的原生化表达）
+    // MARK: 中性顶栏：Search + Account
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
@@ -212,29 +241,14 @@ private struct MainSurface: View {
             searchField
         }
         ToolbarItem(placement: .primaryAction) {
-            Button {
-                openCompose(ComposeDraft())
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "pencil")
-                    Text(L10n.t("toolbar.compose"))
-                }
-                .font(DesignTokens.Typo.caption)
-                .foregroundColor(.white)
-                .padding(.horizontal, 14).padding(.vertical, 6)
-                .background(Capsule().fill(Color.white.opacity(0.16))
-                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 1)))
-            }
-            .buttonStyle(.plain)
-            .help(L10n.t("menu.newMessage")) // a11y：工具栏动作可 tooltip
-            .accessibilityLabel(L10n.t("menu.newMessage"))
+            AccountMenuView(root: root, model: model)
         }
     }
 
     private var searchField: some View {
-        HStack(spacing: 7) {
+        HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(DesignTokens.Typo.iconTiny)
+                .font(DesignTokens.Typo.iconSmall)
             TextField(L10n.t("toolbar.search.placeholder"), text: $searchText)
                 .font(DesignTokens.Typo.caption)
                 .textFieldStyle(.plain)
@@ -246,27 +260,32 @@ private struct MainSurface: View {
                     model.clearSearch()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(DesignTokens.Typo.iconTiny)
+                        .font(DesignTokens.Typo.iconSmall)
+                        .frame(width: 22, height: 22)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(L10n.t("toolbar.search.placeholder"))
-            } else {
-                Text("⌘K") // 与 MailoCommandMenu 的 ⌘K 呼应（JOURNEY-009）
-                    .font(DesignTokens.Typo.micro)
-                    .padding(.horizontal, 6).padding(.vertical, 1)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.2)))
             }
         }
-        .foregroundColor(Color.white.opacity(0.85))
-        .padding(.horizontal, 12)
-        .frame(minWidth: 220, idealWidth: 380, maxWidth: 420)
-        .frame(height: 30)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.radiusButton).fill(Color.white.opacity(0.16)))
-        .overlay(RoundedRectangle(cornerRadius: DesignTokens.radiusButton)
-            .strokeBorder(Color.white.opacity(0.28), lineWidth: 1))
-        .onChange(of: searchText) { q in model.searchDebounced(q) } // JOURNEY-015 防抖
+        .foregroundColor(DesignTokens.searchInk)
+        .padding(.horizontal, 11)
+        .frame(minWidth: 220, idealWidth: 374, maxWidth: 440)
+        .frame(height: 32)
+        .background(RoundedRectangle(cornerRadius: DesignTokens.radiusSearch).fill(DesignTokens.surfaceSearch))
+        .overlay {
+            ZStack {
+                RoundedRectangle(cornerRadius: DesignTokens.radiusSearch)
+                    .strokeBorder(DesignTokens.borderHairline, lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: DesignTokens.radiusSearch)
+                    .strokeBorder(DesignTokens.brandBlue, lineWidth: 2)
+                    .opacity(searchFocused ? 1 : 0)
+            }
+        }
+        .animation(DesignTokens.Motion.animation(duration: DesignTokens.Motion.micro,
+                                                 reduceMotion: reduceMotion), value: searchFocused)
+        .onChange(of: searchText) { q in model.searchDebounced(q) }
         #if os(macOS)
-        .onExitCommand { // Esc：清空搜索恢复列表
+        .onExitCommand {
             if !searchText.isEmpty {
                 searchText = ""
                 model.clearSearch()
@@ -275,80 +294,77 @@ private struct MainSurface: View {
         #endif
     }
 
-    // MARK: Screener 顶条（mockup §5）
-
     @ViewBuilder
     private var screenerBanner: some View {
         let count = model.bucketCounts[Bucket.screener.rawValue] ?? 0
         if count > 0 {
             HStack(spacing: 8) {
-                Circle().fill(DesignTokens.bucketColor(.screener)).frame(width: 7, height: 7)
+                Circle().fill(DesignTokens.bucketColor(.screener)).frame(width: 6, height: 6)
                 Text(L10n.t("screener.banner", count))
                     .font(DesignTokens.Typo.caption)
                 Spacer()
-                Button {
+                Button(L10n.t("screener.review")) {
                     selection = nil
                     try? model.load(bucket: .screener)
-                } label: {
-                    Text(L10n.t("screener.review"))
-                        .font(DesignTokens.Typo.caption)
-                        .foregroundColor(DesignTokens.brandBlue)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(MailoButtonStyle(variant: .ghost))
             }
             .foregroundColor(DesignTokens.brandBlueDeep)
-            .padding(.horizontal, DesignTokens.spacingColumn + 4)
-            .padding(.vertical, 7)
+            .padding(.horizontal, DesignTokens.spacingColumn)
+            .padding(.vertical, 3)
             .background(DesignTokens.brandBlueWash)
             .overlay(alignment: .bottom) {
                 Rectangle().fill(DesignTokens.brandBlueBorder).frame(height: 1)
             }
+            .transition(.opacity)
         }
     }
 
-    // MARK: 窄屏（iPhone）：NavigationStack 单栏 + 覆盖式阅读 + bucket 菜单
+    // MARK: 紧凑 iPhone
 
     private var compactLayout: some View {
         NavigationStack {
             ZStack {
-                if searchText.isEmpty {
-                    MailListView(model: model, selection: .constant(nil))
-                        .frame(maxWidth: .infinity)
-                } else {
-                    SearchResultsView(model: model, selection: .constant(nil))
-                        .frame(maxWidth: .infinity)
+                Group {
+                    if searchText.isEmpty {
+                        MailListView(model: model, selection: $selection)
+                    } else {
+                        SearchResultsView(model: model, selection: $selection)
+                    }
                 }
                 if let selection {
-                    MailReaderView(model: model, stableId: selection)
-                        .background(DesignTokens.surfaceMain)
-                        .overlay(alignment: .topLeading) {
-                            Button {
-                                self.selection = nil
-                            } label: {
-                                Image(systemName: "chevron.left")
-                                    .font(DesignTokens.Typo.iconCompact)
-                                    .foregroundColor(DesignTokens.brandBlue)
-                                    .padding(10)
+                    GeometryReader { proxy in
+                        MailReaderView(model: model, stableId: selection, viewportHeight: proxy.size.height,
+                                   viewportWidth: proxy.size.width)
+                            .overlay(alignment: .topLeading) {
+                                Button {
+                                    self.selection = nil
+                                } label: {
+                                    Image(systemName: "chevron.left")
+                                }
+                                .buttonStyle(MailoButtonStyle(variant: .ghost, isIcon: true))
+                                .padding(8)
+                                .accessibilityLabel(L10n.t("reader.select"))
                             }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(L10n.t("reader.select"))
-                        }
-                        .transition(.move(edge: .trailing))
+                    }
+                    .background(ReaderSurface())
+                    .transition(reduceMotion ? .identity : .move(edge: .trailing).combined(with: .opacity))
                 }
             }
+            .background(DesignTokens.surfaceList)
+            .animation(DesignTokens.Motion.animation(duration: DesignTokens.Motion.transition,
+                                                     reduceMotion: reduceMotion), value: selection != nil)
             .navigationTitle("Mailo")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(DesignTokens.brandBlue, for: .navigationBar)
+            .toolbarBackground(DesignTokens.surfaceToolbar, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
             #endif
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button { openCompose(ComposeDraft()) } label: { Image(systemName: "pencil") }
+                    Button { openCompose(ComposeDraft()) } label: { Image(systemName: "square.and.pencil") }
                         .disabled(!model.canCompose)
+                        .foregroundColor(DesignTokens.brandBlue)
                         .accessibilityLabel(L10n.t("menu.newMessage"))
                 }
                 ToolbarItem(placement: .navigation) {
@@ -366,7 +382,62 @@ private struct MainSurface: View {
     }
 }
 
-/// 搜索结果（JOURNEY-007/008）：全库命中，与列表同源行视觉 + List selection。
+/// 顶栏账户菜单；iOS 用 sheet，macOS 使用原生 Settings 场景。
+private struct AccountMenuView: View {
+    @ObservedObject var root: MailoRootModel
+    @ObservedObject var model: MailoAppModel
+    @State private var showSettings = false
+
+    private var accountLabel: String {
+        if case .connected(let email) = model.phase { return email }
+        if case .demo = model.phase { return "demo@local" }
+        return L10n.t("account.notConnected")
+    }
+
+    var body: some View {
+        Menu {
+            #if os(macOS)
+            SettingsLink {
+                Label(L10n.t("account.menu"), systemImage: "gearshape")
+            }
+            #else
+            Button {
+                showSettings = true
+            } label: {
+                Label(L10n.t("account.menu"), systemImage: "gearshape")
+            }
+            #endif
+        } label: {
+            HStack(spacing: 8) {
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(accountLabel)
+                        .font(DesignTokens.Typo.caption)
+                        .foregroundColor(DesignTokens.inkPrimary)
+                        .lineLimit(1)
+                    Text(L10n.t("account.online"))
+                        .font(DesignTokens.Typo.micro)
+                        .foregroundColor(DesignTokens.statusSuccessFg)
+                }
+                MailoAvatar(address: accountLabel, color: DesignTokens.bucketColor(.paperTrail), size: 28)
+                Image(systemName: "chevron.down")
+                    .font(DesignTokens.Typo.iconTiny)
+                    .foregroundColor(DesignTokens.inkMuted)
+            }
+            .padding(.leading, 8)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .accessibilityLabel(L10n.t("account.menu"))
+        #if os(iOS)
+        .sheet(isPresented: $showSettings) { MailoSettingsView(root: root) }
+        #endif
+    }
+}
+
+/// 搜索结果与普通列表共用卡片视觉和 List selection（JOURNEY-007/008/019）。
 struct SearchResultsView: View {
     @ObservedObject var model: MailoAppModel
     @Binding var selection: String?
@@ -374,16 +445,18 @@ struct SearchResultsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .firstTextBaseline) {
+            HStack(spacing: 7) {
                 Text(L10n.t("search.title"))
                     .font(DesignTokens.Typo.head)
+                    .foregroundColor(DesignTokens.inkPrimary)
                 Text("\(model.searchResults.count)")
-                    .font(DesignTokens.Typo.caption)
+                    .font(DesignTokens.Typo.meta)
                     .foregroundColor(DesignTokens.inkFaint)
                 Spacer()
             }
-            .padding(.horizontal, DesignTokens.spacingColumn).padding(.vertical, 10)
-            Divider().overlay(DesignTokens.borderDefault)
+            .padding(.horizontal, DesignTokens.spacingColumn)
+            .padding(.vertical, 14)
+
             if model.searchResults.isEmpty {
                 Text(L10n.t("search.empty"))
                     .font(DesignTokens.Typo.body)
@@ -401,19 +474,18 @@ struct SearchResultsView: View {
                             selected: row.stableId == selection,
                             timeText: dateIndex.timeLabel(for: row.stableId))
                             .tag(row.stableId)
-                            .listRowInsets(EdgeInsets())
+                            .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
                             .listRowSeparator(.hidden)
-                            .listRowBackground(row.stableId == selection
-                                ? DesignTokens.brandBlueWash
-                                : DesignTokens.surfaceMain)
+                            .listRowBackground(DesignTokens.surfaceList)
                             .contextMenu { rowContextMenu(row) }
                     }
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .environment(\.defaultMinListRowHeight, DesignTokens.rowHeight)
             }
         }
-        .background(DesignTokens.surfaceMain)
+        .background(DesignTokens.surfaceList)
         .onAppear { rebuildIndex() }
         .onChange(of: model.searchResults) { _ in rebuildIndex() }
     }
@@ -422,7 +494,7 @@ struct SearchResultsView: View {
         dateIndex = MailDateIndex(entries: model.searchResults.map {
             BucketEntry(stableId: $0.stableId, subject: $0.subject, fromAddress: $0.fromAddress,
                         snippet: $0.snippet, date: $0.date, bucket: "search", flags: $0.flags)
-        })
+        }, reusing: dateIndex)
     }
 
     @ViewBuilder
@@ -439,10 +511,17 @@ struct SearchResultsView: View {
         }
         Divider()
         Button(L10n.t("reader.menu.copySender")) { Clipboard.copy(row.fromAddress ?? "") }
+        Button(L10n.t("reader.menu.delete"), role: .destructive) {
+            let bridge = MailSelectionBridge(entries: model.searchResults.map {
+                BucketEntry(stableId: $0.stableId, bucket: "search", flags: $0.flags)
+            })
+            let replacement = bridge.replacement(after: row.stableId)
+            try? model.delete(stableId: row.stableId)
+            if selection == row.stableId { selection = replacement }
+        }
     }
 }
 
-/// 剪贴板抽象（context menu 用；macOS NSPasteboard / iOS UIPasteboard）。
 enum Clipboard {
     static func copy(_ text: String) {
         #if os(macOS)

@@ -144,6 +144,16 @@ public struct ImapSyncEngine: Sendable {
         if failed { throw ImapStoreError.serverRejected }
     }
 
+    /// UID MOVE 删除写回（MAIL-027）：把邮件移到目标文件夹（RFC 6851，UIDPLUS）。
+    /// 失败抛错由调用方降级，不回滚本地删除（尽力而为）。
+    public func move(uid: Int, to folder: String, transport: any ImapTransport) throws {
+        let response = String(decoding: try transport.send(.move(uid: uid, folder: folder)), as: UTF8.self)
+        let failed = response.split(separator: "\r\n").contains { line in
+            (line.hasPrefix("A") || line.hasPrefix("a")) && (line.contains(" NO ") || line.contains(" BAD "))
+        }
+        if failed { throw ImapStoreError.serverRejected }
+    }
+
     public func fetchBody(uid: Int, transport: any ImapTransport) throws -> [UInt8]? {
         let lines = try ImapParser.parse(try transport.send(.fetchUid(range: "\(uid)", items: "(UID BODY.PEEK[])")))
         for line in lines {

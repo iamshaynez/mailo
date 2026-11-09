@@ -231,6 +231,15 @@ public final class MirrorStore: @unchecked Sendable {
         }
     }
 
+    /// 本地删行（STORE-011）：mail 行与 classification 行同一事务删除。
+    /// FTS 由既有 AFTER DELETE 触发器自动一致；幂等（不存在静默无操作）。无 schema 迁移。
+    public func deleteMail(stableId: String) throws {
+        try dbQueue.write { db in
+            try db.execute(sql: "DELETE FROM classification WHERE stableId = ?", arguments: [stableId])
+            try db.execute(sql: "DELETE FROM mail WHERE stableId = ?", arguments: [stableId])
+        }
+    }
+
     /// 无正文邮件清单（诊断探针：raw 未回填的邮件）。
     public func mailsWithoutBody() throws -> [(stableId: String, uid: Int)] {
         try dbQueue.read { db in

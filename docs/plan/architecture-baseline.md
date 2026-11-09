@@ -19,7 +19,7 @@
 | D2 | 平台 | **仅 iOS + macOS**（v3 修订，删 Android/Windows 二期） | min iOS 17 / macOS 14；Foundation Models（iOS/macOS 26+）用 `#available` 门控，老系统降级 embedding |
 | D3 | 后端 | **无**（v2 修订，原为轻量云元数据服务） | 规避服务器开发/运维/数据处理合规 |
 | D4 | 账号体系 | 无 | 无服务器即无账号 |
-| D5 | 归类模型 | 派生视图层：不移动邮件，本地标注；可选写回服务端 label **默认关** | 保"不破坏"承诺 |
+| D5 | 归类模型 | 派生视图层：不移动邮件，本地标注；可选写回服务端 label **默认关**。用户显式**删除**除外（JOURNEY-022/MAIL-027）：UID MOVE 到 Trash，属用户主动破坏性操作，非自动归类 | 保"不破坏"承诺；删除是用户意图，非系统行为 |
 | D6 | 多端同步 | 邮箱即通道：`Mailo/Sync` 约定文件夹，append-only JSON + CRDT | 详见 §6 |
 | D7 | iOS 后台推送 | **接受无推送**：前台 IDLE 实时 + 打开秒同步 + BGAppRefresh 尽力而为 | 零后端唯一产品级代价 |
 | D8 | 分类管线 | 规则 > 名单库 > Foundation Models > embedding 原型向量 > Screener | 详见 §5 |
@@ -28,7 +28,7 @@
 | D11 | 研发流程 | 严格 TDD：specs 用例库 → 失败测试 → 实现 | 详见 §8 |
 | D12 | 主体与分发 | 中国大陆公司主体；iOS/macOS 上 App Store **海外区（不含中国大陆）**；macOS 亦可 Developer ID+公证（v3 修订：删 Android apk 直发） | 备案义务仅由"上架国区"触发，不勾选即无义务；TestFlight 内测不需要备案（大陆测试者正规通道） |
 | ~~D13~~ | ~~GMS 零依赖~~ | **已删除**（v3：无 Android，约束不再存在） | — |
-| D14 | 设计语言 | **Blue Box Classic**（v3.1 增补）：运通蓝 `#006FCF` 即身份，白底卡片、规整克制；token 化规范见 docs/design/design-system.md；mockup A 为视觉基线，B 留作 dark mode 候选 | 深色模式 M3 后再做；动画只表达归类语义 |
+| D14 | 设计语言 | **Slate Concept**（v3.2，2026-11-08 修订）：用户提供的新概念稿为视觉基线；三层明暗表面、悬浮邮件卡片、紧凑工具栏与 520pt 阅读宽度；语义 token 同时定义 Light/Dark | 用户明确选定新概念稿；旧 A/B/C mockup 归档。动效覆盖状态/空间关系与归类语义，全部尊重 Reduce Motion；规范见 docs/design/design-system.md |
 
 ## 3. 架构分层
 

@@ -21,9 +21,17 @@
 - **Status**: draft
 - **Tests**: `sync_013_header_first_fetch`（同源断言）
 
-## PERF-004 列表日期零重复解析
-- **Given** 列表加载 200 行（date 为 RFC2822 字符串）
+## PERF-004 列表日期零重复解析（v2：增量复用）
+- **Given** 列表加载 200 行（date 为 RFC2822 字符串），随后发生 flags-only 或新增/改日期更新
 - **When** 行渲染取时间标签与日期分组
-- **Then** 每行渲染路径零 DateFormatter 分配（日期在数据层一次解析为 Date 缓存）；滚动期间无解析开销
+- **Then** 每行渲染路径零 DateFormatter 分配；索引按 stableId/raw 增量复用，flags-only 零解析；day/time 标签在索引构建时一次计算，滚动期间无 Calendar/解析开销
 - **Status**: green
-- **Tests**: `perf_004_row_date_no_formatter`
+- **Tests**: `perf_004_row_date_no_formatter`, `perf_005_flags_only_reuses_date_index`
+
+## PERF-005 选择响应与冗余渲染抑制（v1）
+- **Given** 已加载 HTML 邮件、200 行独立日期列表、可阻塞的假传输
+- **When** 选择邮件、标已读、接收无关模型更新或快速连续切换
+- **Then** 相同 HTML/policy 触发 0 次额外 WebView load，HTML/policy 变化各 1 次；flags-only 更新 0 次日期解析且成员/顺序不变；只有最新选择可提交正文
+- **And** 网络、MIME 解析不在 MainActor 上同步等待；runner 仍保持 MAIL-025 的命令序列化
+- **Status**: green
+- **Tests**: `perf_005_webview_reload_guard`, `perf_005_flags_only_reuses_date_index`, `perf_005_latest_selection_wins`, `perf_005_detail_parse_off_main`

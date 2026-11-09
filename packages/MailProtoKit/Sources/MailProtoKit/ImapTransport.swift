@@ -13,6 +13,7 @@ public enum ImapCommand: Equatable, Sendable {
     case select(folder: String)
     case fetchUid(range: String, items: String)
     case storeFlags(uid: Int, flags: [String])
+    case move(uid: Int, folder: String)
     case noop
 
     public var wire: String {
@@ -23,6 +24,7 @@ public enum ImapCommand: Equatable, Sendable {
         case .select(let f): return "SELECT \"\(f)\""
         case .fetchUid(let r, let i): return "UID FETCH \(r) \(i)"
         case .storeFlags(let uid, let flags): return "UID STORE \(uid) +FLAGS.SILENT (\(flags.joined(separator: " ")))"
+        case .move(let uid, let folder): return "UID MOVE \(uid) \"\(folder)\""
         case .noop: return "NOOP"
         }
     }

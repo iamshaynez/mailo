@@ -42,13 +42,13 @@ draft（写用例）→ red（写测试并确认失败，占位实现）→ gree
 - 用例变更（改行为）= 改 Given/When/Then + 版本号 +1，禁止静默改语义
 - 实现不许为通过测试而在用例之外发明行为
 
-## 用例索引（98 条；green 51 / draft 47，2026-11-08 UI 基准线收官）
+## 用例索引（108 条；green 61 / draft 47，2026-11-09 邮件删除）
 
 - [CLS-usecases.md](CLS-usecases.md)：分类管线 11 条（含 CLS-011 Block 桶）
 - [SYNC-usecases.md](SYNC-usecases.md)：CRDT 合并与同步 17 条
-- [MAIL-usecases.md](MAIL-usecases.md)：协议域 26 条（含 MAIL-026 UID STORE）
-- [STORE-usecases.md](STORE-usecases.md)：镜像与 migration 契约 10 条
+- [MAIL-usecases.md](MAIL-usecases.md)：协议域 27 条（含 MAIL-026 UID STORE、MAIL-027 UID MOVE）
+- [STORE-usecases.md](STORE-usecases.md)：镜像与 migration 契约 11 条
 - [ML-usecases.md](ML-usecases.md)：模型网关 5 条
 - [OAUTH-usecases.md](OAUTH-usecases.md)：OAuth 4 条
-- [PERF-usecases.md](PERF-usecases.md)：性能门禁 4 条
-- [JOURNEY-usecases.md](JOURNEY-usecases.md)：旅程/装配 + DESIGN 设计系统 22 条（UI 基准线已完成，见 docs/plan/ui-baseline-audit.md）
+- [PERF-usecases.md](PERF-usecases.md)：性能门禁 5 条
+- [JOURNEY-usecases.md](JOURNEY-usecases.md)：旅程/装配 + DESIGN 设计系统 28 条（Slate Concept v2.1 连续表面/控件/动效已覆盖；JOURNEY-022 删除移到 Trash）

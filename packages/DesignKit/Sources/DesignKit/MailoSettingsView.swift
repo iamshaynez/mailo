@@ -4,12 +4,12 @@ import SwiftUI
 
 // MARK: - 用例库：docs/specs/JOURNEY-usecases.md（JOURNEY-016 Settings 场景）
 
-/// 设置（JOURNEY-016）：账户（断开连接）/ 隐私（远程图片默认开关）/ 诊断
-/// （schema 诊断、最近同步、回填量）。macOS 由 Settings 场景承载（⌘,），
-/// iOS 由侧栏隐私徽章 sheet 承载。
+/// 设置（JOURNEY-016 v2）：Appearance / 账户 / 隐私 / 诊断。
+/// macOS 由 Settings 场景承载（⌘,），iOS 由账户菜单 sheet 承载。
 public struct MailoSettingsView: View {
     @ObservedObject var root: MailoRootModel
     @AppStorage("allowRemoteImages") private var allowRemoteImages = false
+    @AppStorage(AppearancePreference.storageKey) private var appearance = AppearancePreference.system.rawValue
     @State private var confirmDisconnect = false
 
     public init(root: MailoRootModel) {
@@ -18,14 +18,34 @@ public struct MailoSettingsView: View {
 
     public var body: some View {
         TabView {
+            appearanceTab.tabItem { Label(L10n.t("settings.appearance"), systemImage: "circle.lefthalf.filled") }
             accountTab.tabItem { Label(L10n.t("settings.tab.account"), systemImage: "person.crop.circle") }
             privacyTab.tabItem { Label(L10n.t("settings.tab.privacy"), systemImage: "hand.raised") }
             diagnosticsTab.tabItem { Label(L10n.t("settings.tab.diagnostics"), systemImage: "wrench.and.screwdriver") }
         }
-        .frame(minWidth: 460, minHeight: 320)
+        .frame(minWidth: 500, minHeight: 340)
+        .background(DesignTokens.surfaceReader)
+        .tint(DesignTokens.brandBlue)
+        .mailoAppearance()
     }
 
     private var model: MailoAppModel { root.active }
+
+    private var appearanceTab: some View {
+        Form {
+            Section {
+                Picker(L10n.t("settings.appearance"), selection: $appearance) {
+                    ForEach(AppearancePreference.allCases) { preference in
+                        Text(L10n.t("settings.appearance.\(preference.rawValue)"))
+                            .tag(preference.rawValue)
+                    }
+                }
+                .pickerStyle(.inline)
+                .accessibilityLabel(L10n.t("settings.appearance"))
+            }
+        }
+        .formStyle(.grouped)
+    }
 
     private var accountTab: some View {
         Form {

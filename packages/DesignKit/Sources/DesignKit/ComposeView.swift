@@ -2,8 +2,8 @@ import AuthKit
 import CoreKit
 import SwiftUI
 
-/// 撰写邮件（JOURNEY-006/011）：Reply/Forward 预填（to/subject/引用正文）→ SMTP XOAUTH2 发送。
-/// ⌘↩ 发送；关闭有内容时留驻（v1 不做草稿持久化，关闭即弃）。
+/// Slate Concept 撰写页（JOURNEY-006/011）：Reply/Forward 预填 → SMTP 发送。
+/// ⌘↩ 发送；所有字段与按钮使用双主题 token。
 public struct ComposeView: View {
     @ObservedObject var model: MailoAppModel
     var onDismiss: (() -> Void)? = nil
@@ -26,56 +26,85 @@ public struct ComposeView: View {
         VStack(spacing: 0) {
             HStack {
                 Text(L10n.t("compose.title"))
-                    .font(DesignTokens.Typo.sub)
+                    .font(DesignTokens.Typo.title)
+                    .foregroundColor(DesignTokens.inkPrimary)
                 Spacer()
-                Button {
-                    close()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(DesignTokens.inkFaint)
+                Button { close() } label: {
+                    Image(systemName: "xmark")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(MailoButtonStyle(variant: .ghost, isIcon: true))
                 .accessibilityLabel(L10n.t("compose.title"))
             }
-            .padding(16)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
 
-            Form {
-                TextField(L10n.t("compose.to"), text: $to)
-                TextField(L10n.t("compose.subject"), text: $subject)
+            VStack(spacing: 10) {
+                field(L10n.t("compose.to"), text: $to)
+                field(L10n.t("compose.subject"), text: $subject)
             }
-            .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
-            .frame(height: 120)
+            .padding(.horizontal, 20)
 
-            TextEditor(text: $bodyText)
-                .font(DesignTokens.Typo.body)
-                .padding(12)
-                .overlay(alignment: .topLeading) {
-                    if bodyText.isEmpty {
-                        Text(L10n.t("compose.bodyPlaceholder")).foregroundColor(DesignTokens.inkFaint).padding(16)
-                    }
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $bodyText)
+                    .font(DesignTokens.Typo.body)
+                    .foregroundColor(DesignTokens.inkBody)
+                    .scrollContentBackground(.hidden)
+                    .padding(8)
+                if bodyText.isEmpty {
+                    Text(L10n.t("compose.bodyPlaceholder"))
+                        .font(DesignTokens.Typo.body)
+                        .foregroundColor(DesignTokens.inkMuted)
+                        .padding(16)
+                        .allowsHitTesting(false)
                 }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(RoundedRectangle(cornerRadius: DesignTokens.radiusCard).fill(DesignTokens.surfaceCard))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.radiusCard)
+                .strokeBorder(DesignTokens.borderDefault))
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
 
             if let errorText {
                 Text(errorText)
                     .font(DesignTokens.Typo.meta)
-                    .foregroundColor(.red)
-                    .padding(.horizontal, 16)
+                    .foregroundColor(DesignTokens.statusDanger)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
             }
 
-            HStack {
-                Button(action: send) {
-                    if sending { ProgressView().frame(maxWidth: .infinity) }
-                    else { Text(L10n.t("compose.send")).frame(maxWidth: .infinity) }
+            Button(action: send) {
+                HStack {
+                    if sending {
+                        ProgressView()
+                            .tint(DesignTokens.onAccent)
+                    }
+                    Text(L10n.t("compose.send"))
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(DesignTokens.brandBlue)
-                .keyboardShortcut(.return, modifiers: .command) // ⌘↩ 发送（Mac 惯例）
-                .disabled(to.isEmpty || subject.isEmpty || sending)
-                .padding(16)
+                .frame(maxWidth: .infinity)
             }
+            .buttonStyle(MailoButtonStyle(variant: .primary))
+            .modifier(DesignTokens.primaryShadow())
+            .keyboardShortcut(.return, modifiers: .command)
+            .disabled(to.isEmpty || subject.isEmpty || sending)
+            .padding(20)
         }
         .frame(minWidth: 460, minHeight: 420)
+        .background(DesignTokens.surfaceReader)
+        .mailoAppearance()
+    }
+
+    private func field(_ placeholder: String, text: Binding<String>) -> some View {
+        TextField(placeholder, text: text)
+            .font(DesignTokens.Typo.body)
+            .foregroundColor(DesignTokens.inkPrimary)
+            .textFieldStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(RoundedRectangle(cornerRadius: DesignTokens.radiusSearch).fill(DesignTokens.surfaceCard))
+            .overlay(RoundedRectangle(cornerRadius: DesignTokens.radiusSearch)
+                .strokeBorder(DesignTokens.borderDefault))
     }
 
     private func close() {

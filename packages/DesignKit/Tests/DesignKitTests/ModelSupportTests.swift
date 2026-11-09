@@ -97,6 +97,31 @@ struct HtmlDetailTests {
         let sandboxed = DesignKitTests_sandbox(html: detail.htmlBody ?? "")
         #expect(sandboxed.contains("Content-Security-Policy"))
         #expect(sandboxed.contains("img-src data:"))
+        #expect(sandboxed.contains("color-scheme: light dark"))
+        #expect(sandboxed.contains("prefers-color-scheme: dark"))
+        #expect(sandboxed.contains("color: #D5DAE3"))
+
+        let authored = DesignKitTests_sandbox(html: "<table style=\"color:#18202B\"><tr><td>Receipt</td></tr></table>")
+        #expect(authored.contains("body class=\"mailo-authored\""))
+        #expect(authored.contains("body:not(.mailo-authored)"))
+    }
+
+    @Test("JOURNEY-014 HTML ideal height 不得撑高三栏窗口")
+    func journey_014_html_content_height_capped() {
+        let size = HtmlMailWebView.constrainedSize(proposedWidth: 303,
+                                                   proposedHeight: 1944,
+                                                   viewportHeight: 652)
+        #expect(size.width == 303)
+        #expect(size.height == 372)
+        let infinite = HtmlMailWebView.constrainedSize(proposedWidth: 86,
+                                                       proposedHeight: .infinity,
+                                                       viewportHeight: 652)
+        #expect(infinite.height == 372)
+        let zero = HtmlMailWebView.constrainedSize(proposedWidth: 0,
+                                                   proposedHeight: 0,
+                                                   viewportHeight: 652)
+        #expect(zero.width == DesignTokens.readingMeasure)
+        #expect(zero.height == 372)
     }
 }
 

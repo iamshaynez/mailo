@@ -1,81 +1,102 @@
 import CoreKit
 import SwiftUI
+#if canImport(AppKit)
+import AppKit
+#elseif canImport(UIKit)
+import UIKit
+#endif
 
-/// 设计规范 v1 · Blue Box Classic 的 token（docs/design/design-system.md，DESIGN-001/002 防漂移）。
-/// 颜色以 UInt32 原始常量保存（可测试），Color/Font 为派生。
-/// 视图层禁止绕过 token 内联颜色/字号（DESIGN-002 由 design_002 源码扫描锁）。
+/// Slate Concept v2 token（docs/design/design-system.md；DESIGN-001/002/005 防漂移）。
+/// 原始 hex 可测试，动态 Color/Font 均由 token 派生；视图禁止内联颜色和字号。
 public enum DesignTokens {
-    // MARK: 品牌与语义（§2）
+    // MARK: 浅色兼容常量与 bucket 语义（§2）
 
-    public static let brandBlueHex: UInt32 = 0x006FCF
+    public static let brandBlueHex: UInt32 = 0x0078FF
     public static let brandBlueDeepHex: UInt32 = 0x0B4E96
-    public static let brandBlueWashHex: UInt32 = 0xE8F1FB
-    public static let brandBlueBorderHex: UInt32 = 0xCFE2F6
-    public static let surfaceWashHex: UInt32 = 0xF7FAFE
-    public static let surfaceSubtleHex: UInt32 = 0xF1F4F9
-    public static let borderDefaultHex: UInt32 = 0xE8ECF3
-    public static let borderHairlineHex: UInt32 = 0xF1F4F8
-    public static let statusSuccessBgHex: UInt32 = 0xF0F7EE
-    public static let statusSuccessFgHex: UInt32 = 0x2E7D32
+    public static let brandBlueWashHex: UInt32 = 0xE8F2FF
+    public static let brandBlueBorderHex: UInt32 = 0xC8E0FA
+    public static let surfaceWashHex: UInt32 = 0xEDF1F6
+    public static let surfaceSubtleHex: UInt32 = 0xE7ECF2
+    public static let borderDefaultHex: UInt32 = 0xDDE3EB
+    public static let borderHairlineHex: UInt32 = 0xE9EEF4
+    public static let statusSuccessBgHex: UInt32 = 0xE7F5EC
+    public static let statusSuccessFgHex: UInt32 = 0x237A46
 
-    // MARK: 中性（§2）
+    public static let inkPrimaryHex: UInt32 = 0x18202B
+    public static let inkSecondaryHex: UInt32 = 0x4B5665
+    public static let inkBodyHex: UInt32 = 0x283444
+    public static let inkMutedHex: UInt32 = 0x7A8594
+    public static let inkFaintHex: UInt32 = 0x9AA4B1
+    public static let borderStrongHex: UInt32 = 0xC9D2DE
 
-    public static let inkPrimaryHex: UInt32 = 0x16202F
-    public static let inkSecondaryHex: UInt32 = 0x3C4657
-    public static let inkBodyHex: UInt32 = 0x2A3444
-    public static let inkMutedHex: UInt32 = 0x8892A6
-    public static let inkFaintHex: UInt32 = 0x9AA4B5
-    public static let borderStrongHex: UInt32 = 0xD8DFEA
-
-    // MARK: bucket 语义色（§2）
-
-    public static let imboxHex: UInt32 = 0x006FCF
+    public static let imboxHex: UInt32 = 0x0078FF
     public static let feedHex: UInt32 = 0xE8710A
     public static let paperTrailHex: UInt32 = 0x64748B
-    public static let screenerHex: UInt32 = 0x7C3AED
+    public static let screenerHex: UInt32 = 0x9561D9
     public static let setAsideHex: UInt32 = 0xC4A35A
-    /// blocked（CLS-011）：不进导航，仅在纠正菜单与搜索结果出现——低调灰
+    /// blocked（CLS-011）：不进导航，仅在纠正菜单与搜索结果出现。
     public static let blockedHex: UInt32 = 0x8892A6
 
     // MARK: 布局与形状（§4）
 
-    public static let sidebarWidth: CGFloat = 212
-    public static let listWidth: CGFloat = 392
-    public static let selectionBarWidth: CGFloat = 3
-    public static let titleBarHeight: CGFloat = 52
-    public static let rowHeight: CGFloat = 68
-    public static let avatarSize: CGFloat = 36
+    public static let sidebarWidth: CGFloat = 172
+    public static let listWidth: CGFloat = 388
+    public static let selectionBarWidth: CGFloat = 2
+    public static let titleBarHeight: CGFloat = 64
+    public static let rowHeight: CGFloat = 96
+    public static let avatarSize: CGFloat = 22
+    public static let readerAvatarSize: CGFloat = 36
+    public static let readingMeasure: CGFloat = 520
 
-    /// 圆角：窗 14 / 面板内卡片·头像 10 / 按钮·徽章 8（§4；pill 用 Capsule）
     public static let radiusWindow: CGFloat = 14
-    public static let radiusCard: CGFloat = 10
+    public static let radiusCard: CGFloat = 7
     public static let radiusButton: CGFloat = 8
+    public static let radiusSearch: CGFloat = 6
+    public static let radiusChip: CGFloat = 4
+    public static let radiusMedia: CGFloat = 10
 
-    /// 间距节奏：栏内 16 / 面板内 20-30 / 阅读区左右 30（§4）
     public static let spacingColumn: CGFloat = 16
-    public static let spacingPanel: CGFloat = 22
-    public static let spacingReading: CGFloat = 30
+    public static let spacingPanel: CGFloat = 18
+    public static let spacingReading: CGFloat = 32
+    public static let cardSpacing: CGFloat = 12
 
-    // MARK: 派生颜色
+    // MARK: 动态语义颜色
 
-    public static var brandBlue: Color { Color(hex: brandBlueHex) }
-    public static var brandBlueDeep: Color { Color(hex: brandBlueDeepHex) }
-    public static var brandBlueWash: Color { Color(hex: brandBlueWashHex) }
-    public static var brandBlueBorder: Color { Color(hex: brandBlueBorderHex) }
-    public static var surfaceWash: Color { Color(hex: surfaceWashHex) }
-    public static var surfaceSubtle: Color { Color(hex: surfaceSubtleHex) }
-    public static var surfaceMain: Color { .white }
-    public static var borderDefault: Color { Color(hex: borderDefaultHex) }
-    public static var borderHairline: Color { Color(hex: borderHairlineHex) }
-    public static var borderStrong: Color { Color(hex: borderStrongHex) }
-    public static var statusSuccessBg: Color { Color(hex: statusSuccessBgHex) }
-    public static var statusSuccessFg: Color { Color(hex: statusSuccessFgHex) }
-    public static var inkPrimary: Color { Color(hex: inkPrimaryHex) }
-    public static var inkSecondary: Color { Color(hex: inkSecondaryHex) }
-    /// 阅读区正文（mockup r-content #2A3444）
-    public static var inkBody: Color { Color(hex: inkBodyHex) }
-    public static var inkMuted: Color { Color(hex: inkMutedHex) }
-    public static var inkFaint: Color { Color(hex: inkFaintHex) }
+    public static var brandBlue: Color { color(.brandBlue) }
+    public static var brandBlueDeep: Color { color(.brandBlueDeep) }
+    public static var brandBlueWash: Color { color(.brandBlueWash) }
+    public static var brandBlueBorder: Color { color(.brandBlueBorder) }
+    public static var surfaceSidebar: Color { color(.surfaceSidebar) }
+    public static var surfaceToolbar: Color { color(.surfaceToolbar) }
+    public static var surfaceList: Color { color(.surfaceList) }
+    public static var surfaceCard: Color { color(.surfaceCard) }
+    public static var surfaceCardSelected: Color { color(.surfaceCardSelected) }
+    public static var cardSelectedBorder: Color { color(.cardSelectedBorder) }
+    public static var readerChip: Color { color(.readerChip) }
+    public static var surfaceReader: Color { color(.surfaceReader) }
+    public static var surfaceControl: Color { color(.surfaceControl) }
+    public static var surfaceHover: Color { color(.surfaceHover) }
+    public static var surfaceSearch: Color { color(.surfaceSearch) }
+    public static var surfaceWash: Color { color(.surfaceHover) }
+    public static var surfaceSubtle: Color { color(.surfaceControl) }
+    public static var surfaceMain: Color { color(.surfaceCard) }
+    public static var borderDefault: Color { color(.borderDefault) }
+    public static var borderHairline: Color { color(.borderHairline) }
+    public static var borderStrong: Color { color(.borderStrong) }
+    public static var statusSuccessBg: Color { color(.statusSuccessBackground) }
+    public static var statusSuccessFg: Color { color(.statusSuccessForeground) }
+    public static var statusDanger: Color { color(.statusDanger) }
+    public static var inkPrimary: Color { color(.inkPrimary) }
+    public static var inkSecondary: Color { color(.inkSecondary) }
+    public static var inkBody: Color { color(.inkBody) }
+    public static var inkMuted: Color { color(.inkMuted) }
+    public static var inkFaint: Color { color(.inkFaint) }
+    /// 亮蓝主按钮上的固定白字；不参与明暗反转。
+    public static var onAccent: Color { Color(hex: 0xFFFFFF) }
+    /// 亮搜索框在两个主题中都使用固定深色文字（DESIGN-002）。
+    public static var searchInk: Color { Color(hex: 0x283444) }
+    public static var searchMuted: Color { Color(hex: 0x687381) }
+    public static var shadowColor: Color { Color(hex: 0x050A14) }
 
     public static func bucketColor(_ bucket: CoreKit.Bucket) -> Color {
         switch bucket {
@@ -88,7 +109,7 @@ public enum DesignTokens {
         }
     }
 
-    /// 主按钮阴影（§4：0 4px 14px rgba(0,111,207,.35)）
+    /// 主按钮阴影（§4）：克制、无 glow。
     public static func primaryShadow(_ color: Color = brandBlue) -> some ViewModifier {
         PrimaryShadowModifier(color: color)
     }
@@ -96,60 +117,52 @@ public enum DesignTokens {
     private struct PrimaryShadowModifier: ViewModifier {
         let color: Color
         func body(content: Content) -> some View {
-            content.shadow(color: color.opacity(0.35), radius: 7, x: 0, y: 4)
+            content.shadow(color: color.opacity(0.24), radius: 6, x: 0, y: 3)
         }
     }
 
-    // MARK: 排版阶梯（§3：SF Pro 系统栈，不打包字体文件）
+    // MARK: 排版阶梯（§3：SF Pro 系统栈）
 
     public enum Typo {
-        /// Title 22/800：阅读页主题
-        public static let title = Font.system(size: 22, weight: .heavy)
-        /// Head 19/800：列表标题
-        public static let head = Font.system(size: 19, weight: .heavy)
-        /// Sub 16/800：阅读页发件人
-        public static let sub = Font.system(size: 16, weight: .heavy)
-        /// Body-strong 13.5/700：列表发件人
-        public static let bodyStrong = Font.system(size: 13.5, weight: .bold)
-        /// 导航项 13.5/500
-        public static let navItem = Font.system(size: 13.5, weight: .medium)
-        /// Body 14/400：邮件正文
+        public static let title = Font.system(size: 20, weight: .semibold)
+        public static let head = Font.system(size: 16, weight: .semibold)
+        public static let sub = Font.system(size: 15, weight: .semibold)
+        public static let bodyStrong = Font.system(size: 13, weight: .semibold)
+        public static let navItem = Font.system(size: 13, weight: .medium)
         public static let body = Font.system(size: 14)
-        /// Caption 12.5/600：列表主题、按钮
-        public static let caption = Font.system(size: 12.5, weight: .semibold)
-        /// Meta 11.5/500：预览行
-        public static let meta = Font.system(size: 11.5, weight: .medium)
-        /// Micro 10.5/700 +1.2 tracking 大写：分组标签
-        public static let micro = Font.system(size: 10.5, weight: .bold)
-        /// 设备码展示（等宽 40/800）
+        public static let caption = Font.system(size: 12, weight: .semibold)
+        public static let meta = Font.system(size: 11)
+        public static let micro = Font.system(size: 9.5, weight: .semibold)
         public static let deviceCode = Font.system(size: 40, weight: .heavy, design: .monospaced)
-        /// SF Symbol 图标尺度（非排版阶梯，按用途命名）
         public static let iconHero = Font.system(size: 56)
         public static let iconLarge = Font.system(size: 40)
         public static let iconMedium = Font.system(size: 28)
         public static let iconCompact = Font.system(size: 14, weight: .semibold)
+        public static let iconSmall = Font.system(size: 12, weight: .medium)
         public static let iconTiny = Font.system(size: 11)
     }
 
-    // MARK: 动效（§6：动画只表达归类语义；DESIGN-004）
+    // MARK: 动效（§6；DESIGN-004）
 
     public enum Motion {
-        /// 微交互 120ms
         public static let micro: TimeInterval = 0.12
-        /// 视图转场 220ms
         public static let transition: TimeInterval = 0.22
-        /// bucket 归类动画 320ms（spring）
         public static let classification: TimeInterval = 0.32
         public static let classificationSpringResponse: Double = 0.32
         public static let classificationSpringDamping: Double = 0.86
+        public static let readerTranslation: CGFloat = 6
 
-        /// 归类语义动画（邮件"飞入"目标桶）
         public static var classificationSpring: Animation {
             .spring(response: classificationSpringResponse,
                     dampingFraction: classificationSpringDamping)
         }
 
-        /// 「减弱动态效果」降级：nil = 无动画（DESIGN-004）
+        /// 阅读切换位移；Reduce Motion 时位移也归零。
+        public static func readerOffset(reduceMotion: Bool) -> CGFloat {
+            reduceMotion ? 0 : readerTranslation
+        }
+
+        /// 减弱动态效果降级：nil = 无动画（DESIGN-004）。
         public static func animation(duration: TimeInterval, reduceMotion: Bool) -> Animation? {
             reduceMotion ? nil : .easeOut(duration: duration)
         }
@@ -167,4 +180,40 @@ extension Color {
             green: Double((hex >> 8) & 0xFF) / 255,
             blue: Double(hex & 0xFF) / 255)
     }
+
+    /// SPM 内不依赖 asset catalog 的双主题动态色（DESIGN-005）。
+    init(light: UInt32, dark: UInt32) {
+        #if canImport(UIKit)
+        self.init(uiColor: UIColor { traits in
+            UIColor(mailoHex: traits.userInterfaceStyle == .dark ? dark : light)
+        })
+        #elseif canImport(AppKit)
+        self.init(nsColor: NSColor(name: nil) { appearance in
+            let darkActive = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return NSColor(mailoHex: darkActive ? dark : light)
+        })
+        #else
+        self.init(hex: light)
+        #endif
+    }
 }
+
+#if canImport(UIKit)
+private extension UIColor {
+    convenience init(mailoHex: UInt32) {
+        self.init(red: CGFloat((mailoHex >> 16) & 0xFF) / 255,
+                  green: CGFloat((mailoHex >> 8) & 0xFF) / 255,
+                  blue: CGFloat(mailoHex & 0xFF) / 255,
+                  alpha: 1)
+    }
+}
+#elseif canImport(AppKit)
+private extension NSColor {
+    convenience init(mailoHex: UInt32) {
+        self.init(calibratedRed: CGFloat((mailoHex >> 16) & 0xFF) / 255,
+                  green: CGFloat((mailoHex >> 8) & 0xFF) / 255,
+                  blue: CGFloat(mailoHex & 0xFF) / 255,
+                  alpha: 1)
+    }
+}
+#endif

@@ -184,3 +184,10 @@
 - **Then** wire 命令合规（tag 前缀 + UID STORE + FLAGS.SILENT）；服务器侧 flags 更新；失败抛错由调用方降级（尽力而为，不阻塞本地已读）
 - **Status**: green
 - **Tests**: `mail_026_uid_store_flags`
+
+## MAIL-027 UID MOVE 删除写回（移到 Trash）
+- **Given** 已连接 IMAP 会话（UIDPLUS capability，假服务器可测）
+- **When** 引擎对 uid N 执行 move（UID MOVE N "Trash"，RFC 6851）
+- **Then** wire 命令合规（tag 前缀 + UID MOVE + 文件夹名引号）；服务器侧消息从源邮箱消失、目标邮箱出现（flags 保留，新 uid 分配）；uid 不存在抛错由调用方降级（尽力而为，不回滚本地删除）
+- **Status**: green
+- **Tests**: `mail_027_uid_move_to_trash`

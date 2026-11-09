@@ -2,7 +2,7 @@
 
 > 定稿：2026-11-08。本文是「把 Mailo 从 hero-path demo 抬到成熟高品质 Mac 原生应用」的
 > 基准线总账：审计结论 + 五个批次的执行计划。后续功能开发以本基准线为起点。
-> 决策依据：docs/design/design-system.md（Blue Box Classic v1）、docs/plan/architecture-baseline.md（D14/D11）。
+> 历史基准线审计。决策依据已更新：docs/design/design-system.md（Slate Concept v2）、docs/plan/architecture-baseline.md（D14 v3.2/D11）。
 
 ## 0. 已定决策（本文档生效即生效）
 
@@ -67,8 +67,8 @@ WKWebView 沙箱扎实、装配模型协议注入干净。差距四层：
 
 ## 3. 明确不在本基准线内（延后项）
 
-- 深色模式（规范 §7：M3 后另立 v2 规范；mockup B 为候选）
+- ~~深色模式~~（2026-11-08 已由 Slate Concept v2 / D14 v3.2 解锁，Light/Dark 同步落地）
 - 菜单栏常驻 MenuBarExtra + IDLE 长连接（基线 §7 路线图项）
-- 像素级快照门禁与滚动 jank 采样（M3 动画门禁同批，UB-5）
+- 像素级 CI 金图门禁与滚动 jank 采样（M3 动画门禁同批；Slate Concept 采用固定尺寸实机截图评审，不引入易 flaky 的跨 OS 像素断言）
 - iOS 专属适配（底部 bucket 栏等，M1 后段 iOS mockup 再审）
 - Gmail 供应商接入与授权屏复核（M2 线）
