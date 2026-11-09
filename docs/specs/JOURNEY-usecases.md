@@ -210,3 +210,6 @@
 - **And** 命令面：MailoUICommand.delete 经壳层 handle 消费；菜单可用性要求「有选中且处于阅读态」（与 Reply/Forward 同矩阵）
 - **Status**: green
 - **Tests**: `journey_022_delete_moves_to_trash`, `journey_022_delete_command_routing`
+
+**Status**: green
+- **Tests**: `journey_023_body_load_uses_dedicated_channel`

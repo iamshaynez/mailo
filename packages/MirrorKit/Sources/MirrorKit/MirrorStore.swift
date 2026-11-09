@@ -231,6 +231,14 @@ public final class MirrorStore: @unchecked Sendable {
         }
     }
 
+    /// 回填水位查询（STORE-012）：文件夹内最早已知 uid（min(uid)，按需回填从此向下推进）。
+    /// 空库/空文件夹返回 nil；无 schema 迁移。
+    public func oldestUid(folder: String) throws -> Int? {
+        try dbQueue.read { db in
+            try Int.fetchOne(db, sql: "SELECT MIN(uid) FROM mail WHERE folder = ?", arguments: [folder])
+        }
+    }
+
     /// 本地删行（STORE-011）：mail 行与 classification 行同一事务删除。
     /// FTS 由既有 AFTER DELETE 触发器自动一致；幂等（不存在静默无操作）。无 schema 迁移。
     public func deleteMail(stableId: String) throws {

@@ -108,16 +108,19 @@
 - **Status**: draft
 - **Tests**: `sync_015_snapshot_persisted`
 
-## SYNC-016 历史回填（任意区间拉取）
+## SYNC-016 历史回填（任意区间拉取，v2：按需触发）
 - **Given** 已完成最近窗口同步的邮箱（更早的邮件未拉）
-- **When** 引擎 `fetchRange("N:M")`（后台回填器逐批调用，每批一条命令）
-- **Then** 返回该 UID 区间的事件（ENVELOPE 模式、事件构造与列表同步一致）；AppModel 回填循环从窗口下沿逐批向 UID 1 推进直至覆盖全量（空批=UID 空洞，继续）
-- **Status**: draft
-- **Tests**: `sync_016_backfill_range`
+- **When** 引擎 `fetchRange("N:M")`（AppModel 按需逐批调用，每批一条命令；v2：由列表滚动到底触发，不再后台自动全量）
+- **Then** 返回该 UID 区间的事件（ENVELOPE 模式、事件构造与列表同步一致）；逐批向 UID 1 推进（空批=UID 空洞，继续推进不死循环）；到达 UID 1 后标记无更多历史
+- **Status**: green
+- **Tests**: `sync_016_backfill_range`, `sync_018_fetch_more_history`
 
-## SYNC-017 回填进度可见
-- **Given** 历史回填进行中（SYNC-016 逐批推进）
+## SYNC-017 回填进度可见（v2：按需批进度）
+- **Given** 历史回填批进行中（SYNC-016 v2 按需逐批推进）
 - **When** 每批完成
-- **Then** 模型暴露 backfillProgress{fetched, total}（UI 呈现"导入历史邮件 n/total"）；完成或取消后归 nil；轮询/前台不受进度影响
+- **Then** 模型暴露 backfillProgress{fetched, total}（UI 呈现进度行）；批完成后归 nil（无长驻后台任务）；轮询/前台不受进度影响
 - **Status**: green
 - **Tests**: `sync_017_backfill_progress`
+
+**Status**: green
+- **Tests**: `sync_018_fetch_more_history`, `sync_018_no_more_when_oldest_is_one`

@@ -117,35 +117,5 @@ struct FeedbackPerfTests {
         #expect(elapsed < 0.5, "200 行分组应在毫秒级（\(elapsed)s）")
     }
 
-    // MARK: - SYNC-017 回填进度可见
-
-    @Test("SYNC-017 回填进度：进行中可见、完成归零")
-    func sync_017_backfill_progress() async throws {
-        let model = await MailoAppModel.bootstrapDemo()
-        #expect(model.backfillProgress == nil, "无回填任务时无进度")
-
-        // 多页假服务器：600 封、initialWindow 200 → 回填需 4 批（批间隔 2s，稳态进行中）
-        let server = FakeImapServer(mailboxes: ["INBOX": .init(uidValidity: 3, messages: (1...600).map { uid in
-            Message(uid: uid, raw: Array("Message-ID: <bf\(uid)@x>\r\nFrom: a@b.co\r\nSubject: h\(uid)\r\n\r\nbody".utf8))
-        })])
-        let model2 = MailoAppModel(store: try MirrorStore(), pipeline: ClassificationPipeline())
-        try await model2.attach(
-            account: AccountConfig(displayName: "t", imapHost: "h", smtpHost: "s", username: "u@t", secretRef: "r"),
-            transport: server)
-        model2.startBackfill(batchSize: 100)
-        // 轮询等待首批完成（并行测试下调度有抖动）
-        var inFlight: MailoAppModel.BackfillProgress?
-        for _ in 0..<40 {
-            inFlight = model2.backfillProgress
-            if inFlight?.fetched ?? 0 > 0 { break }
-            try await Task.sleep(nanoseconds: 50_000_000)
-        }
-        guard let progress = inFlight, progress.fetched > 0 else {
-            Issue.record("回填进行中应暴露进度：\(String(describing: model2.backfillProgress))")
-            return
-        }
-        #expect(progress.total >= progress.fetched, "总量下界")
-        model2.cancelBackfill()
-        #expect(model2.backfillProgress == nil, "取消后进度清零")
-    }
+    // SYNC-017 v2（按需批进度）已随 SYNC-018 迁移至 Sync018Tests（startBackfill 移除）。
 }

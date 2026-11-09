@@ -38,8 +38,9 @@ public struct SyncRunner: Sendable {
     }
 
     public init(accountFingerprint: String, transport: any ImapTransport,
-                folder: String = "INBOX", policy: PollingPolicy = PollingPolicy()) {
-        self.engine = ImapSyncEngine(accountFingerprint: accountFingerprint)
+                folder: String = "INBOX", policy: PollingPolicy = PollingPolicy(),
+                initialWindow: Int = 200) {
+        self.engine = ImapSyncEngine(accountFingerprint: accountFingerprint, initialWindow: initialWindow)
         self.transport = transport
         self.folder = folder
         self.policy = policy
