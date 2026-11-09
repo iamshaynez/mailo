@@ -179,6 +179,7 @@ public final class MailoAppModel: ObservableObject {
             installReconnect(email: email, clientId: clientId, vault: vault, kind: account)
             installBodyChannel(email: email, clientId: clientId, vault: vault, kind: account)
             startPolling()
+            startIdleBackfill() // SYNC-019：空闲渐进补全信封（搜索逐步全覆盖）
         } catch {
             phase = .failed(String(describing: error))
             throw error
@@ -289,6 +290,7 @@ public final class MailoAppModel: ObservableObject {
             installReconnect(email: record.email, clientId: record.clientId, vault: vault, kind: kind)
             installBodyChannel(email: record.email, clientId: record.clientId, vault: vault, kind: kind)
             startPolling()
+            startIdleBackfill() // SYNC-019：空闲渐进补全信封
             return true
         } catch {
             return false
@@ -322,8 +324,10 @@ public final class MailoAppModel: ObservableObject {
 
     /// 拉取下一批历史（SYNC-018）：列表滚动到底触发；进行中/已到底为无操作。
     /// 空批（UID 空洞）水位照常推进不死循环；网络失败不推进（下次滚动重试）。
-    public func fetchMoreHistory(batchSize: Int = 100) async {
-        guard !fetchingHistory, hasMoreHistory, let runner else { return }
+    /// 返回水位是否推进（含空批推进；防重入/失败/已到底为 false）——后台循环据此节流重试。
+    @discardableResult
+    public func fetchMoreHistory(batchSize: Int = 100) async -> Bool {
+        guard !fetchingHistory, hasMoreHistory, let runner else { return false }
         // 水位上沿：内存续推（空批不入库，不可由 min(uid) 推出）；首次从库内最早已知 uid 起
         let floor: Int
         if let pending = nextHistoryFloor {
@@ -332,9 +336,9 @@ public final class MailoAppModel: ObservableObject {
             floor = oldest - 1
         } else {
             hasMoreHistory = false
-            return
+            return false
         }
-        guard floor >= 1 else { hasMoreHistory = false; return }
+        guard floor >= 1 else { hasMoreHistory = false; return false }
         fetchingHistory = true
         defer { fetchingHistory = false }
         let low = max(1, floor - batchSize + 1)
@@ -352,18 +356,44 @@ public final class MailoAppModel: ObservableObject {
         } catch {
             // 失败不推进水位（下次滚动重试）；轮询/正文不受影响
             lastSyncSummary = L10n.t("sync.retrying", String(describing: error))
-            return
+            return false
         }
         nextHistoryFloor = low - 1
         if low <= 1 { hasMoreHistory = false }
+        return true
     }
 
-    /// 重置按需回填状态（断开连接时）。
+    /// 重置按需回填状态（断开连接时，含后台循环取消）。
     private func resetHistoryPaging() {
+        idleBackfillTask?.cancel()
+        idleBackfillTask = nil
         hasMoreHistory = true
         fetchingHistory = false
         nextHistoryFloor = nil
         backfillProgress = nil
+    }
+
+    // MARK: - 空闲后台信封回填（SYNC-019：渐进补全，正文仍按需）
+
+    /// 后台循环节流（SYNC-019）：比交互路径（backfillPacingNanos 200ms）保守——
+    /// Outlook 高频大批 FETCH 会踢连接（backfillMissingDates 教训）。
+    public static let idleBackfillPacingNanos: UInt64 = 500_000_000
+    private var idleBackfillTask: Task<Void, Never>?
+
+    /// 启动空闲后台回填（SYNC-019）：逐批复用 fetchMoreHistory 直至拉完。
+    /// 与滚动触发共享防重入（交互拉取进行中天然让路）；失败固定节流重试；
+    /// 断开即停（disconnect → resetHistoryPaging 取消）。
+    public func startIdleBackfill() {
+        idleBackfillTask?.cancel()
+        guard runner != nil else { return }
+        idleBackfillTask = Task { [weak self] in
+            while !Task.isCancelled, let self {
+                guard self.runner != nil, self.hasMoreHistory else { return }
+                _ = await self.fetchMoreHistory(batchSize: 100)
+                if !self.hasMoreHistory { return }
+                try? await Task.sleep(nanoseconds: Self.idleBackfillPacingNanos)
+            }
+        }
     }
 
     /// 前台轮询（基线 D7：30s 基准、失败退避由 PollingPolicy 管理）。

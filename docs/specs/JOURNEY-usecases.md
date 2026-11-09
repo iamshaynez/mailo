@@ -211,5 +211,9 @@
 - **Status**: green
 - **Tests**: `journey_022_delete_moves_to_trash`, `journey_022_delete_command_routing`
 
-**Status**: green
+## JOURNEY-023 正文加载独立通道（不与同步连接竞争）
+- **Given** 已装配会话且注入 bodyTransportFactory（生产：独立 XOAUTH2 连接；未注入回落主连接——demo/测试）
+- **When** 阅读窗格拉取无正文邮件（loadDetail → fetchBody）
+- **Then** 走独立通道的传输，不占用同步连接的命令锁（回填批/轮询不阻塞点开正文）；独立通道被踢则废弃并在下次拉取重建；主连接自愈（JOURNEY-021）语义保留
+- **Status**: green
 - **Tests**: `journey_023_body_load_uses_dedicated_channel`

@@ -36,8 +36,16 @@
 - **Status**: green
 - **Tests**: `perf_005_webview_reload_guard`, `perf_005_flags_only_reuses_date_index`, `perf_005_latest_selection_wins`, `perf_005_detail_parse_off_main`
 
-**Status**: green
+## PERF-006 回填节流与首屏窗口（v1：同步提速）
+- **Given** 同步编排常量（历史回填批间节流、日期回补批间节流、首次同步最近窗口）
+- **When** 检查模型常量与引擎装配
+- **Then** 回填/回补批间节流 ≤ 200ms（原固定 2s 致万级邮箱纯睡眠 3 分钟+）；首屏窗口 ≤ 100 封（原 200 封信封一次拉取拖慢登录首屏）；滚动按需回填取代后台全量（SYNC-018）
+- **Status**: green
 - **Tests**: `perf_006_pacing_and_window`
 
-**Status**: green
+## PERF-007 行读取器大响应吞吐（去二次方退化）
+- **Given** 1MB 级 FETCH 响应（含多行与字面量）分块喂入 ImapLineReader
+- **When** 全量提取逻辑行
+- **Then** 扫描量 ≤ 输入 3 倍（PERF-004 计数器模式，免 CI 时序抖动）；行为与 MAIL-016 任意切分语义不变
+- **Status**: green
 - **Tests**: `perf_007_line_reader_throughput`

@@ -80,5 +80,9 @@
 - **Status**: green
 - **Tests**: `store_011_delete_mail`
 
-**Status**: green
+## STORE-012 回填水位查询（最早已知 uid）
+- **Given** 已入库若干邮件（uid 集合任意，含空洞）
+- **When** store.oldestUid(folder:)
+- **Then** 返回该文件夹最早已知 uid（min(uid)，水位即其下沿）；空库返回 nil；无 schema 迁移
+- **Status**: green
 - **Tests**: `store_012_oldest_uid`
