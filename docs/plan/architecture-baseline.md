@@ -28,7 +28,7 @@
 | D11 | 研发流程 | 严格 TDD：specs 用例库 → 失败测试 → 实现 | 详见 §8 |
 | D12 | 主体与分发 | 中国大陆公司主体；iOS/macOS 上 App Store **海外区（不含中国大陆）**；macOS 亦可 Developer ID+公证（v3 修订：删 Android apk 直发） | 备案义务仅由"上架国区"触发，不勾选即无义务；TestFlight 内测不需要备案（大陆测试者正规通道） |
 | ~~D13~~ | ~~GMS 零依赖~~ | **已删除**（v3：无 Android，约束不再存在） | — |
-| D14 | 设计语言 | **Slate Concept**（v3.2，2026-11-08 修订）：用户提供的新概念稿为视觉基线；三层明暗表面、悬浮邮件卡片、紧凑工具栏与 520pt 阅读宽度；语义 token 同时定义 Light/Dark | 用户明确选定新概念稿；旧 A/B/C mockup 归档。动效覆盖状态/空间关系与归类语义，全部尊重 Reduce Motion；规范见 docs/design/design-system.md |
+| D14 | 设计语言 | **Inbox Reference Exact + Amex Blue**（v3.6，2026-11-10 修订）：保留参考图精确几何；整体中性色与行动色改为美国运通蓝 #0077C8 及深海军蓝；Logo 为 m + 圆点；邮件区为白色表面并恢复搜索/选中行/分栏柔和阴影 | 用户要求的主题与原图层次修正；不改变邮件行为。Dark 为独立扩展，动效尊重 Reduce Motion；规范见 docs/design/design-system.md |
 
 ## 3. 架构分层
 

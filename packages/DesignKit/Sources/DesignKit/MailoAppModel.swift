@@ -526,9 +526,7 @@ public final class MailoAppModel: ObservableObject {
             events.map { event in
                 let parsed = MimeParser.parse(event.raw)
                 let rawBody = event.raw
-                let from = EmailAddress.parse(event.fromAddress)?.address
-                    ?? EmailAddress.parse(parsed.from)?.address
-                    ?? parsed.from
+                let from = event.fromAddress?.isEmpty == false ? event.fromAddress : parsed.from
                 let row = MailRow(
                     stableId: event.stableMessageID.value,
                     account: "primary", folder: "INBOX", uid: event.uid,
@@ -595,6 +593,8 @@ public protocol MlGuessProviding: Sendable {
         public var textBody: String?
         public var htmlBody: String?
         public var attachmentNames: [String]
+        /// 真实 MIME 附件数据（DESIGN-006）：图片缩略图与文件类型占位的唯一来源。
+        public var attachments: [MimePart]
         public var flags: [String]
         /// 邮件自身的归类桶（徽标/头像语义色用这个，而非当前列表桶）
         public var bucket: Bucket?
@@ -620,13 +620,14 @@ public protocol MlGuessProviding: Sendable {
         guard row.raw != nil else {
             return MailDetail(stableId: row.stableId, subject: row.subject, fromAddress: row.fromAddress,
                               date: row.date, textBody: nil, htmlBody: nil,
-                              attachmentNames: [], flags: row.flagList, bucket: bucket)
+                              attachmentNames: [], attachments: [], flags: row.flagList, bucket: bucket)
         }
         let parsed = parsed ?? parseDetailBytes([UInt8](row.raw!))
         return MailDetail(stableId: row.stableId, subject: row.subject ?? parsed.subject,
                           fromAddress: row.fromAddress ?? parsed.from, date: row.date ?? parsed.date,
                           textBody: parsed.textBody, htmlBody: parsed.htmlBody,
                           attachmentNames: parsed.attachments.compactMap(\.filename),
+                          attachments: parsed.attachments,
                           flags: row.flagList, bucket: bucket)
     }
 
@@ -637,7 +638,7 @@ public protocol MlGuessProviding: Sendable {
             return .failed(L10n.t("reader.missing"))
         }
         var parsedBody: ParsedEmail?
-        if row.raw == nil, let currentRunner = runner {
+        if row.raw?.isEmpty != false, let currentRunner = runner {
             var body: [UInt8]?
             // 独立通道优先（JOURNEY-023）：正文拉取不与同步连接的命令锁竞争（回填批/轮询不阻塞阅读）
             if bodyChannel == nil, let factory = bodyTransportFactory {
@@ -691,6 +692,9 @@ public protocol MlGuessProviding: Sendable {
             }
         } else if row.raw == nil {
         }
+        guard let raw = row.raw, !raw.isEmpty else {
+            return .failed(L10n.t("reader.bodyUnavailable"))
+        }
         let ownBucket = try? store.classificationBucket(stableId: row.stableId)
         return await Task.detached(priority: .userInitiated) {
             .loaded(Self.makeDetail(from: row, parsed: parsedBody, bucket: ownBucket))
@@ -702,7 +706,7 @@ public protocol MlGuessProviding: Sendable {
         guard let raw = row.raw else {
             return MailDetail(stableId: row.stableId, subject: row.subject, fromAddress: row.fromAddress,
                               date: row.date, textBody: nil, htmlBody: nil,
-                              attachmentNames: [], flags: row.flagList, bucket: ownBucket)
+                              attachmentNames: [], attachments: [], flags: row.flagList, bucket: ownBucket)
         }
         let parsed = MimeParser.parse([UInt8](raw))
         return MailDetail(
@@ -713,6 +717,7 @@ public protocol MlGuessProviding: Sendable {
             textBody: parsed.textBody,
             htmlBody: parsed.htmlBody,
             attachmentNames: parsed.attachments.compactMap(\.filename),
+                          attachments: parsed.attachments,
             flags: row.flagList,
             bucket: ownBucket)
     }
@@ -731,7 +736,7 @@ public protocol MlGuessProviding: Sendable {
         guard let raw = row.raw else {
             return MailDetail(stableId: stableId, subject: row.subject, fromAddress: row.fromAddress,
                               date: row.date, textBody: nil, htmlBody: nil,
-                              attachmentNames: [], flags: row.flagList, bucket: ownBucket)
+                              attachmentNames: [], attachments: [], flags: row.flagList, bucket: ownBucket)
         }
         let parsed = MimeParser.parse([UInt8](raw))
         return MailDetail(
@@ -742,6 +747,7 @@ public protocol MlGuessProviding: Sendable {
             textBody: parsed.textBody,
             htmlBody: parsed.htmlBody,
             attachmentNames: parsed.attachments.compactMap(\.filename),
+                          attachments: parsed.attachments,
             flags: row.flagList,
             bucket: ownBucket)
     }
@@ -1064,6 +1070,10 @@ public protocol MlGuessProviding: Sendable {
 }
 
 public extension MailoAppModel {
+    /// Demo 阶段切换只开放给模块内装配器（JOURNEY-010），不扩大 public setter。
+    @MainActor
+    internal func activateDemoPhase() { phase = .demo }
+
     /// Demo 装配：进程内假服务器，App"先看看"入口与 JOURNEY-001。
     @MainActor
     static func bootstrapDemo(store: MirrorKit.MirrorStore? = nil) async -> MailoAppModel {
@@ -1083,7 +1093,7 @@ public extension MailoAppModel {
                                         smtpHost: "demo.local", username: "demo@local",
                                         secretRef: "demo")
         try? await model.attach(account: demoAccount, transport: server)
-        model.phase = .demo
+        model.activateDemoPhase()
         return model
     }
 }

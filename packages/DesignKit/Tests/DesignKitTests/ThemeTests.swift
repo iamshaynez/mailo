@@ -8,37 +8,37 @@ import Testing
 
 @MainActor
 struct ThemeTests {
-    @Test("DESIGN-005 Slate Concept 双主题完整色板")
+    @Test("DESIGN-005 Amex Blue 双主题完整色板")
     func design_005_theme_palette() throws {
         let expected: [DesignTokens.ThemeRole: (light: UInt32, dark: UInt32)] = [
-            .surfaceSidebar: (0xE9EDF3, 0x171D22),
-            .surfaceToolbar: (0xE9EDF3, 0x171D22),
-            .surfaceList: (0xF3F5F8, 0x171D24),
-            .surfaceCard: (0xFFFFFF, 0x242933),
-            .surfaceCardSelected: (0xFFFFFF, 0x2B323D),
-            .surfaceReader: (0xFFFFFF, 0x3C4350),
-            .readerLeading: (0xFAFCFF, 0x3B434F),
-            .readerHeader: (0xFFFFFF, 0x3A424D),
-            .readerBodyTop: (0xFCFDFF, 0x3D4551),
-            .readerBodyBottom: (0xF6F8FB, 0x343C47),
-            .readerTrailing: (0xF3F5F9, 0x38404B),
-            .readerChip: (0xF0F3F7, 0x47505C),
-            .cardSelectedBorder: (0xD8DEE7, 0x39424D),
-            .surfaceControl: (0xE7ECF2, 0x2B3442),
-            .surfaceHover: (0xEDF1F6, 0x2B323E),
-            .surfaceSearch: (0xFFFFFF, 0xF6FAFF),
-            .inkPrimary: (0x18202B, 0xF4F6FA),
-            .inkSecondary: (0x4B5665, 0xB2BAC7),
-            .inkBody: (0x283444, 0xD5DAE3),
-            .inkMuted: (0x7A8594, 0x8791A1),
-            .inkFaint: (0x9AA4B1, 0x606B7B),
-            .borderDefault: (0xDDE3EB, 0x303845),
-            .borderHairline: (0xE9EEF4, 0x262D38),
-            .borderStrong: (0xC9D2DE, 0x4A5565),
-            .brandBlue: (0x0078FF, 0x0078FF),
-            .brandBlueDeep: (0x0B4E96, 0x75B9FF),
-            .brandBlueWash: (0xE8F2FF, 0x1D3550),
-            .brandBlueBorder: (0xC8E0FA, 0x2E537A),
+            .surfaceSidebar: (0x071C2C, 0x071C2C),
+            .surfaceToolbar: (0xFFFFFF, 0x111E28),
+            .surfaceList: (0xFFFFFF, 0x15232D),
+            .surfaceCard: (0xFFFFFF, 0x1F303C),
+            .surfaceCardSelected: (0xFFFFFF, 0x24445A),
+            .surfaceReader: (0xFFFFFF, 0x1B2A35),
+            .readerLeading: (0xFFFFFF, 0x1B2A35),
+            .readerHeader: (0xFFFFFF, 0x1B2A35),
+            .readerBodyTop: (0xFFFFFF, 0x1B2A35),
+            .readerBodyBottom: (0xFAFCFD, 0x16242E),
+            .readerTrailing: (0xF4F8FA, 0x15222B),
+            .readerChip: (0xEFF4F7, 0x2B3E4B),
+            .cardSelectedBorder: (0xE0E9EF, 0x3B5363),
+            .surfaceControl: (0xEDF2F6, 0x253743),
+            .surfaceHover: (0xF4F7F9, 0x263E4D),
+            .surfaceSearch: (0xF5F8FA, 0x24343F),
+            .inkPrimary: (0x14232E, 0xF0F7FB),
+            .inkSecondary: (0x4B5F6E, 0xB6C6D1),
+            .inkBody: (0x2C3E4B, 0xD4E0E7),
+            .inkMuted: (0x7E919E, 0x8FA5B3),
+            .inkFaint: (0xA1AEB8, 0x617885),
+            .borderDefault: (0xDCE5EB, 0x31444F),
+            .borderHairline: (0xE8EEF2, 0x273842),
+            .borderStrong: (0xC4D3DD, 0x4A616F),
+            .brandBlue: (0x0077C8, 0x45B7E8),
+            .brandBlueDeep: (0x005A9C, 0x7CCCEC),
+            .brandBlueWash: (0xE9F4FC, 0x12384D),
+            .brandBlueBorder: (0xB8DDF3, 0x24566E),
             .statusSuccessBackground: (0xE7F5EC, 0x17372B),
             .statusSuccessForeground: (0x237A46, 0x4BCD8B),
             .statusDanger: (0xD94452, 0xFF6B74),
@@ -63,12 +63,17 @@ struct ThemeTests {
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        #expect(AppearancePreference.load(from: defaults) == .system)
+        #expect(AppearancePreference.load(from: defaults) == .light)
         AppearancePreference.dark.save(to: defaults)
         #expect(AppearancePreference.load(from: defaults) == .dark)
         #expect(defaults.string(forKey: AppearancePreference.storageKey) == "dark")
         AppearancePreference.light.save(to: defaults)
         #expect(AppearancePreference.load(from: defaults) == .light)
+    }
+
+    @Test("DESIGN-005 主邮件窗口即使保存 Dark 也固定 Light")
+    func design_005_reference_window_forces_light() {
+        #expect(MailoReferenceTheme.colorScheme == .light)
     }
 
     @Test("DESIGN-005 控件 default/hover/pressed/focus/disabled 状态 token")

@@ -62,14 +62,14 @@ public enum ImapParser {
 
             case UInt8(ascii: "\""):
                 var j = i + 1
-                var s = ""
+                var stringBytes: [UInt8] = []
                 while j < n, bytes[j] != UInt8(ascii: "\"") {
                     if bytes[j] == UInt8(ascii: "\\"), j + 1 < n { j += 1 }
-                    s.append(Character(UnicodeScalar(bytes[j])))
+                    stringBytes.append(bytes[j])
                     j += 1
                 }
                 if j >= n { throw ParseError.truncated }
-                current.append(.string(s))
+                current.append(.string(String(decoding: stringBytes, as: UTF8.self)))
                 i = j + 1
 
             case UInt8(ascii: "{"):
@@ -184,12 +184,21 @@ public struct FetchData: Equatable, Sendable {
                     if env.count > 2, case .list(let fromGroup) = env[2],
                        let first = fromGroup.first, case .list(let addr) = first, addr.count >= 4,
                        case .string(let mailbox) = addr[2], case .string(let host) = addr[3] {
-                        from = "\(mailbox)@\(host)"
+                        let address = "\(mailbox)@\(host)"
+                        if case .string(let rawName) = addr[0], !rawName.isEmpty, rawName.uppercased() != "NIL" {
+                            from = "\(EncodedWord.decode(rawName)) <\(address)>"
+                        } else {
+                            from = address
+                        }
                     }
                     if env.count > 9, case .string(let m) = env[9] { mid = m }
                 }
             case "BODY[]":
-                if case .literal(let bytes) = value { body = bytes }
+                if case .literal(let bytes) = value {
+                    body = bytes
+                } else if case .string(let string) = value, string.uppercased() != "NIL" {
+                    body = Array(string.utf8)
+                }
             default: break
             }
             k += 2

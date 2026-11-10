@@ -2,12 +2,15 @@ import CoreKit
 import MirrorKit
 import SwiftUI
 
-/// Slate Concept 三栏主壳（JOURNEY-008/010 · DESIGN-003/004/005）。
-/// 系统 NavigationSplitView + 中性 toolbar；外观、动效与所有窗口共享。
+/// Inbox Reference 三栏主壳（JOURNEY-008/010/024 · DESIGN-003/004/005）。
+/// 原生 NavigationSplitView + 列表搜索/筛选 + 阅读区快速回复。
 public struct MailoShell: View {
     @ObservedObject var root: MailoRootModel
     @State private var selection: String?
     @State private var searchText = ""
+    @State private var segment = SegmentSnapshot.defaultSegment
+    @State private var quickReplyStore = QuickReplyStore()
+    @State private var replyFocusRequest = 0
     @FocusState private var searchFocused: Bool
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -19,9 +22,10 @@ public struct MailoShell: View {
     }
 
     /// 测试/预览：以指定邮件直接装配阅读态（JOURNEY-008）。
-    init(model: MailoAppModel, initialSelection: String?) {
+    init(model: MailoAppModel, initialSelection: String?, initialSegment: Int = SegmentSnapshot.defaultSegment) {
         self.root = MailoRootModel(live: model)
         _selection = State(initialValue: initialSelection)
+        _segment = State(initialValue: initialSegment)
     }
 
     public init(root: MailoRootModel) {
@@ -31,30 +35,49 @@ public struct MailoShell: View {
     public var body: some View {
         MainSurface(
             root: root, selection: $selection,
-            searchText: $searchText, searchFocused: $searchFocused,
+            searchText: $searchText, searchFocused: $searchFocused, segment: $segment,
+            quickReplyStore: $quickReplyStore, replyFocusRequest: $replyFocusRequest,
             columnVisibility: $columnVisibility, sizeClass: sizeClass ?? .regular,
             openWindow: openWindow
         )
         .mailoAppearance()
+        .preferredColorScheme(MailoReferenceTheme.colorScheme)
+        .onChange(of: root.demo != nil) { _ in prepareDemo() }
+        .onAppear { prepareDemo() }
+    }
+
+    /// Demo 切换由最外层壳处理，避免 MainSurface 已挂载时收不到首次 onAppear。
+    private func prepareDemo() {
+        selection = nil
+        searchText = ""
+        quickReplyStore = QuickReplyStore()
+        guard let demo = root.demo else { return }
+        guard let target = demo.entries.first(where: { $0.subject?.contains("Visual Design") == true })
+                ?? demo.entries.first else { return }
+        selection = target.stableId
+        quickReplyStore.setText(L10n.t("quickReply.referenceDraft"), for: target.stableId)
     }
 }
 
-/// 实际表面；live/demo 切换时整体重建，状态与转场保持在壳层。
+/// 实际表面；live/demo 切换时整体重建，列表筛选与回复草稿由壳层保留。
 private struct MainSurface: View {
     @ObservedObject var root: MailoRootModel
     @ObservedObject var model: MailoAppModel
     @Binding var selection: String?
     @Binding var searchText: String
     @FocusState.Binding var searchFocused: Bool
+    @Binding var segment: Int
+    @Binding var quickReplyStore: QuickReplyStore
+    @Binding var replyFocusRequest: Int
     @Binding var columnVisibility: NavigationSplitViewVisibility
     let sizeClass: UserInterfaceSizeClass
     let openWindow: OpenWindowAction
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
-    @State private var selectedCardAnchor: CGRect?
 
     init(root: MailoRootModel, selection: Binding<String?>,
-         searchText: Binding<String>, searchFocused: FocusState<Bool>.Binding,
+         searchText: Binding<String>, searchFocused: FocusState<Bool>.Binding, segment: Binding<Int>,
+         quickReplyStore: Binding<QuickReplyStore>, replyFocusRequest: Binding<Int>,
          columnVisibility: Binding<NavigationSplitViewVisibility>, sizeClass: UserInterfaceSizeClass,
          openWindow: OpenWindowAction) {
         self.root = root
@@ -62,6 +85,9 @@ private struct MainSurface: View {
         _selection = selection
         _searchText = searchText
         _searchFocused = searchFocused
+        _segment = segment
+        _quickReplyStore = quickReplyStore
+        _replyFocusRequest = replyFocusRequest
         _columnVisibility = columnVisibility
         self.sizeClass = sizeClass
         self.openWindow = openWindow
@@ -98,9 +124,7 @@ private struct MainSurface: View {
         case .compose:
             openCompose(ComposeDraft())
         case .reply:
-            if let id = model.readingStableId {
-                openCompose(model.composeDraft(for: id, kind: .reply) ?? ComposeDraft(kind: .reply))
-            }
+            if model.readingStableId != nil { replyFocusRequest += 1 }
         case .forward:
             if let id = model.readingStableId {
                 openCompose(model.composeDraft(for: id, kind: .forward) ?? ComposeDraft(kind: .forward))
@@ -110,7 +134,7 @@ private struct MainSurface: View {
         case .toggleUnread:
             if let id = model.readingStableId { model.toggleUnread(stableId: id) }
         case .delete:
-            // JOURNEY-022：删除后选中移到相邻邮件（next 优先、末位回退），无相邻回占位
+            // JOURNEY-022：删除后选中移到相邻邮件（next 优先、末位回退），无相邻回占位。
             if let id = model.readingStableId {
                 let visible = searchText.isEmpty ? model.entries : model.searchResults.map {
                     BucketEntry(stableId: $0.stableId, bucket: "search", flags: $0.flags)
@@ -131,39 +155,37 @@ private struct MainSurface: View {
         #endif
     }
 
+    private func openFullReply() {
+        guard let id = selection else { return }
+        let original = model.composeDraft(for: id, kind: .reply) ?? ComposeDraft(kind: .reply)
+        openCompose(QuickReplyPayload.draft(userText: quickReplyStore.text(for: id), replyingTo: original))
+    }
+
     // MARK: 宽屏三栏
 
     private var wideLayout: some View {
-        VStack(spacing: 0) {
-            if root.demo != nil { demoStrip }
-            screenerBanner
-            NavigationSplitView(columnVisibility: $columnVisibility) {
-                SidebarView(model: model, root: root)
-                    .navigationSplitViewColumnWidth(min: 160, ideal: DesignTokens.sidebarWidth, max: 240)
-            } content: {
+        GeometryReader { proxy in
+            let columns = ReferenceLayout.columns(totalWidth: proxy.size.width)
+            HStack(spacing: 0) {
+                SidebarView(model: model, root: root, segment: $segment)
+                    .frame(width: columns.sidebar, height: proxy.size.height)
                 listColumn
-                    .navigationSplitViewColumnWidth(min: 340, ideal: DesignTokens.listWidth, max: 520)
-            } detail: {
+                    .frame(width: columns.list, height: proxy.size.height)
+                    .background {
+                        Rectangle()
+                            .fill(DesignTokens.surfaceList)
+                            .shadow(color: DesignTokens.shadowColor.opacity(MailElevationSpec.paneOpacity),
+                                    radius: MailElevationSpec.paneRadius, x: MailElevationSpec.paneX, y: 0)
+                    }
+                    .zIndex(1)
                 readerPane
+                    .frame(width: columns.reader, height: proxy.size.height)
                     .animation(DesignTokens.Motion.animation(duration: DesignTokens.Motion.transition,
                                                              reduceMotion: reduceMotion), value: colorScheme)
-                    .padding(.trailing, ReaderSurfaceSpec.trailingGutter)
-                    .padding(.bottom, ReaderSurfaceSpec.bottomGutter)
-                    .background(DesignTokens.surfaceToolbar)
+                    .background(DesignTokens.surfaceReader)
             }
-            .navigationSplitViewStyle(.balanced)
-            .coordinateSpace(name: "MailoShellCanvas")
-            .onPreferenceChange(SelectedCardAnchorPreference.self) { selectedCardAnchor = $0 }
-            .overlay {
-                if let selectedCardAnchor {
-                    ConnectionShadow(anchor: selectedCardAnchor)
-                        .transition(.opacity)
-                }
-            }
-            .animation(DesignTokens.Motion.animation(duration: DesignTokens.Motion.micro,
-                                                     reduceMotion: reduceMotion), value: selectedCardAnchor != nil)
         }
-        .navigationTitle("Mailo")
+        .navigationTitle(root.demo == nil ? "Mailo" : "Mailo — Demo")
         #if os(macOS)
         .toolbarBackground(DesignTokens.surfaceToolbar, for: .windowToolbar)
         .toolbarBackground(.visible, for: .windowToolbar)
@@ -171,38 +193,23 @@ private struct MainSurface: View {
         .toolbarBackground(DesignTokens.surfaceToolbar, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         #endif
-        .toolbar { toolbarContent }
         .background(DesignTokens.surfaceToolbar)
-    }
-
-    private var demoStrip: some View {
-        HStack(spacing: 8) {
-            Circle().fill(DesignTokens.bucketColor(.setAside)).frame(width: 6, height: 6)
-            Text(L10n.t("demo.badge"))
-                .font(DesignTokens.Typo.meta)
-            Spacer()
-            Button(L10n.t("demo.exit")) { root.exitDemo() }
-                .buttonStyle(MailoButtonStyle(variant: .ghost))
-        }
-        .foregroundColor(DesignTokens.inkSecondary)
-        .padding(.horizontal, DesignTokens.spacingColumn)
-        .padding(.vertical, 3)
-        .background(DesignTokens.surfaceControl)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(DesignTokens.borderHairline).frame(height: 1)
-        }
     }
 
     @ViewBuilder
     private var listColumn: some View {
-        Group {
-            if searchText.isEmpty {
-                MailListView(model: model, selection: $selection)
-            } else {
-                SearchResultsView(model: model, selection: $selection)
+        VStack(spacing: 0) {
+            listHeader
+            Group {
+                if searchText.isEmpty {
+                    MailListView(model: model, selection: $selection, segment: $segment)
+                } else {
+                    SearchResultsView(model: model, selection: $selection)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .transition(.opacity)
         }
-        .transition(.opacity)
         .background(DesignTokens.surfaceList)
         .animation(DesignTokens.Motion.animation(duration: DesignTokens.Motion.transition,
                                                  reduceMotion: reduceMotion), value: model.selectedBucket)
@@ -210,39 +217,22 @@ private struct MainSurface: View {
                                                  reduceMotion: reduceMotion), value: searchText.isEmpty)
     }
 
-    @ViewBuilder
-    private var readerPane: some View {
-        if let selection {
-            GeometryReader { proxy in
-                MailReaderView(model: model, stableId: selection, viewportHeight: proxy.size.height,
-                                   viewportWidth: proxy.size.width)
+    /// 参考稿列表顶栏：42pt 白色搜索行，无额外筛选或进度面板。
+    private var listHeader: some View {
+        searchField
+            .padding(.leading, 16)
+            .padding(.trailing, 12)
+            .frame(height: DesignTokens.titleBarHeight)
+            .background {
+                Rectangle()
+                    .fill(DesignTokens.surfaceCard)
+                    .shadow(color: DesignTokens.shadowColor.opacity(MailElevationSpec.headerOpacity),
+                            radius: MailElevationSpec.headerRadius, x: 0, y: MailElevationSpec.headerY)
             }
-        } else {
-            VStack(spacing: 12) {
-                Spacer()
-                Image(systemName: "envelope.open")
-                    .font(DesignTokens.Typo.iconLarge)
-                    .foregroundColor(DesignTokens.inkFaint)
-                Text(L10n.t("reader.calm"))
-                    .font(DesignTokens.Typo.body)
-                    .foregroundColor(DesignTokens.inkMuted)
-                Spacer()
+            .zIndex(1)
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(DesignTokens.borderHairline).frame(height: 0.5)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(ReaderSurface())
-        }
-    }
-
-    // MARK: 中性顶栏：Search + Account
-
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .navigation) {
-            searchField
-        }
-        ToolbarItem(placement: .primaryAction) {
-            AccountMenuView(root: root, model: model)
-        }
     }
 
     private var searchField: some View {
@@ -264,23 +254,13 @@ private struct MainSurface: View {
                         .frame(width: 22, height: 22)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(L10n.t("toolbar.search.placeholder"))
+                .accessibilityLabel(L10n.t("search.clear"))
             }
         }
-        .foregroundColor(DesignTokens.searchInk)
-        .padding(.horizontal, 11)
-        .frame(minWidth: 220, idealWidth: 374, maxWidth: 440)
-        .frame(height: 32)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.radiusSearch).fill(DesignTokens.surfaceSearch))
-        .overlay {
-            ZStack {
-                RoundedRectangle(cornerRadius: DesignTokens.radiusSearch)
-                    .strokeBorder(DesignTokens.borderHairline, lineWidth: 0.5)
-                RoundedRectangle(cornerRadius: DesignTokens.radiusSearch)
-                    .strokeBorder(DesignTokens.brandBlue, lineWidth: 2)
-                    .opacity(searchFocused ? 1 : 0)
-            }
-        }
+        .foregroundColor(DesignTokens.searchMuted)
+        .frame(maxWidth: .infinity)
+        .frame(height: DesignTokens.searchHeight)
+        .background(DesignTokens.surfaceCard)
         .animation(DesignTokens.Motion.animation(duration: DesignTokens.Motion.micro,
                                                  reduceMotion: reduceMotion), value: searchFocused)
         .onChange(of: searchText) { q in model.searchDebounced(q) }
@@ -295,28 +275,28 @@ private struct MainSurface: View {
     }
 
     @ViewBuilder
-    private var screenerBanner: some View {
-        let count = model.bucketCounts[Bucket.screener.rawValue] ?? 0
-        if count > 0 {
-            HStack(spacing: 8) {
-                Circle().fill(DesignTokens.bucketColor(.screener)).frame(width: 6, height: 6)
-                Text(L10n.t("screener.banner", count))
-                    .font(DesignTokens.Typo.caption)
+    private var readerPane: some View {
+        if let selection {
+            GeometryReader { proxy in
+                MailReaderView(model: model, stableId: selection, viewportHeight: proxy.size.height,
+                               viewportWidth: proxy.size.width,
+                               quickReplyStore: $quickReplyStore,
+                               replyFocusRequest: replyFocusRequest,
+                               onExpandReply: openFullReply)
+            }
+        } else {
+            VStack(spacing: 12) {
                 Spacer()
-                Button(L10n.t("screener.review")) {
-                    selection = nil
-                    try? model.load(bucket: .screener)
-                }
-                .buttonStyle(MailoButtonStyle(variant: .ghost))
+                Image(systemName: "envelope.open")
+                    .font(DesignTokens.Typo.iconLarge)
+                    .foregroundColor(DesignTokens.inkFaint)
+                Text(L10n.t("reader.calm"))
+                    .font(DesignTokens.Typo.body)
+                    .foregroundColor(DesignTokens.inkMuted)
+                Spacer()
             }
-            .foregroundColor(DesignTokens.brandBlueDeep)
-            .padding(.horizontal, DesignTokens.spacingColumn)
-            .padding(.vertical, 3)
-            .background(DesignTokens.brandBlueWash)
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(DesignTokens.brandBlueBorder).frame(height: 1)
-            }
-            .transition(.opacity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(ReaderSurface())
         }
     }
 
@@ -325,17 +305,14 @@ private struct MainSurface: View {
     private var compactLayout: some View {
         NavigationStack {
             ZStack {
-                Group {
-                    if searchText.isEmpty {
-                        MailListView(model: model, selection: $selection)
-                    } else {
-                        SearchResultsView(model: model, selection: $selection)
-                    }
-                }
+                listColumn
                 if let selection {
                     GeometryReader { proxy in
                         MailReaderView(model: model, stableId: selection, viewportHeight: proxy.size.height,
-                                   viewportWidth: proxy.size.width)
+                                       viewportWidth: proxy.size.width,
+                                       quickReplyStore: $quickReplyStore,
+                                       replyFocusRequest: replyFocusRequest,
+                                       onExpandReply: openFullReply)
                             .overlay(alignment: .topLeading) {
                                 Button {
                                     self.selection = nil
@@ -344,7 +321,7 @@ private struct MainSurface: View {
                                 }
                                 .buttonStyle(MailoButtonStyle(variant: .ghost, isIcon: true))
                                 .padding(8)
-                                .accessibilityLabel(L10n.t("reader.select"))
+                                .accessibilityLabel(L10n.t("reader.back"))
                             }
                     }
                     .background(ReaderSurface())
@@ -364,7 +341,7 @@ private struct MainSurface: View {
                 ToolbarItem(placement: .primaryAction) {
                     Button { openCompose(ComposeDraft()) } label: { Image(systemName: "square.and.pencil") }
                         .disabled(!model.canCompose)
-                        .foregroundColor(DesignTokens.brandBlue)
+                        .foregroundColor(DesignTokens.accentDeep)
                         .accessibilityLabel(L10n.t("menu.newMessage"))
                 }
                 ToolbarItem(placement: .navigation) {
@@ -382,62 +359,7 @@ private struct MainSurface: View {
     }
 }
 
-/// 顶栏账户菜单；iOS 用 sheet，macOS 使用原生 Settings 场景。
-private struct AccountMenuView: View {
-    @ObservedObject var root: MailoRootModel
-    @ObservedObject var model: MailoAppModel
-    @State private var showSettings = false
-
-    private var accountLabel: String {
-        if case .connected(let email) = model.phase { return email }
-        if case .demo = model.phase { return "demo@local" }
-        return L10n.t("account.notConnected")
-    }
-
-    var body: some View {
-        Menu {
-            #if os(macOS)
-            SettingsLink {
-                Label(L10n.t("account.menu"), systemImage: "gearshape")
-            }
-            #else
-            Button {
-                showSettings = true
-            } label: {
-                Label(L10n.t("account.menu"), systemImage: "gearshape")
-            }
-            #endif
-        } label: {
-            HStack(spacing: 8) {
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text(accountLabel)
-                        .font(DesignTokens.Typo.caption)
-                        .foregroundColor(DesignTokens.inkPrimary)
-                        .lineLimit(1)
-                    Text(L10n.t("account.online"))
-                        .font(DesignTokens.Typo.micro)
-                        .foregroundColor(DesignTokens.statusSuccessFg)
-                }
-                MailoAvatar(address: accountLabel, color: DesignTokens.bucketColor(.paperTrail), size: 28)
-                Image(systemName: "chevron.down")
-                    .font(DesignTokens.Typo.iconTiny)
-                    .foregroundColor(DesignTokens.inkMuted)
-            }
-            .padding(.leading, 8)
-            .padding(.vertical, 4)
-            .contentShape(Rectangle())
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .accessibilityLabel(L10n.t("account.menu"))
-        #if os(iOS)
-        .sheet(isPresented: $showSettings) { MailoSettingsView(root: root) }
-        #endif
-    }
-}
-
-/// 搜索结果与普通列表共用卡片视觉和 List selection（JOURNEY-007/008/019）。
+/// 搜索结果与普通列表共用连续行视觉和 List selection（JOURNEY-007/008/019）。
 struct SearchResultsView: View {
     @ObservedObject var model: MailoAppModel
     @Binding var selection: String?
@@ -445,18 +367,6 @@ struct SearchResultsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 7) {
-                Text(L10n.t("search.title"))
-                    .font(DesignTokens.Typo.head)
-                    .foregroundColor(DesignTokens.inkPrimary)
-                Text("\(model.searchResults.count)")
-                    .font(DesignTokens.Typo.meta)
-                    .foregroundColor(DesignTokens.inkFaint)
-                Spacer()
-            }
-            .padding(.horizontal, DesignTokens.spacingColumn)
-            .padding(.vertical, 14)
-
             if model.searchResults.isEmpty {
                 Text(L10n.t("search.empty"))
                     .font(DesignTokens.Typo.body)
@@ -474,7 +384,7 @@ struct SearchResultsView: View {
                             selected: row.stableId == selection,
                             timeText: dateIndex.timeLabel(for: row.stableId))
                             .tag(row.stableId)
-                            .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
+                            .listRowInsets(EdgeInsets())
                             .listRowSeparator(.hidden)
                             .listRowBackground(DesignTokens.surfaceList)
                             .contextMenu { rowContextMenu(row) }
@@ -482,6 +392,7 @@ struct SearchResultsView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .scrollIndicators(.hidden)
                 .environment(\.defaultMinListRowHeight, DesignTokens.rowHeight)
             }
         }

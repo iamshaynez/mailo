@@ -7,15 +7,13 @@ import SwiftUI
 struct MailListView: View {
     @ObservedObject var model: MailoAppModel
     @Binding var selection: String?
-    @State private var segment = 0 // 0 New / 1 Previously seen / 2 Set aside
+    @Binding var segment: Int // 0 New / 1 Previously seen / 2 Set aside
     @State private var segmentSnapshot: [BucketEntry] = [] // JOURNEY-018：段内成员稳定
     @State private var dateIndex = MailDateIndex(entries: []) // PERF-004
-    @Namespace private var segmentNamespace
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
-            header
             if displayGroups.isEmpty {
                 emptyState
             } else {
@@ -28,7 +26,7 @@ struct MailListView: View {
                                             selected: entry.stableId == selection,
                                             timeText: dateIndex.timeLabel(for: entry.stableId))
                                     .tag(entry.stableId)
-                                    .listRowInsets(EdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10))
+                                    .listRowInsets(EdgeInsets())
                                     .listRowSeparator(.hidden)
                                     .listRowBackground(DesignTokens.surfaceList)
                                     .contextMenu { rowContextMenu(entry) }
@@ -40,17 +38,10 @@ struct MailListView: View {
                                         }
                                     }
                             }
-                        } header: {
-                            Text(group.label)
-                                .font(DesignTokens.Typo.micro)
-                                .tracking(1.1)
-                                .foregroundColor(DesignTokens.inkFaint)
-                                .padding(.leading, 12)
-                                .padding(.top, 4)
                         }
                     }
                     // 滚动按需回填（SYNC-016 v2/018）：滚到底自动拉下一批，取代后台全量
-                    if segment != 2, model.hasMoreHistory, !displayEntries.isEmpty {
+                    if model.phase != .demo, segment != 2, model.hasMoreHistory, !displayEntries.isEmpty {
                         Section {
                             historyFooter
                                 .listRowInsets(EdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10))
@@ -61,12 +52,14 @@ struct MailListView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .scrollIndicators(.hidden)
                 .environment(\.defaultMinListRowHeight, DesignTokens.rowHeight)
                 // DESIGN-004：分类/移出列表保留既有 spring。
                 .animation(DesignTokens.Motion.spring(reduceMotion: reduceMotion),
                            value: displayEntries.map(\.stableId))
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DesignTokens.surfaceList)
         // JOURNEY-018 v2：任何数据刷新（阅读标记/轮询/回填/同步）都走 merge——
         // 只增不删：已读留原位、移出桶的行消失、新邮件插入；后台刷新永不抽走阅读中的行。
@@ -92,83 +85,6 @@ struct MailListView: View {
 
     private func rebuildIndex() {
         dateIndex = MailDateIndex(entries: displayEntries, reusing: dateIndex)
-    }
-
-    private var header: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 7) {
-                Text(model.selectedBucket.title)
-                    .font(DesignTokens.Typo.head)
-                    .foregroundColor(DesignTokens.inkPrimary)
-                Text("\(displayEntries.count)")
-                    .font(DesignTokens.Typo.meta)
-                    .foregroundColor(DesignTokens.inkFaint)
-                Spacer()
-                Button {
-                    model.syncNow()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .buttonStyle(MailoButtonStyle(variant: .ghost, isIcon: true))
-                .disabled(!model.isSyncCapable)
-                .help(L10n.t("menu.syncNow"))
-                .accessibilityLabel(L10n.t("menu.syncNow"))
-            }
-            .padding(.horizontal, DesignTokens.spacingColumn)
-            .padding(.top, 8)
-            .padding(.bottom, 6)
-            segmented
-                .padding(.horizontal, 12)
-                .padding(.bottom, 6)
-            if let progress = model.backfillProgress {
-                VStack(alignment: .leading, spacing: 3) {
-                    ProgressView(value: Double(progress.fetched),
-                                 total: Double(max(progress.total, 1)))
-                        .tint(DesignTokens.brandBlue)
-                    Text(L10n.t("list.backfill", progress.fetched))
-                        .font(DesignTokens.Typo.micro)
-                        .foregroundColor(DesignTokens.inkMuted)
-                }
-                .padding(.horizontal, DesignTokens.spacingColumn).padding(.bottom, 10)
-            }
-        }
-    }
-
-    /// 分段控件：浮起选择块以 matchedGeometryEffect 滑动（DESIGN-004 / JOURNEY-018）。
-    private var segmented: some View {
-        HStack(spacing: 2) {
-            ForEach(Array(segmentTitles.enumerated()), id: \.offset) { index, title in
-                Button {
-                    segment = index
-                } label: {
-                    Text(title)
-                        .font(DesignTokens.Typo.caption)
-                        .foregroundColor(segment == index ? DesignTokens.inkPrimary : DesignTokens.inkMuted)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                        .background {
-                            if segment == index {
-                                RoundedRectangle(cornerRadius: DesignTokens.radiusSearch)
-                                    .fill(DesignTokens.surfaceCard)
-                                    .matchedGeometryEffect(id: "activeSegment", in: segmentNamespace)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(3)
-        .background(RoundedRectangle(cornerRadius: DesignTokens.radiusButton)
-            .fill(DesignTokens.surfaceControl))
-        .animation(DesignTokens.Motion.animation(duration: DesignTokens.Motion.transition,
-                                                 reduceMotion: reduceMotion), value: segment)
-    }
-
-    private var segmentTitles: [String] {
-        [L10n.t("segment.new"), L10n.t("segment.seen"), L10n.t("segment.aside")]
     }
 
     private var emptyState: some View {
@@ -244,6 +160,8 @@ struct MailListView: View {
 /// 新到达的合格行按 date 归位插入；其余不动。
 @MainActor
 enum SegmentSnapshot {
+    nonisolated static let defaultSegment = -1
+
     static func build(segment: Int, entries: [BucketEntry]) -> [BucketEntry] {
         switch segment {
         case 0: return entries.filter { !$0.flags.contains("\\Seen") }
@@ -406,7 +324,7 @@ struct MailDateIndex {
     }
 }
 
-/// 行强调档位（JOURNEY-019）：未读=粗体+蓝点，已读=regular（Mail.app 式编码）。
+/// 行强调档位（JOURNEY-019）：未读=粗体+绿点，已读=regular（Mail.app 式编码）。
 /// 纯函数面：字重/未读点由档位唯一决定，视图零分叉。
 @MainActor
 enum RowEmphasis: Equatable {
@@ -440,8 +358,8 @@ enum RowEmphasis: Equatable {
     }
 }
 
-/// 独立邮件卡片（Slate Concept §5）：主题/双行摘要/底部联系人元信息。
-/// 选中以表面和阴影表达，未读仍由 RowEmphasis + 蓝点统一驱动（JOURNEY-019）。
+/// 连续邮件行（Inbox Reference §5）：发件人/时间、主题与双行摘要。
+/// 选中只改变表面与左缘细条，未读由 RowEmphasis + 绿点统一驱动（JOURNEY-019）。
 struct MailRowView: View {
     let entry: BucketEntry
     let bucket: Bucket
@@ -449,93 +367,70 @@ struct MailRowView: View {
     var timeText: String = ""
     @State private var hovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
 
     private var isUnread: Bool { !entry.flags.contains("\\Seen") }
     private var emphasis: RowEmphasis { RowEmphasis(isUnread: isUnread) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(alignment: .center, spacing: 6) {
+        HStack(alignment: .top, spacing: 8) {
+            MailoAvatar(address: SenderPresentation(entry.fromAddress).address,
+                        color: DesignTokens.bucketColor(bucket),
+                        size: DesignTokens.avatarSize)
+                .padding(.top, 1)
+
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(alignment: .center, spacing: 6) {
+                    Text(SenderPresentation(entry.fromAddress).name)
+                        .font(emphasis.senderFont)
+                        .foregroundColor(DesignTokens.inkPrimary)
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    Text(timeText)
+                        .font(DesignTokens.Typo.meta)
+                        .foregroundColor(DesignTokens.inkFaint)
+                    if isUnread {
+                        Circle().fill(DesignTokens.accent).frame(width: 7, height: 7)
+                            .accessibilityHidden(true)
+                    }
+                }
+
                 Text(entry.subject ?? L10n.t("row.noSubject"))
                     .font(emphasis.subjectFont)
                     .foregroundColor(DesignTokens.inkPrimary)
                     .lineLimit(1)
-                Spacer(minLength: 4)
-                if isUnread {
-                    Circle().fill(DesignTokens.brandBlue).frame(width: 6, height: 6)
-                }
-            }
 
-            Text(entry.snippet ?? "")
-                .font(DesignTokens.Typo.meta)
-                .foregroundColor(DesignTokens.inkMuted)
-                .lineLimit(2)
-                .lineSpacing(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(spacing: 6) {
-                MailoAvatar(address: entry.fromAddress, color: DesignTokens.bucketColor(bucket))
-                Text(entry.fromAddress ?? L10n.t("row.unknown"))
-                    .font(emphasis.senderFont)
-                    .foregroundColor(DesignTokens.inkSecondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer(minLength: 4)
-                Text(timeText)
+                Text(entry.snippet ?? "")
                     .font(DesignTokens.Typo.meta)
-                    .foregroundColor(DesignTokens.inkFaint)
+                    .foregroundColor(DesignTokens.inkMuted)
+                    .lineLimit(2)
+                    .lineSpacing(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 11)
-        .frame(maxWidth: .infinity, minHeight: 82, alignment: .leading)
+        .padding(.leading, 6)
+        .padding(.trailing, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, minHeight: 98, alignment: .leading)
         .background {
-            ZStack {
-                RoundedRectangle(cornerRadius: DesignTokens.radiusCard)
-                    .fill(hovered && !selected ? DesignTokens.surfaceHover : DesignTokens.surfaceCard)
-                RoundedRectangle(cornerRadius: DesignTokens.radiusCard)
-                    .fill(DesignTokens.surfaceCardSelected)
-                    .shadow(color: DesignTokens.shadowColor.opacity(colorScheme == .light ? 0.10 : 0.24),
-                            radius: ConnectionShadowSpec.blur,
-                            x: ConnectionShadowSpec.x, y: ConnectionShadowSpec.y)
-                    .opacity(selected ? 1 : 0)
-            }
-        }
-        .background {
-            if selected {
-                GeometryReader { proxy in
-                    Color.clear.preference(key: SelectedCardAnchorPreference.self,
-                                           value: proxy.frame(in: .named("MailoShellCanvas")))
-                }
-            }
-        }
-        .background(alignment: .trailing) {
-            RoundedRectangle(cornerRadius: DesignTokens.radiusCard)
-                .fill(DesignTokens.surfaceCardSelected)
-                .frame(width: ReaderSurfaceSpec.cardTrailingAllowance + DesignTokens.radiusCard)
-                .offset(x: (ReaderSurfaceSpec.cardTrailingAllowance + DesignTokens.radiusCard) / 2)
-                .opacity(selected ? 1 : 0)
-        }
-        .overlay(
-            RoundedRectangle(cornerRadius: DesignTokens.radiusCard)
-                .strokeBorder(selected ? DesignTokens.cardSelectedBorder : DesignTokens.borderHairline,
-                              lineWidth: selected ? 1 : 0.5)
-        )
-        .overlay(alignment: .trailing) {
             Rectangle()
-                .fill(DesignTokens.surfaceCardSelected)
-                .frame(width: 2)
-                .opacity(selected ? 1 : 0)
+                .fill(selected ? DesignTokens.surfaceCardSelected : (hovered ? DesignTokens.surfaceHover : DesignTokens.surfaceList))
+                .shadow(color: DesignTokens.shadowColor.opacity(selected ? MailElevationSpec.selectedOpacity : MailElevationSpec.rowOpacity),
+                        radius: selected ? MailElevationSpec.selectedRadius : MailElevationSpec.rowRadius,
+                        x: 0,
+                        y: selected ? MailElevationSpec.selectedY : MailElevationSpec.rowY)
         }
-        .contentShape(RoundedRectangle(cornerRadius: DesignTokens.radiusCard))
+        .zIndex(selected ? 1 : 0)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(DesignTokens.borderHairline).frame(height: 0.5)
+        }
+        .contentShape(Rectangle())
         .onHover { hovered = $0 }
         .animation(DesignTokens.Motion.animation(duration: DesignTokens.Motion.micro,
                                                  reduceMotion: reduceMotion), value: hovered)
         .animation(DesignTokens.Motion.animation(duration: DesignTokens.Motion.micro,
                                                  reduceMotion: reduceMotion), value: selected)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(entry.fromAddress ?? ""), \(entry.subject ?? "")\(isUnread ? ", \(L10n.t("segment.new"))" : "")")
+        .accessibilityLabel("\(SenderPresentation(entry.fromAddress).name), \(entry.subject ?? "")\(isUnread ? ", \(L10n.t("segment.new"))" : "")")
     }
 }

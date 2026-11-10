@@ -45,6 +45,29 @@ struct HeaderFirstTests {
         #expect(fd?.flags.contains("\\Seen") == false)
     }
 
+    @Test("SYNC-014 BODY[] quoted string 也是合法正文响应")
+    func sync_014_quoted_body_fetch() throws {
+        struct QuotedTransport: ImapTransport {
+            func send(_ command: ImapCommand) throws -> [UInt8] {
+                Array("* 1 FETCH (UID 7 BODY[] \"plain body\")\r\nA1 OK done\r\n".utf8)
+            }
+        }
+        let engine = ImapSyncEngine(accountFingerprint: "a")
+        let body = try engine.fetchBody(uid: 7, transport: QuotedTransport())
+        #expect(String(decoding: body ?? [], as: UTF8.self) == "plain body")
+    }
+
+    @Test("SYNC-014 quoted string 保持 UTF-8 中文与标点")
+    func sync_014_quoted_utf8_body_fetch() throws {
+        struct QuotedTransport: ImapTransport {
+            func send(_ command: ImapCommand) throws -> [UInt8] {
+                Array("* 1 FETCH (UID 7 BODY[] \"Zeplin – 你好\")\r\nA1 OK done\r\n".utf8)
+            }
+        }
+        let body = try ImapSyncEngine(accountFingerprint: "a").fetchBody(uid: 7, transport: QuotedTransport())
+        #expect(String(decoding: body ?? [], as: UTF8.self) == "Zeplin – 你好")
+    }
+
     @Test("SYNC-015 快照持久化：重启只拉增量")
     func sync_015_snapshot_persisted() throws {
         let dir = FileManager.default.temporaryDirectory

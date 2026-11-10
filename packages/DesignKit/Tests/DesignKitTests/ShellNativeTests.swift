@@ -19,12 +19,20 @@ struct ShellNativeTests {
 
     @Test("JOURNEY-008 三栏壳可离屏渲染（NavigationSplitView 骨架冒烟）")
     func journey_008_splitview_skeleton() async throws {
-        let model = await MailoAppModel.bootstrapDemo()
-        let shell = MailoShell(model: model)
+        let model = await MailoAppModel.bootstrapReferenceDemo()
+        let shell = MailoShell(model: model).environment(\.colorScheme, .light)
         #if os(macOS)
         let host = NSHostingView(rootView: shell)
+        host.appearance = NSAppearance(named: .aqua)
         host.frame = NSRect(x: 0, y: 0, width: 1280, height: 820)
         host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(100))
+        if ProcessInfo.processInfo.environment["MAILO_CAPTURE"] != nil {
+            let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: image)
+            try image.representation(using: .png, properties: [:])?.write(
+                to: URL(fileURLWithPath: "/tmp/mailo-list-light.png"))
+        }
         #endif
         #expect(model.phase == .demo)
         #expect(!model.entries.isEmpty, "demo 装配后列表非空")
@@ -41,10 +49,12 @@ struct ShellNativeTests {
                                         fromAddress: "layout@x.co")])
         try model.load(bucket: .screener)
 
-        let host = NSHostingView(rootView: MailoShell(model: model, initialSelection: stableID.value))
+        let host = NSHostingView(rootView: MailoShell(model: model, initialSelection: stableID.value, initialSegment: 1)
+            .environment(\.colorScheme, .light))
+        host.appearance = NSAppearance(named: .aqua)
         host.frame = NSRect(x: 0, y: 0, width: 1280, height: 820)
         host.layoutSubtreeIfNeeded()
-        try await Task.sleep(for: .milliseconds(120))
+        try await Task.sleep(for: .milliseconds(350))
         host.layoutSubtreeIfNeeded()
 
         let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
@@ -52,6 +62,30 @@ struct ShellNativeTests {
         #expect(image.size.width == 1280 && image.size.height == 820)
         if ProcessInfo.processInfo.environment["MAILO_CAPTURE"] != nil {
             try image.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: "/tmp/mailo-shell-html.png"))
+        }
+        #endif
+    }
+
+    @Test("DESIGN-007 默认与最小窗口的浅色阅读态可渲染")
+    func design_007_reference_window_rendering() async throws {
+        #if os(macOS)
+        let model = await MailoAppModel.bootstrapReferenceDemo()
+        let stableID = try #require(model.entries.first(where: { $0.subject?.contains("Visual Design") == true })?.stableId)
+        for (width, height) in [(1280, 820), (960, 600)] {
+            let host = NSHostingView(rootView: MailoShell(model: model, initialSelection: stableID)
+                .environment(\.colorScheme, .light))
+            host.appearance = NSAppearance(named: .aqua)
+            host.frame = NSRect(x: 0, y: 0, width: width, height: height)
+            host.layoutSubtreeIfNeeded()
+            try await Task.sleep(for: .milliseconds(350))
+            host.layoutSubtreeIfNeeded()
+            let image = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: image)
+            #expect(image.size.width == CGFloat(width) && image.size.height == CGFloat(height))
+            if ProcessInfo.processInfo.environment["MAILO_CAPTURE"] != nil {
+                try image.representation(using: .png, properties: [:])?.write(
+                    to: URL(fileURLWithPath: "/tmp/mailo-reference-\(width).png"))
+            }
         }
         #endif
     }
@@ -95,6 +129,20 @@ struct ShellNativeTests {
         #expect(!MailCommandAvailability(selection: "x", isReading: false).canAct)
         let reading = MailCommandAvailability(selection: "x", isReading: true)
         #expect(reading.canReply && reading.canForward && reading.canAct)
+    }
+
+    @Test("JOURNEY-009 根模型转发 active model 变化以刷新 Commands")
+    func journey_009_root_forwards_active_model_changes() async throws {
+        let model = await MailoAppModel.bootstrapDemo()
+        let root = MailoRootModel(live: model)
+        var emissions = 0
+        let observer = root.objectWillChange.sink { _ in emissions += 1 }
+        model.setReading(model.entries.first?.stableId)
+        await Task.yield()
+        await Task.yield()
+        #expect(emissions > 0)
+        #expect(MailCommandAvailability(selection: model.readingStableId, isReading: true).canReply)
+        observer.cancel()
     }
 
     @Test("JOURNEY-009 手动同步可用性随连接状态")

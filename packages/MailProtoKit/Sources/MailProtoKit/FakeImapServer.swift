@@ -174,11 +174,18 @@ public final class FakeImapServer: ImapTransport, @unchecked Sendable {
         let subject = headers["subject"].map { Self.quote($0) } ?? "NIL"
         let from: String
         if let addr = headers["from"] {
-            let pieces = addr.split(separator: "@")
+            var display = "NIL"
+            var address = addr
+            if let opening = addr.lastIndex(of: "<"), addr.last == ">" {
+                let name = addr[..<opening].trimmingCharacters(in: .whitespaces)
+                if !name.isEmpty { display = Self.quote(name) }
+                address = String(addr[addr.index(after: opening)..<addr.index(before: addr.endIndex)])
+            }
+            let pieces = address.split(separator: "@")
             if pieces.count == 2 {
-                from = "((NIL NIL \(Self.quote(String(pieces[0]))) \(Self.quote(String(pieces[1])))))"
+                from = "((\(display) NIL \(Self.quote(String(pieces[0]))) \(Self.quote(String(pieces[1])))))"
             } else {
-                from = "((NIL NIL \(Self.quote(addr)) NIL))"
+                from = "((\(display) NIL \(Self.quote(address)) NIL))"
             }
         } else {
             from = "NIL"

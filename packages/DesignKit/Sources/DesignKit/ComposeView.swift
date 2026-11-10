@@ -2,7 +2,7 @@ import AuthKit
 import CoreKit
 import SwiftUI
 
-/// Slate Concept 撰写页（JOURNEY-006/011）：Reply/Forward 预填 → SMTP 发送。
+/// Inbox Reference 撰写页（JOURNEY-006/011）：Reply/Forward 预填 → SMTP 发送。
 /// ⌘↩ 发送；所有字段与按钮使用双主题 token。
 public struct ComposeView: View {
     @ObservedObject var model: MailoAppModel

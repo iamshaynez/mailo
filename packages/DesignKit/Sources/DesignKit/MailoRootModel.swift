@@ -1,3 +1,4 @@
+import Combine
 import CoreKit
 import Foundation
 import MirrorKit
@@ -15,9 +16,19 @@ public final class MailoRootModel: ObservableObject {
 
     /// 撰写会话（macOS 独立窗口 / iOS sheet 共享的草稿状态）。
     @Published public var composeDraft: ComposeDraft?
+    private var liveObserver: AnyCancellable?
+    private var demoObserver: AnyCancellable?
 
     public init(live: MailoAppModel) {
         self.live = live
+        liveObserver = forwardChanges(from: live)
+    }
+
+    /// Commands 观察根模型；把 live/demo 的 @Published 变化转发给菜单可用性（JOURNEY-009）。
+    private func forwardChanges(from model: MailoAppModel) -> AnyCancellable {
+        model.objectWillChange.sink { [weak self] _ in
+            Task { @MainActor in self?.objectWillChange.send() }
+        }
     }
 
     /// 当前渲染的数据源（Demo 模式优先）。
@@ -31,11 +42,14 @@ public final class MailoRootModel: ObservableObject {
     /// 可测入口：装配完成才返回。
     public func enterDemoAndWait() async {
         guard demo == nil else { return }
-        demo = await MailoAppModel.bootstrapDemo() // 无 store 参数 → 独立内存库
+        let next = await MailoAppModel.bootstrapReferenceDemo() // 无 store 参数 → 独立内存库
+        demo = next
+        demoObserver = forwardChanges(from: next)
     }
 
     /// 退出 Demo：丢弃内存库与模型，回到 live（账户页或已连接状态）。
     public func exitDemo() {
         demo = nil
+        demoObserver = nil
     }
 }

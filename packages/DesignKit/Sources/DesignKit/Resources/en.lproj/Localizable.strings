@@ -1,6 +1,21 @@
 /* Mailo · en (development language, DESIGN-003) */
 
 /* Navigation */
+"nav.mail" = "Mail";
+"nav.chat" = "Chat";
+"nav.spaces" = "Spaces";
+"nav.call" = "Call";
+"nav.compose" = "Compose";
+"nav.inbox" = "Inbox";
+"nav.starred" = "Starred";
+"nav.snoozed" = "Snoozed";
+"nav.sent" = "Sent";
+"nav.draft" = "Draft";
+"nav.more" = "More";
+"nav.labels" = "LABELS";
+"nav.settings" = "Settings";
+"common.notAvailable" = "Not available yet";
+"segment.all" = "All";
 "nav.section.mailboxes" = "NAVIGATION";
 "nav.section.decide" = "ORGANIZE";
 "bucket.imbox" = "Imbox";
@@ -14,7 +29,7 @@
 "account.notConnected" = "Not connected";
 
 /* Toolbar */
-"toolbar.search.placeholder" = "Search a message, contact or object…";
+"toolbar.search.placeholder" = "Search for message…";
 "toolbar.compose" = "Compose";
 "account.online" = "Available";
 "account.menu" = "Account and Settings";
@@ -38,6 +53,9 @@
 "list.loadingMore" = "Loading earlier mail…";
 "search.title" = "Search Results";
 "search.empty" = "No results";
+"search.clear" = "Clear search";
+"list.filter" = "Mail filter: %@";
+"reader.attachments" = "%d attachments";
 "row.noSubject" = "(no subject)";
 "row.unknown" = "unknown";
 "date.undated" = "Undated";
@@ -65,7 +83,19 @@
 "reader.realPerson" = "Real person ✓";
 "reader.noBody" = "(no body preview)";
 "reader.select" = "Select a message";
+"reader.back" = "Back to messages";
 "reader.calm" = "Imbox is calm.";
+"reader.addressLine" = "%@ to %@";
+"reader.me" = "me";
+"reader.bodyUnavailable" = "The server returned no message body. Check the connection and retry.";
+"quickReply.referenceDraft" = "Hello John, I have no idea what this message about";
+
+/* Quick reply */
+"quickReply.placeholder" = "Reply to %@…";
+"quickReply.expand" = "Open full composer";
+"quickReply.send" = "Send reply";
+"quickReply.sent" = "Sent";
+"quickReply.demo" = "Sending is unavailable in Demo";
 
 /* Compose */
 "compose.title" = "New Message";

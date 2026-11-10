@@ -78,4 +78,32 @@ struct ConnectionHealingTests {
             return
         }
     }
+
+    @Test("JOURNEY-014 BODY 空响应进入可重试失败而非 no body preview")
+    func journey_014_empty_body_response_is_failure() async throws {
+        final class EmptyBodyTransport: ImapTransport, @unchecked Sendable {
+            func send(_ command: ImapCommand) throws -> [UInt8] {
+                Array("* 1 FETCH (UID 4 BODY[] NIL)\r\nA1 OK done\r\n".utf8)
+            }
+        }
+
+        let server = FakeImapServer(mailboxes: ["INBOX": .init(uidValidity: 6, messages: [
+            Message(uid: 4, raw: Array("Message-ID: <empty@x>\r\nFrom: a@h.co\r\nSubject: empty response\r\n\r\nactual body".utf8)),
+        ])])
+        let model = MailoAppModel(store: try MirrorStore(), pipeline: ClassificationPipeline())
+        try await model.attach(
+            account: AccountConfig(displayName: "t", imapHost: "h", smtpHost: "s", username: "u@t", secretRef: "r"),
+            transport: server)
+        guard var runner = model.runnerSnapshotForTesting(), let target = try model.store.search("empty response").first?.stableId else {
+            Issue.record("前置邮件应已入库"); return
+        }
+        runner.transport = EmptyBodyTransport()
+        model.swapRunnerForTesting(runner)
+
+        let state = await model.loadDetail(stableId: target)
+        guard case .failed = state else {
+            Issue.record("空 BODY 应 failed，而非 loaded no body：\(state)")
+            return
+        }
+    }
 }
