@@ -28,8 +28,9 @@
 
 - m + 圆点 Logo 居中，顶部 20、底部 16；不带 Mailo 字标。
 - 导航行高 34，左右图标/文字间距 10；选中为全宽矩形 + 左侧 3pt 绿条，无胶囊。
-- 顺序严格为 Mail / Chat / Spaces / Call / Compose，然后 Inbox / Starred / Snoozed / Sent / Draft / More，再是 Labels +。
-- 不显示账户卡片、隐私页脚或绿色 Compose 大按钮。未开放模块保持视觉槽位但不执行假动作；真实桶、筛选、设置与退出 Demo 收进 More。
+- **v2 信息架构（JOURNEY-025，零假项）**：顺序严格为 **Screener**（置顶门卫，待定计数）→ 分隔线 → **Imbox / Feed / Paper Trail**（可展开桶内组列表，组行缩进 + micro 字号）→ 分隔线 → **Set Aside**；底部弹性留白后为 写邮件 / 设置（iOS）/ 立即同步 / 退出 Demo（仅 demo）。
+- 组行：缩进一级、无图标、计数右对齐；「未分组」行恒在（n>0）；点击组 = 桶+组过滤，点击桶行 = 回整桶。组列表按计数倒序。
+- 零假项：不保留无动作槽位（Mail/Chat/Spaces/Call/Starred/Snoozed/Sent/Draft/Labels 已移除）；分段筛选（All/New/Previously seen）在列表头漏斗菜单（JOURNEY-018 语义不变）。macOS 设置走系统菜单（⌘,）。
 
 ### 列表
 
@@ -37,7 +38,7 @@
 - 邮件行高 98，全宽，无卡片圆角、左右缩进或选中左条；普通/选中行均为白色，底部 0.5 hairline。
 - 原图层次必须保留：搜索行 shadow 6/y3/opacity 0.06；普通行 shadow 6/y3/opacity 0.06；选中行 shadow 14/y4/opacity 0.12；列表右缘向阅读区投影 12/x4/opacity 0.10。阴影不拦截点击、不改变布局尺寸。
 - 头像 26；内容顺序为「发件人＋时间＋未读点 → 主题 → 最多两行摘要」。未读粗体+绿点，已读 regular。
-- 默认 **All**，已读与未读混合展示；New / Previously seen / Set aside 在 More 中可选。
+- 默认 **All**，已读与未读混合展示；New / Previously seen / Set aside 在列表头漏斗菜单可选（JOURNEY-018）；活动组过滤以可清除 chip 呈现于列表头（JOURNEY-026）。
 
 ### 阅读区
 

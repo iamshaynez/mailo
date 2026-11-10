@@ -221,7 +221,7 @@
 - **Given** 固定参考图、Light、默认/最小窗口，以及包含六封邮件和图片附件的 Demo fixture
 - **When** 离屏或真实窗口渲染主壳、列表行、阅读区，或改变窗口尺寸与选中邮件
 - **Then** 三栏 139/345/414（比例 15.48/38.42/46.10），搜索 42、行高 98、列表头像 26、阅读头像 26、内容左右 20/44、附件 104×100、回复卡 60 符合规范；选中不改变布局尺寸
-- **And** 参考窗口包含完整侧栏顺序、六行长摘要、三图附件和独立 Send；默认 All 混合已读/未读；compact 回复区不遮挡正文
+- **And** 参考窗口包含完整侧栏顺序（JOURNEY-025 v2：Screener 置顶 → Imbox/Feed/Paper Trail → Set Aside）、六行长摘要、三图附件和独立 Send；默认 All 混合已读/未读；compact 回复区不遮挡正文
 - **Status**: green
 - **Tests**: `design_007_reference_layout_metrics`, `design_007_reader_body_viewport`, `design_007_sender_presentation`, `design_007_reference_window_rendering`, `design_007_reference_demo_fixture`
 
@@ -232,3 +232,19 @@
 - **And** 真实发送使用 X 的 To/Re: Subject 与用户正文+引用；成功仅清理 X 的对应文本，失败保留文本并显示可重试错误；发送期间切换邮件不得清理另一封草稿；Demo 不模拟网络成功
 - **Status**: green
 - **Tests**: `journey_024_drafts_are_isolated`, `journey_024_send_state_and_stale_completion`, `journey_024_quick_reply_payload`
+
+## JOURNEY-025 侧栏信息架构 v2（回归 HEY 方法论，零假项）
+- **Given** 已连接（或 demo）状态渲染侧栏
+- **When** 呈现导航
+- **Then** 结构为：**Screener 置顶第一项**（门卫心智，含待定计数）→ 分隔 → Imbox / Feed / Paper Trail（三桶，可展开组列表）→ 分隔 → Set Aside；底部为写邮件（保留 canCompose 门控）与设置（iOS）/立即同步/退出 Demo（仅 demo 时）
+- **And** **零假项**：聊天/空间/通话/星标/稍后/已发送/草稿/标签槽/More 菜单一律移除（侧栏构成由纯模型 `SidebarIA` 提供，测试锁定：每一项都有真实动作或真实计数）；分段筛选（All/New/Previously seen，JOURNEY-018 语义不变）移至列表头漏斗菜单；导航桶顺序与 Bucket.navBuckets 一致（blocked 永不出现）
+- **Status**: green
+- **Tests**: `journey_025_sidebar_ia_v2`, `journey_025_no_fake_nav_items`
+
+## JOURNEY-026 桶内组导航与手动归组
+- **Given** 桶 B 内邮件已带组（模型自动或既有手动），侧栏 B 行可展开
+- **When** 展开 B、点击组行，或在阅读窗格对邮件 X 触发「归入分组」
+- **Then** 展开显示组列表（组名+计数，按计数倒序；「未分组」行恒显示且 n>0 才出现）；点击组 → 列表过滤为 B+组，列表头显示可清除的过滤 chip，清除回到整桶；点击桶行回到整桶（清除组过滤）
+- **And** 手动归组（阅读窗格入口，与 JOURNEY-017 手动纠正并列）：选既有组或输入新组名 → 生成 senderExact→组 TagRule（CLS-012）、该发件人在 B 内全部邮件即刻改组、侧栏组计数即时刷新；桶计数与组计数在同步/纠正/删除后随 bucketCounts 一并刷新
+- **Status**: green
+- **Tests**: `journey_026_tag_navigation_filter`, `journey_026_manual_assign_tag`

@@ -37,3 +37,11 @@
 - **Then** 往返无丢失；准确率/分桶计数正确（发版门禁的计算内核）
 - **Status**: draft
 - **Tests**: `ml_005_golden_report_and_jsonl`
+
+## ML-006 组原型向量：桶内最近组投票 + 手动归组滚动自学习（基线 §5④ 的组维度延伸）
+- **Given** 桶 B 内组 T1/T2 各有原型向量，新邮件 embedding 与 T1 原型余弦更高
+- **When** `classifyTag(bucket: B, embedding:)`
+- **Then** 建议 (T1, 置信度)；置信度 = 区分度（同 ML-002 语义：一边倒→高、近平票→低）；**仅在已定桶内投票**（组建议不改变桶判定）；该桶无组原型 → 返回 nil（交 CLS-013 阈值判空）
+- **And** 手动归组后 `updateTag(bucket:tag:embedding:)` 滚动更新组原型，同组后续邮件建议即时生效（ML-003 自学习镜像）；满窗丢最旧（复用 windowSize）
+- **Status**: green
+- **Tests**: `ml_006_tag_prototype_voting`, `ml_006_tag_prototype_self_learning`

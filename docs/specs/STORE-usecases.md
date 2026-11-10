@@ -86,3 +86,11 @@
 - **Then** 返回该文件夹最早已知 uid（min(uid)，水位即其下沿）；空库返回 nil；无 schema 迁移
 - **Status**: green
 - **Tests**: `store_012_oldest_uid`
+
+## STORE-013 v4-tags 迁移与桶内组查询
+- **Given** v3 存量库（classification 无 tag 列）与新库
+- **When** MirrorStore 初始化自动执行 `v4-tags`（`ALTER TABLE classification ADD COLUMN tag TEXT`，可空）
+- **Then** 存量库升级后 tag 列存在且既有行为不变；新库同 schema；迁移登记 MIGRATIONS.md 与 releasedMigrations（STORE-009 契约锁定）
+- **And** 组查询：`applyClassification` 可带 tag 落库；`entries(bucket:tag:)` 按 `TagFilter`（all / tagged(T) / untagged）过滤且保持日期倒序与 limit；`tagCounts(bucket:)` 返回组名+计数（按计数倒序、未分组不计入，空组不出现）；`setTag(stableId:tag:)` 单封改组幂等；`setTag(sender:bucket:tag:)` 发件人批量改组（CLS-012 即刻生效）；tag 变更不影响 bucket/reason/冻结
+- **Status**: green
+- **Tests**: `store_013_tag_migration_and_queries`, `store_013_set_tag_sender_bulk`

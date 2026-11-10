@@ -9,6 +9,7 @@
 | v1 | mail / classification 表 + FTS5（trigram + 触发器） | 2026-11-07 |
 | v2-sync-state | 存量库补 sync_state（快照持久化，SYNC-015） | 2026-11-08 |
 | v3-meta | meta 表（schema/app 版本绑定与诊断） | 2026-11-08 |
+| v4-tags | classification 加可空 tag 列（桶内子分组，STORE-013） | 2026-11-10 |
 
 ## 新增迁移 checklist
 1. `makeMigrator()` 注册 `vN-短描述`（N = 上一版本 +1）
