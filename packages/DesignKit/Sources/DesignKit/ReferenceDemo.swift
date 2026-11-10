@@ -61,6 +61,7 @@ public extension MailoAppModel {
                                     username: "demo@local", secretRef: "demo")
         try? await model.attach(account: account, transport: server)
         fixture.applySnippets(to: store)
+        fixture.applyDemoGroups(to: model) // JOURNEY-026：演示桶内组即刻可见
         try? model.load(bucket: .imbox)
         model.activateDemoPhase()
         return model
@@ -119,6 +120,22 @@ private struct ReferenceDemoFixture {
                   let item = items.first(where: { entry.subject == $0.subject }) else { continue }
             row.snippet = item.snippet
             try? store.upsert(row)
+        }
+    }
+
+    /// Demo 桶内组（JOURNEY-026）：给六封示例邮件归入三个组，侧栏组列表即刻真实可点。
+    @MainActor
+    func applyDemoGroups(to model: MailoAppModel) {
+        let groups: [String: MailTag] = [
+            "penny": MailTag("设计"), "john": MailTag("设计"),
+            "fakri": MailTag("产品"), "musi": MailTag("产品"),
+            "pooja": MailTag("营销"), "neha": MailTag("营销"),
+        ]
+        guard let entries = try? model.store.entries(bucket: .imbox) else { return }
+        for entry in entries {
+            let address = SenderPresentation(entry.fromAddress).address.lowercased()
+            guard let tag = groups.first(where: { address.hasPrefix("\($0.key)@") })?.value else { continue }
+            try? model.assignTag(stableId: entry.stableId, tag: tag)
         }
     }
 

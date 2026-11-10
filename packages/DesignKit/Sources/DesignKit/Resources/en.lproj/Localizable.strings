@@ -1,23 +1,12 @@
 /* Mailo · en (development language, DESIGN-003) */
 
-/* Navigation */
-"nav.mail" = "Mail";
-"nav.chat" = "Chat";
-"nav.spaces" = "Spaces";
-"nav.call" = "Call";
+/* Navigation (JOURNEY-025 IA v2: HEY methodology, zero fake items) */
 "nav.compose" = "Compose";
-"nav.inbox" = "Inbox";
-"nav.starred" = "Starred";
-"nav.snoozed" = "Snoozed";
-"nav.sent" = "Sent";
-"nav.draft" = "Draft";
-"nav.more" = "More";
-"nav.labels" = "LABELS";
 "nav.settings" = "Settings";
-"common.notAvailable" = "Not available yet";
+"common.cancel" = "Cancel";
+"sidebar.untagged" = "Untagged";
 "segment.all" = "All";
 "nav.section.mailboxes" = "NAVIGATION";
-"nav.section.decide" = "ORGANIZE";
 "bucket.imbox" = "Imbox";
 "bucket.feed" = "Feed";
 "bucket.paperTrail" = "Paper Trail";
@@ -55,6 +44,13 @@
 "search.empty" = "No results";
 "search.clear" = "Clear search";
 "list.filter" = "Mail filter: %@";
+"list.segments" = "Segments";
+
+/* Bucket groups (JOURNEY-026) */
+"tag.assign" = "Group As…";
+"tag.new" = "New Group…";
+"tag.namePlaceholder" = "Group name";
+"tag.assignHint" = "Groups every mail from this sender in this bucket.";
 "reader.attachments" = "%d attachments";
 "row.noSubject" = "(no subject)";
 "row.unknown" = "unknown";

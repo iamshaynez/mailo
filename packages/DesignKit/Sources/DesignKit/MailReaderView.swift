@@ -44,6 +44,9 @@ struct MailReaderView: View {
     @State private var bodyOffset: CGFloat = 0
     @State private var headerHeight: CGFloat = 88
     @State private var replyHeight: CGFloat = DesignTokens.quickReplyHeight + 16
+    /// 手动归组（JOURNEY-026）：新组名输入弹窗。
+    @State private var showNewTag = false
+    @State private var newTagName = ""
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -78,6 +81,17 @@ struct MailReaderView: View {
         .onAppear { startLoad() }
         .onChange(of: stableId) { _ in startLoad() }
         .onDisappear { loadTask?.cancel() }
+        .alert(L10n.t("tag.new"), isPresented: $showNewTag) {
+            TextField(L10n.t("tag.namePlaceholder"), text: $newTagName)
+            Button(L10n.t("tag.assign")) {
+                let trimmed = newTagName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return }
+                try? model.assignTag(stableId: stableId, tag: MailTag(trimmed))
+            }
+            Button(L10n.t("common.cancel"), role: .cancel) {}
+        } message: {
+            Text(L10n.t("tag.assignHint"))
+        }
     }
 
     @ViewBuilder
@@ -223,6 +237,7 @@ struct MailReaderView: View {
                     try? model.reclassify(stableId: stableId, to: .blocked)
                 }
             }
+            tagSection
             Divider()
             Button(L10n.t("reader.menu.markUnread")) { model.markUnread(stableId: stableId) }
             Button(L10n.t("reader.menu.copySender")) { Clipboard.copy(SenderPresentation(senderAddress).address) }
@@ -239,6 +254,24 @@ struct MailReaderView: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .accessibilityLabel(L10n.t("reader.menu.notBucket", ownBucket.title))
+    }
+
+    /// 归入分组（JOURNEY-026）：与本桶既有组 + 新建组名；发件人级显式规则（CLS-012）。
+    @ViewBuilder
+    private var tagSection: some View {
+        if ownBucket.isTagNavigable {
+            Divider()
+            Section(L10n.t("tag.assign")) {
+                let groups = model.tagCounts[ownBucket.rawValue] ?? []
+                ForEach(groups, id: \.tag) { group in
+                    Button(group.tag.name) { try? model.assignTag(stableId: stableId, tag: group.tag) }
+                }
+                Button(L10n.t("tag.new")) {
+                    newTagName = ""
+                    showNewTag = true
+                }
+            }
+        }
     }
 
     private var screenerDecisions: some View {

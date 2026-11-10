@@ -1,23 +1,12 @@
 /* Mailo · zh-Hans（简体中文，DESIGN-003 第一翻译语言） */
 
-/* Navigation */
-"nav.mail" = "邮件";
-"nav.chat" = "聊天";
-"nav.spaces" = "空间";
-"nav.call" = "通话";
+/* Navigation (JOURNEY-025 IA v2：HEY 方法论，零假项) */
 "nav.compose" = "写邮件";
-"nav.inbox" = "收件箱";
-"nav.starred" = "星标";
-"nav.snoozed" = "稍后";
-"nav.sent" = "已发送";
-"nav.draft" = "草稿";
-"nav.more" = "更多";
-"nav.labels" = "标签";
 "nav.settings" = "设置";
-"common.notAvailable" = "此功能尚未开放";
+"common.cancel" = "取消";
+"sidebar.untagged" = "未分组";
 "segment.all" = "全部";
 "nav.section.mailboxes" = "导航";
-"nav.section.decide" = "归类";
 "bucket.imbox" = "Imbox";
 "bucket.feed" = "Feed";
 "bucket.paperTrail" = "Paper Trail";
@@ -55,6 +44,13 @@
 "search.empty" = "无结果";
 "search.clear" = "清除搜索";
 "list.filter" = "邮件筛选：%@";
+"list.segments" = "分段筛选";
+
+/* 桶内分组（JOURNEY-026） */
+"tag.assign" = "归入分组";
+"tag.new" = "新建分组…";
+"tag.namePlaceholder" = "分组名称";
+"tag.assignHint" = "该发件人在此桶内的全部邮件都会归入该组。";
 "reader.attachments" = "%d 个附件";
 "row.noSubject" = "（无主题）";
 "row.unknown" = "未知发件人";

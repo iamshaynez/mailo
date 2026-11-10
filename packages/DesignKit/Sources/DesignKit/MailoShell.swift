@@ -217,22 +217,57 @@ private struct MainSurface: View {
                                                  reduceMotion: reduceMotion), value: searchText.isEmpty)
     }
 
-    /// 参考稿列表顶栏：42pt 白色搜索行，无额外筛选或进度面板。
+    /// 参考稿列表顶栏：42pt 白色搜索行；组过滤 chip 与分段漏斗随行（JOURNEY-018/026）。
     private var listHeader: some View {
-        searchField
-            .padding(.leading, 16)
-            .padding(.trailing, 12)
-            .frame(height: DesignTokens.titleBarHeight)
-            .background {
-                Rectangle()
-                    .fill(DesignTokens.surfaceCard)
-                    .shadow(color: DesignTokens.shadowColor.opacity(MailElevationSpec.headerOpacity),
-                            radius: MailElevationSpec.headerRadius, x: 0, y: MailElevationSpec.headerY)
+        HStack(spacing: 8) {
+            searchField
+            if searchText.isEmpty { segmentMenu }
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, 12)
+        .frame(height: DesignTokens.titleBarHeight)
+        .background {
+            Rectangle()
+                .fill(DesignTokens.surfaceCard)
+                .shadow(color: DesignTokens.shadowColor.opacity(MailElevationSpec.headerOpacity),
+                        radius: MailElevationSpec.headerRadius, x: 0, y: MailElevationSpec.headerY)
+        }
+        .zIndex(1)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(DesignTokens.borderHairline).frame(height: 0.5)
+        }
+    }
+
+    /// 分段漏斗（JOURNEY-018 语义不变；v2 从侧栏 More 移到列表头，JOURNEY-025）。
+    private var segmentMenu: some View {
+        Menu {
+            segmentButton(title: L10n.t("segment.all"), value: -1)
+            segmentButton(title: L10n.t("segment.new"), value: 0)
+            segmentButton(title: L10n.t("segment.seen"), value: 1)
+            segmentButton(title: L10n.t("segment.aside"), value: 2)
+        } label: {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .font(DesignTokens.Typo.iconSmall)
+                .foregroundColor(segment != -1 ? DesignTokens.accentDeep : DesignTokens.searchMuted)
+                .frame(width: 22, height: 22)
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .accessibilityLabel(Text(L10n.t("list.segments")))
+    }
+
+    private func segmentButton(title: String, value: Int) -> some View {
+        Button {
+            segment = value
+        } label: {
+            if segment == value {
+                Label(title, systemImage: "checkmark")
+            } else {
+                Text(title)
             }
-            .zIndex(1)
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(DesignTokens.borderHairline).frame(height: 0.5)
-            }
+        }
     }
 
     private var searchField: some View {

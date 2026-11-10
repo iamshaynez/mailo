@@ -548,7 +548,7 @@ public final class MailoAppModel: ObservableObject {
         }.value
 
         var rows: [MailRow] = []
-        var newFrozen: [(StableMessageID, Bucket, String)] = []
+        var newFrozen: [(StableMessageID, Bucket, String, MailTag?)] = []
         for (row, stable, signal, alreadyFrozen) in prepared {
             rows.append(row)
             guard !alreadyFrozen else { continue } // 冻结幂等（CLS-005）
@@ -561,17 +561,21 @@ public final class MailoAppModel: ObservableObject {
                 decision = ClassificationPipeline.applyModel(
                     verdict, guess: ModelGuess(bucket: .screener, confidence: 0.3)) // 待 MlKit 真模型接入
             }
+            // 组判定（CLS-012/013）：TagRule 命中直达；模型组建议待 MlKit 真模型接入
+            let tag = ClassificationPipeline.applyTag(ruleHit: pipeline.decideTag(signal), guess: nil)
             switch decision {
             case .bucket(let bucket, let reason):
-                newFrozen.append((stable, bucket, "\(reason)"))
+                newFrozen.append((stable, bucket, "\(reason)", tag))
             case .screener:
-                newFrozen.append((stable, .screener, "belowThreshold"))
+                newFrozen.append((stable, .screener, "belowThreshold", tag))
             }
         }
         // 批量写（单事务）
         try store.upsertBatch(rows)
-        try store.freezeBatch(newFrozen.map { ClassificationRow(stableId: $0.0.value, bucket: $0.1, reason: $0.2) })
-        for (stable, bucket, _) in newFrozen {
+        try store.freezeBatch(newFrozen.map {
+            ClassificationRow(stableId: $0.0.value, bucket: $0.1, reason: $0.2, tag: $0.3)
+        })
+        for (stable, bucket, _, _) in newFrozen {
             pipeline.frozen[stable] = bucket
         }
     }
@@ -755,11 +759,22 @@ public protocol MlGuessProviding: Sendable {
     /// 桶计数（load 后刷新，供侧栏徽章）。
     public private(set) var bucketCounts: [String: Int] = [:]
 
+    /// 桶内组计数（JOURNEY-026；key = bucket rawValue，值按计数倒序，未分组不计入）。
+    @Published public private(set) var tagCounts: [String: [TagCount]] = [:]
+
+    /// 当前组过滤（JOURNEY-026）：.all = 整桶；点组行切换。
+    @Published public private(set) var tagFilter: TagFilter = .all
+
     /// Screener 待定数（STORE-006 计数的单一来源；决策/Block 后自动消减）。
     public var screenerCount: Int { bucketCounts[Bucket.screener.rawValue] ?? 0 }
 
     public func refreshCounts() {
         bucketCounts = (try? store.bucketCounts()) ?? [:]
+        var tags: [String: [TagCount]] = [:]
+        for bucket in Bucket.allCases where bucket.isTagNavigable {
+            tags[bucket.rawValue] = (try? store.tagCounts(bucket: bucket)) ?? []
+        }
+        tagCounts = tags
     }
 
     // MARK: - 阅读与桶动作（JOURNEY-012/013/017 · CLS-011）
@@ -918,7 +933,9 @@ public protocol MlGuessProviding: Sendable {
     }
 
     private func refreeze(stableId: String, to bucket: Bucket, reason: String) throws {
-        try store.freeze(ClassificationRow(stableId: stableId, bucket: bucket, reason: reason))
+        // 组与桶正交（CLS-012）：桶迁移不改组——save 是整行替换，先取回再写。
+        let tag = try store.classificationTag(stableId: stableId)
+        try store.freeze(ClassificationRow(stableId: stableId, bucket: bucket, reason: reason, tag: tag))
         if let existing = pipeline.frozen.first(where: { $0.key.value == stableId })?.key {
             pipeline.frozen[existing] = bucket
         }
@@ -1064,8 +1081,39 @@ public protocol MlGuessProviding: Sendable {
 
     public func load(bucket: Bucket) throws {
         selectedBucket = bucket
+        tagFilter = .all // 点桶行回整桶：清除组过滤（JOURNEY-026）
         entries = try store.entries(bucket: bucket)
         refreshCounts()
+    }
+
+    /// 组过滤加载（JOURNEY-026）：点组行 → 桶+组视图；TagFilter 语义见 STORE-013。
+    public func load(bucket: Bucket, tag: TagFilter) throws {
+        selectedBucket = bucket
+        tagFilter = tag
+        entries = try store.entries(bucket: bucket, tag: tag)
+        refreshCounts()
+    }
+
+    /// 手动归组（JOURNEY-026 / CLS-012）：senderExact→组 显式规则（LWW 同键替换）+
+    /// 该发件人在该桶内全部邮件即刻改组 + 计数刷新。
+    public func assignTag(stableId: String, tag: MailTag) throws {
+        guard let row = try store.mail(stableId: stableId) else { return }
+        let bucket = try store.classificationBucket(stableId: stableId) ?? selectedBucket
+        if let from = row.fromAddress {
+            let rule = TagRule.assignment(senderAddress: from, tag: tag,
+                                          deviceId: deviceId,
+                                          ts: Int64(Date().timeIntervalSince1970 * 1000))
+            pipeline.tagRules.removeAll { $0.matcher.key == rule.matcher.key } // LWW 同键替换
+            pipeline.tagRules.append(rule)
+            try store.setTag(senderAddress: from, bucket: bucket, tag: tag)
+        } else {
+            try store.setTag(stableId: stableId, tag: tag)
+        }
+        if bucket == selectedBucket {
+            try load(bucket: selectedBucket, tag: tagFilter)
+        } else {
+            refreshCounts()
+        }
     }
 }
 
@@ -1093,6 +1141,17 @@ public extension MailoAppModel {
                                         smtpHost: "demo.local", username: "demo@local",
                                         secretRef: "demo")
         try? await model.attach(account: demoAccount, transport: server)
+        // Demo 桶内组（JOURNEY-026）：feed/paperTrail 各归一组，演示组导航
+        if let entries = try? model.store.entries(bucket: .feed) {
+            if let netflix = entries.first(where: { $0.fromAddress?.contains("netflix") == true }) {
+                try? model.assignTag(stableId: netflix.stableId, tag: MailTag("视频"))
+            }
+        }
+        if let entries = try? model.store.entries(bucket: .paperTrail) {
+            if let amzn = entries.first(where: { $0.fromAddress?.contains("amzn") == true }) {
+                try? model.assignTag(stableId: amzn.stableId, tag: MailTag("购物"))
+            }
+        }
         model.activateDemoPhase()
         return model
     }
