@@ -41,13 +41,20 @@ public struct MockGateway: MlGateway {
 }
 
 /// embedding 原型向量引擎（基线 §5 ④：无向量库、余弦 Top-K 投票、原型滚动自学习）。
+/// 「类目」含两层（基线原文「每类目 K 个原型」的组维度延伸，ML-006）：
+/// 桶级原型（prototypes）判桶；桶内组原型（tagPrototypes）判组。
 public struct PrototypeEngine: Sendable, Equatable {
     /// 每桶 K 个原型向量
     public var prototypes: [Bucket: [[Double]]]
+    /// 每桶每组的原型向量（CLS-013 / ML-006）
+    public var tagPrototypes: [Bucket: [MailTag: [[Double]]]]
     public var windowSize: Int
 
-    public init(prototypes: [Bucket: [[Double]]] = [:], windowSize: Int = 8) {
+    public init(prototypes: [Bucket: [[Double]]] = [:],
+                tagPrototypes: [Bucket: [MailTag: [[Double]]]] = [:],
+                windowSize: Int = 8) {
         self.prototypes = prototypes
+        self.tagPrototypes = tagPrototypes
         self.windowSize = windowSize
     }
 
@@ -83,6 +90,39 @@ public struct PrototypeEngine: Sendable, Equatable {
             window.removeFirst(window.count - windowSize)
         }
         prototypes[bucket] = window
+    }
+
+    /// 桶内组原型投票（ML-006）：仅在已定桶内进行，组建议不改变桶判定。
+    /// 无组原型 → nil（交 CLS-013 阈值判空）；置信度 = 区分度（同 ML-002 语义：
+    /// 一边倒 → 1.0、近平票 → 0.5、桶内单组无竞争 → 1.0）。
+    public func classifyTag(bucket: Bucket, embedding: [Double]) -> (tag: MailTag, confidence: Double)? {
+        guard let groups = tagPrototypes[bucket], !groups.isEmpty else { return nil }
+        var scored: [(tag: MailTag, cosine: Double)] = []
+        for (tag, vectors) in groups {
+            let best = vectors.map { Self.cosine($0, embedding) }.max() ?? 0
+            scored.append((tag, best))
+        }
+        guard let top = scored.max(by: { $0.cosine < $1.cosine }) else { return nil }
+        let runnerUp = scored.filter { $0.tag != top.tag }.map(\.cosine).max()
+        let confidence: Double
+        if let second = runnerUp {
+            confidence = min(1, max(0, 0.5 + (top.cosine - second) / 2))
+        } else {
+            confidence = 1.0 // 无竞争者
+        }
+        return (top.tag, confidence)
+    }
+
+    /// 组原型滚动更新：手动归组即时生效（ML-003 的组维度镜像）。满窗丢最旧。
+    public mutating func updateTag(bucket: Bucket, tag: MailTag, embedding: [Double]) {
+        var groups = tagPrototypes[bucket] ?? [:]
+        var window = groups[tag] ?? []
+        window.append(embedding)
+        if window.count > windowSize {
+            window.removeFirst(window.count - windowSize)
+        }
+        groups[tag] = window
+        tagPrototypes[bucket] = groups
     }
 
     static func cosine(_ a: [Double], _ b: [Double]) -> Double {
