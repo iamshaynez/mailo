@@ -1,8 +1,12 @@
 /* Mailo · zh-Hans（简体中文，DESIGN-003 第一翻译语言） */
 
-/* Navigation */
+/* Navigation (JOURNEY-025 IA v2：HEY 方法论，零假项) */
+"nav.compose" = "写邮件";
+"nav.settings" = "设置";
+"common.cancel" = "取消";
+"sidebar.untagged" = "未分组";
+"segment.all" = "全部";
 "nav.section.mailboxes" = "导航";
-"nav.section.decide" = "归类";
 "bucket.imbox" = "Imbox";
 "bucket.feed" = "Feed";
 "bucket.paperTrail" = "Paper Trail";
@@ -14,7 +18,7 @@
 "account.notConnected" = "未连接";
 
 /* Toolbar */
-"toolbar.search.placeholder" = "搜索邮件、联系人或内容…";
+"toolbar.search.placeholder" = "搜索邮件…";
 "toolbar.compose" = "写邮件";
 "account.online" = "在线";
 "account.menu" = "账户与设置";
@@ -38,6 +42,16 @@
 "list.loadingMore" = "正在加载更早邮件…";
 "search.title" = "搜索结果";
 "search.empty" = "无结果";
+"search.clear" = "清除搜索";
+"list.filter" = "邮件筛选：%@";
+"list.segments" = "分段筛选";
+
+/* 桶内分组（JOURNEY-026） */
+"tag.assign" = "归入分组";
+"tag.new" = "新建分组…";
+"tag.namePlaceholder" = "分组名称";
+"tag.assignHint" = "该发件人在此桶内的全部邮件都会归入该组。";
+"reader.attachments" = "%d 个附件";
 "row.noSubject" = "（无主题）";
 "row.unknown" = "未知发件人";
 "date.undated" = "未知日期";
@@ -65,7 +79,19 @@
 "reader.realPerson" = "真人 ✓";
 "reader.noBody" = "（无正文预览）";
 "reader.select" = "选择一封邮件";
+"reader.back" = "返回邮件列表";
 "reader.calm" = "Imbox 很安静。";
+"reader.addressLine" = "%@ 发给 %@";
+"reader.me" = "我";
+"reader.bodyUnavailable" = "服务器未返回邮件正文。请检查连接后重试。";
+"quickReply.referenceDraft" = "John 你好，我还不清楚这封邮件的内容";
+
+/* Quick reply */
+"quickReply.placeholder" = "回复 %@…";
+"quickReply.expand" = "打开完整撰写";
+"quickReply.send" = "发送回复";
+"quickReply.sent" = "已发送";
+"quickReply.demo" = "演示模式不可发送";
 
 /* Compose */
 "compose.title" = "新邮件";

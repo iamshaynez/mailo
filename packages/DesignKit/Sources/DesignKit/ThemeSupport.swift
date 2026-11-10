@@ -19,9 +19,9 @@ public enum AppearancePreference: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// 从注入的 defaults 恢复；缺失或非法值安全回落 system。
+    /// 从注入的 defaults 恢复；参考图基线下缺失或非法值回落 light，显式 System 仍跟随系统。
     public static func load(from defaults: UserDefaults) -> AppearancePreference {
-        defaults.string(forKey: storageKey).flatMap(AppearancePreference.init(rawValue:)) ?? .system
+        defaults.string(forKey: storageKey).flatMap(AppearancePreference.init(rawValue:)) ?? .light
     }
 
     /// 持久化到注入的 defaults，便于测试与所有窗口共享。
@@ -30,8 +30,13 @@ public enum AppearancePreference: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+/// 主邮件窗口固定使用参考图浅色；Compose/Settings 仍走用户偏好（DESIGN-005）。
+enum MailoReferenceTheme {
+    static let colorScheme: ColorScheme = .light
+}
+
 private struct MailoThemeModifier: ViewModifier {
-    @AppStorage(AppearancePreference.storageKey) private var rawAppearance = AppearancePreference.system.rawValue
+    @AppStorage(AppearancePreference.storageKey) private var rawAppearance = AppearancePreference.light.rawValue
 
     func body(content: Content) -> some View {
         content.preferredColorScheme(AppearancePreference(rawValue: rawAppearance)?.colorScheme)
@@ -58,60 +63,62 @@ extension DesignTokens {
         case statusSuccessBackground, statusSuccessForeground, statusDanger
     }
 
-    /// Slate Concept v2 原始色板（DESIGN-005；docs/design/design-system.md §2）。
+    /// Inbox Reference v3 原始色板（DESIGN-005；docs/design/design-system.md §2）。
     public static func hex(_ role: ThemeRole, for scheme: ColorScheme) -> UInt32 {
         switch (role, scheme) {
-        case (.surfaceSidebar, .light), (.surfaceToolbar, .light): return 0xE9EDF3
-        case (.surfaceSidebar, .dark), (.surfaceToolbar, .dark): return 0x171D22
-        case (.surfaceList, .light): return 0xF3F5F8
-        case (.surfaceList, .dark): return 0x171D24
+        case (.surfaceSidebar, _): return 0x071C2C
+        case (.surfaceToolbar, .light): return 0xFFFFFF
+        case (.surfaceToolbar, .dark): return 0x111E28
+        case (.surfaceList, .light): return 0xFFFFFF
+        case (.surfaceList, .dark): return 0x15232D
         case (.surfaceCard, .light), (.surfaceCardSelected, .light), (.surfaceReader, .light): return 0xFFFFFF
-        case (.surfaceCard, .dark): return 0x242933
-        case (.surfaceCardSelected, .dark): return 0x2B323D
-        case (.surfaceReader, .dark): return 0x3C4350
-        case (.readerLeading, .light): return 0xFAFCFF
-        case (.readerLeading, .dark): return 0x3B434F
+        case (.surfaceCard, .dark): return 0x1F303C
+        case (.surfaceCardSelected, .dark): return 0x24445A
+        case (.surfaceReader, .dark): return 0x1B2A35
+        case (.readerLeading, .light): return 0xFFFFFF
+        case (.readerLeading, .dark): return 0x1B2A35
         case (.readerHeader, .light): return 0xFFFFFF
-        case (.readerHeader, .dark): return 0x3A424D
-        case (.readerBodyTop, .light): return 0xFCFDFF
-        case (.readerBodyTop, .dark): return 0x3D4551
-        case (.readerBodyBottom, .light): return 0xF6F8FB
-        case (.readerBodyBottom, .dark): return 0x343C47
-        case (.readerTrailing, .light): return 0xF3F5F9
-        case (.readerTrailing, .dark): return 0x38404B
-        case (.readerChip, .light): return 0xF0F3F7
-        case (.readerChip, .dark): return 0x47505C
-        case (.cardSelectedBorder, .light): return 0xD8DEE7
-        case (.cardSelectedBorder, .dark): return 0x39424D
-        case (.surfaceControl, .light): return 0xE7ECF2
-        case (.surfaceControl, .dark): return 0x2B3442
-        case (.surfaceHover, .light): return 0xEDF1F6
-        case (.surfaceHover, .dark): return 0x2B323E
-        case (.surfaceSearch, .light): return 0xFFFFFF
-        case (.surfaceSearch, .dark): return 0xF6FAFF
-        case (.inkPrimary, .light): return 0x18202B
-        case (.inkPrimary, .dark): return 0xF4F6FA
-        case (.inkSecondary, .light): return 0x4B5665
-        case (.inkSecondary, .dark): return 0xB2BAC7
-        case (.inkBody, .light): return 0x283444
-        case (.inkBody, .dark): return 0xD5DAE3
-        case (.inkMuted, .light): return 0x7A8594
-        case (.inkMuted, .dark): return 0x8791A1
-        case (.inkFaint, .light): return 0x9AA4B1
-        case (.inkFaint, .dark): return 0x606B7B
-        case (.borderDefault, .light): return 0xDDE3EB
-        case (.borderDefault, .dark): return 0x303845
-        case (.borderHairline, .light): return 0xE9EEF4
-        case (.borderHairline, .dark): return 0x262D38
-        case (.borderStrong, .light): return 0xC9D2DE
-        case (.borderStrong, .dark): return 0x4A5565
-        case (.brandBlue, _): return 0x0078FF
-        case (.brandBlueDeep, .light): return 0x0B4E96
-        case (.brandBlueDeep, .dark): return 0x75B9FF
-        case (.brandBlueWash, .light): return 0xE8F2FF
-        case (.brandBlueWash, .dark): return 0x1D3550
-        case (.brandBlueBorder, .light): return 0xC8E0FA
-        case (.brandBlueBorder, .dark): return 0x2E537A
+        case (.readerHeader, .dark): return 0x1B2A35
+        case (.readerBodyTop, .light): return 0xFFFFFF
+        case (.readerBodyTop, .dark): return 0x1B2A35
+        case (.readerBodyBottom, .light): return 0xFAFCFD
+        case (.readerBodyBottom, .dark): return 0x16242E
+        case (.readerTrailing, .light): return 0xF4F8FA
+        case (.readerTrailing, .dark): return 0x15222B
+        case (.readerChip, .light): return 0xEFF4F7
+        case (.readerChip, .dark): return 0x2B3E4B
+        case (.cardSelectedBorder, .light): return 0xE0E9EF
+        case (.cardSelectedBorder, .dark): return 0x3B5363
+        case (.surfaceControl, .light): return 0xEDF2F6
+        case (.surfaceControl, .dark): return 0x253743
+        case (.surfaceHover, .light): return 0xF4F7F9
+        case (.surfaceHover, .dark): return 0x263E4D
+        case (.surfaceSearch, .light): return 0xF5F8FA
+        case (.surfaceSearch, .dark): return 0x24343F
+        case (.inkPrimary, .light): return 0x14232E
+        case (.inkPrimary, .dark): return 0xF0F7FB
+        case (.inkSecondary, .light): return 0x4B5F6E
+        case (.inkSecondary, .dark): return 0xB6C6D1
+        case (.inkBody, .light): return 0x2C3E4B
+        case (.inkBody, .dark): return 0xD4E0E7
+        case (.inkMuted, .light): return 0x7E919E
+        case (.inkMuted, .dark): return 0x8FA5B3
+        case (.inkFaint, .light): return 0xA1AEB8
+        case (.inkFaint, .dark): return 0x617885
+        case (.borderDefault, .light): return 0xDCE5EB
+        case (.borderDefault, .dark): return 0x31444F
+        case (.borderHairline, .light): return 0xE8EEF2
+        case (.borderHairline, .dark): return 0x273842
+        case (.borderStrong, .light): return 0xC4D3DD
+        case (.borderStrong, .dark): return 0x4A616F
+        case (.brandBlue, .light): return 0x0077C8
+        case (.brandBlue, .dark): return 0x45B7E8
+        case (.brandBlueDeep, .light): return 0x005A9C
+        case (.brandBlueDeep, .dark): return 0x7CCCEC
+        case (.brandBlueWash, .light): return 0xE9F4FC
+        case (.brandBlueWash, .dark): return 0x12384D
+        case (.brandBlueBorder, .light): return 0xB8DDF3
+        case (.brandBlueBorder, .dark): return 0x24566E
         case (.statusSuccessBackground, .light): return 0xE7F5EC
         case (.statusSuccessBackground, .dark): return 0x17372B
         case (.statusSuccessForeground, .light): return 0x237A46
@@ -119,7 +126,7 @@ extension DesignTokens {
         case (.statusDanger, .light): return 0xD94452
         case (.statusDanger, .dark): return 0xFF6B74
         @unknown default:
-            return 0x0078FF
+            return 0x0077C8
         }
     }
 

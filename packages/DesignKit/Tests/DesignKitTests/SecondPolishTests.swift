@@ -7,24 +7,17 @@ import Testing
 
 @MainActor
 struct SecondPolishTests {
-    @Test("DESIGN-006 阅读区连续渐变色标与 gutter")
+    @Test("DESIGN-006 阅读区为平坦纸面且使用统一水平留白")
     func design_006_reader_surface_palette() {
-        #expect(ReaderSurfaceSpec.gradientLocations == [0, 0.42, 1])
-        #expect(ReaderSurfaceSpec.trailingGutter == 20)
-        #expect(ReaderSurfaceSpec.bottomGutter == 16)
-        #expect(ReaderSurfaceSpec.headerMeasure == 576)
-        #expect(DesignTokens.hex(.readerHeader, for: .dark) == 0x3A424D)
-        #expect(DesignTokens.hex(.readerBodyBottom, for: .dark) == 0x343C47)
-        #expect(DesignTokens.hex(.readerChip, for: .dark) == 0x47505C)
-    }
-
-    @Test("DESIGN-006 跨栏连接使用固定接触阴影而非布局 morph")
-    func design_006_connection_shadow_geometry() {
-        #expect(ConnectionShadowSpec.blur == 8)
-        #expect(ConnectionShadowSpec.x == 3)
-        #expect(ConnectionShadowSpec.y == 4)
-        #expect(ConnectionShadowSpec.width == 24)
-        #expect(ConnectionShadowSpec.opacity == 0.32)
+        #expect(!ReaderSurfaceSpec.usesGradient)
+        #expect(ReaderSurfaceSpec.leadingPadding == 20)
+        #expect(ReaderSurfaceSpec.trailingPadding == 44)
+        #expect(ReaderSurfaceSpec.trailingGutter == 0)
+        #expect(ReaderSurfaceSpec.bottomGutter == 0)
+        #expect(ReaderSurfaceSpec.headerMeasure == 600)
+        #expect(DesignTokens.hex(.readerHeader, for: .dark) == 0x1B2A35)
+        #expect(DesignTokens.hex(.readerBodyBottom, for: .dark) == 0x16242E)
+        #expect(DesignTokens.hex(.readerChip, for: .dark) == 0x2B3E4B)
     }
 
     @Test("PERF-005 相同 HTML 零重载，内容变化只加载一次")

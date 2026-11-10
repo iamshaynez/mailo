@@ -94,12 +94,12 @@
 - **Status**: draft
 - **Tests**: `sync_013_header_first_fetch`
 
-## SYNC-014 正文按需拉取（lazy body）
-- **Given** 一封已入库但 raw 为空的邮件（仅 ENVELOPE）
+## SYNC-014 正文按需拉取（v2：literal 与 quoted string 均可解析）
+- **Given** 一封已入库但 raw 为空的邮件（仅 ENVELOPE）；服务器可用 RFC3501 literal 或 quoted string 返回 BODY[]
 - **When** `engine.fetchBody(uid:transport:)` 单封 `FETCH (UID BODY.PEEK[])`（PEEK 不置已读）
-- **Then** 返回该邮件完整原文；假服务器确认 \Seen 标记未被设置
-- **Status**: draft
-- **Tests**: `sync_014_lazy_body_fetch`
+- **Then** 两种合法响应都返回该邮件完整原文；假服务器确认 \Seen 标记未被设置
+- **Status**: green
+- **Tests**: `sync_014_lazy_body_fetch`, `sync_014_quoted_body_fetch`, `sync_014_quoted_utf8_body_fetch`
 
 ## SYNC-015 同步快照持久化（重启只拉增量）
 - **Given** 首轮同步后快照入库，App 重启（新 store 实例）后同邮箱再来一封新邮件

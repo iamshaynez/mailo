@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Slate Concept 共享按钮（DESIGN-005）：表面、状态、命中区域与动效集中在这里。
+/// Inbox Reference 共享按钮（DESIGN-005）：表面、状态、命中区域与动效集中在这里。
 struct MailoButtonStyle: ButtonStyle {
     enum Variant {
         case primary, secondary, ghost, destructive
@@ -104,17 +104,41 @@ struct MailoAvatar: View {
     var size: CGFloat = DesignTokens.avatarSize
 
     var body: some View {
-        Circle()
-            .fill(color.opacity(0.88))
-            .frame(width: size, height: size)
-            .overlay {
-                Text(String((address ?? "?").prefix(1)).uppercased())
-                    .font(size <= DesignTokens.avatarSize
-                          ? DesignTokens.Typo.meta.weight(.semibold)
-                          : DesignTokens.Typo.sub)
-                    .foregroundColor(DesignTokens.onAccent)
+        Group {
+            if let image = ReferenceDemoAssets.avatar(for: address) {
+                image.resizable().scaledToFill()
+            } else {
+                Circle()
+                    .fill(color.opacity(0.88))
+                    .overlay {
+                        Text(String((address ?? "?").prefix(1)).uppercased())
+                            .font(size <= DesignTokens.avatarSize
+                                  ? DesignTokens.Typo.meta.weight(.semibold)
+                                  : DesignTokens.Typo.sub)
+                            .foregroundColor(DesignTokens.onAccent)
+                    }
             }
-            .accessibilityHidden(true)
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .accessibilityHidden(true)
+    }
+}
+
+/// 上一版用户选定的 m + 圆点品牌标识（DESIGN-001）；侧栏与欢迎页共用。
+struct MailoBrandMark: View {
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text("m")
+                .font(DesignTokens.Typo.iconMedium.weight(.bold))
+                .foregroundColor(DesignTokens.accent)
+            Circle()
+                .fill(DesignTokens.accent)
+                .frame(width: 6, height: 6)
+        }
+        .frame(height: 32)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Mailo")
     }
 }
 

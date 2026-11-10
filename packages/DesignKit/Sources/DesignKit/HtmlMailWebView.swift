@@ -25,12 +25,12 @@ struct HtmlMailWebView: View, Equatable {
         #endif
     }
 
-    /// 将 HTML ideal size 限制在 reader 提供的可见视口内（JOURNEY-014）。
+    /// 将 HTML ideal size 限制在 reader 提供的实际正文视口内（JOURNEY-014）。
     static func constrainedSize(proposedWidth: CGFloat?, proposedHeight: CGFloat?,
                                 viewportHeight: CGFloat?, viewportWidth: CGFloat? = nil) -> CGSize {
-        let maxBodyHeight = max(160, (viewportHeight ?? 820) - 280)
+        let maxBodyHeight = max(160, viewportHeight ?? 820)
         let rawWidth = proposedWidth ?? 0
-        let width = viewportWidth.map { max(0, $0 - 52) }
+        let width = viewportWidth.map { max(0, $0) }
             ?? (rawWidth.isFinite && rawWidth > 0 ? rawWidth : DesignTokens.readingMeasure)
         let height = proposedHeight.flatMap { $0 > 0 ? min(maxBodyHeight, $0) : nil } ?? maxBodyHeight
         return CGSize(width: max(0, width), height: min(maxBodyHeight, height))
@@ -44,7 +44,6 @@ struct HtmlMailWebView: View, Equatable {
             .contains { source.contains($0) }
         let bodyClass = hasAuthorPresentation ? " class=\"mailo-authored\"" : ""
         let lightTop = cssHex(.readerBodyTop, .light)
-        let lightBottom = cssHex(.readerBodyBottom, .light)
         let darkTop = cssHex(.readerBodyTop, .dark)
         let darkBottom = cssHex(.readerBodyBottom, .dark)
         let lightLink = cssHex(.brandBlue, .light)
@@ -60,16 +59,16 @@ struct HtmlMailWebView: View, Equatable {
           :root { color-scheme: light dark; }
           html { background: \(lightTop); }
           body { font: -apple-system 14px; color: \(lightInk); background: #FFFFFF;
-                 box-sizing: border-box; max-width: 568px; min-height: 100vh;
-                 margin: 0 auto; padding: 20px 24px; word-break: break-word; line-height: 1.7; }
-          body:not(.mailo-authored) { background: linear-gradient(135deg, \(lightTop), \(lightBottom)); }
+                 box-sizing: border-box; max-width: 600px; min-height: 100vh;
+                 margin: 0 auto; padding: 16px 0; word-break: break-word; line-height: 1.65; }
+          body:not(.mailo-authored) { background: \(lightTop); }
           table { max-width: 100%; }
           img { max-width: 100%; height: auto; }
+          ::-webkit-scrollbar { width: 0; height: 0; }
           a { color: \(lightLink); }
           @media (prefers-color-scheme: dark) {
             html { background: \(darkBottom); }
-            body:not(.mailo-authored) { color: \(darkInk);
-              background: linear-gradient(135deg, \(darkTop), \(darkBottom)); }
+            body:not(.mailo-authored) { color: \(darkInk); background: \(darkTop); }
             body:not(.mailo-authored) a { color: \(darkLink); }
           }
         </style></head><body\(bodyClass)>\(html)</body></html>
@@ -135,7 +134,7 @@ private func configure(_ webView: WKWebView) -> WKWebView {
     #if os(iOS)
     webView.isOpaque = false
     webView.backgroundColor = .clear
-    webView.scrollView.showsVerticalScrollIndicator = true
+    webView.scrollView.showsVerticalScrollIndicator = false
     #endif
     return webView
 }

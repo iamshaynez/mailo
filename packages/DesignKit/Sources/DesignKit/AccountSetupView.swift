@@ -3,7 +3,7 @@ import CoreKit
 import MailProtoKit
 import SwiftUI
 
-/// Slate Concept 账户向导（JOURNEY-002/010）：填表 → 设备码 → 连接；Demo 独立内存库。
+/// Inbox Reference 账户向导（JOURNEY-002/010）：填表 → 设备码 → 连接；Demo 独立内存库。
 public struct AccountSetupView: View {
     @ObservedObject var root: MailoRootModel
     @ObservedObject var model: MailoAppModel
@@ -18,12 +18,7 @@ public struct AccountSetupView: View {
 
     public var body: some View {
         VStack(spacing: 22) {
-            HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Text("m")
-                    .font(DesignTokens.Typo.iconLarge.weight(.bold))
-                    .foregroundColor(DesignTokens.brandBlue)
-                Circle().fill(DesignTokens.brandBlue).frame(width: 6, height: 6)
-            }
+            MailoBrandMark()
             Text(L10n.t("setup.welcome"))
                 .font(DesignTokens.Typo.title)
                 .foregroundColor(DesignTokens.inkPrimary)

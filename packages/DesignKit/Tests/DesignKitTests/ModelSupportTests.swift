@@ -99,7 +99,7 @@ struct HtmlDetailTests {
         #expect(sandboxed.contains("img-src data:"))
         #expect(sandboxed.contains("color-scheme: light dark"))
         #expect(sandboxed.contains("prefers-color-scheme: dark"))
-        #expect(sandboxed.contains("color: #D5DAE3"))
+        #expect(sandboxed.contains("color: #D4E0E7"))
 
         let authored = DesignKitTests_sandbox(html: "<table style=\"color:#18202B\"><tr><td>Receipt</td></tr></table>")
         #expect(authored.contains("body class=\"mailo-authored\""))
@@ -112,16 +112,16 @@ struct HtmlDetailTests {
                                                    proposedHeight: 1944,
                                                    viewportHeight: 652)
         #expect(size.width == 303)
-        #expect(size.height == 372)
+        #expect(size.height == 652)
         let infinite = HtmlMailWebView.constrainedSize(proposedWidth: 86,
                                                        proposedHeight: .infinity,
                                                        viewportHeight: 652)
-        #expect(infinite.height == 372)
+        #expect(infinite.height == 652)
         let zero = HtmlMailWebView.constrainedSize(proposedWidth: 0,
                                                    proposedHeight: 0,
                                                    viewportHeight: 652)
         #expect(zero.width == DesignTokens.readingMeasure)
-        #expect(zero.height == 372)
+        #expect(zero.height == 652)
     }
 }
 

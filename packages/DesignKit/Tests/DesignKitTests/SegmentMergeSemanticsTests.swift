@@ -16,6 +16,13 @@ struct SegmentMergeSemanticsTests {
                     date: date, bucket: "imbox", flags: flags)
     }
 
+    @Test("JOURNEY-018 默认 All 同时展示已读与未读")
+    func journey_018_all_is_default_and_includes_read() {
+        #expect(SegmentSnapshot.defaultSegment == -1)
+        let entries = [entry("read", flags: "\\Seen"), entry("unread")]
+        #expect(SegmentSnapshot.build(segment: SegmentSnapshot.defaultSegment, entries: entries).map(\.stableId) == ["read", "unread"])
+    }
+
     @Test("JOURNEY-018 v2 后台刷新合并语义：已读留原位、移桶删除、新未读插入、顺序稳定")
     func journey_018_merge_semantics_grow_only() {
         // 用户快照（New 段）：A 未读在顶部、B 已读但仍在快照（刚读过）

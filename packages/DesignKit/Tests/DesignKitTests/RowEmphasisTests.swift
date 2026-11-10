@@ -10,7 +10,7 @@ import Testing
 @MainActor
 struct RowEmphasisTests {
 
-    @Test("JOURNEY-019 未读→粗体+蓝点；已读→regular；发件人/主题同源映射")
+    @Test("JOURNEY-019 未读→粗体+绿点；已读→regular；发件人/主题同源映射")
     func journey_019_unread_bold_emphasis() {
         // 映射语义：未读状态唯一决定强调档位
         #expect(RowEmphasis(isUnread: true) == .unread)

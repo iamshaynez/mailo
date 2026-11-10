@@ -80,3 +80,18 @@
 - **Then** 生成 senderExact→blocked 显式规则（同 CLS-010 批准语义）；X 冻结为 blocked 桶；blocked 邮件不出现在任何导航桶（含 Screener 计数递减）；下一封同发件人邮件直接命中规则进 blocked（永不再打扰）
 - **Status**: green
 - **Tests**: `cls_011_block_bucket_semantics`
+
+## CLS-012 桶内子分组：手动归组生成显式 TagRule（CLS-006 的组维度镜像）
+- **Given** 桶 B 内邮件 X（发件人 sender@x.co），组规则集可空；冻结表已含 X 的桶
+- **When** 用户把 X（或其发件人）归入组 T（`assignTag`）
+- **Then** 生成 senderExact→T 的 TagRule（显式规则、永不静默学习，LWW 可同步）；该发件人在桶 B 内既有邮件的 tag 即刻全部改为 T；下一封同发件人邮件进 B 后直接命中规则归 T
+- **And** 组判定优先级 sender > domain（复用 CLS-007 rank 语义）；**冻结只锁桶不锁组**（CLS-005 不破坏：手动改组永远允许，与冻结表无交互）；组为桶内单选（一封邮件同桶内至多一个组）；TagRule 多端同步移交后续 SYNC 用例
+- **Status**: green
+- **Tests**: `cls_012_manual_tag_rule`, `cls_012_tag_rule_priority_and_freeze`
+
+## CLS-013 模型组建议（低置信不分组）
+- **Given** 邮件已定桶 B（任意 reason），模型建议 ModelGuess.tag = T、confidence = c（规则与名单库不含组信息）
+- **When** 管线在无 TagRule 命中时采纳模型组建议
+- **Then** c ≥ 阈值 → tag = T；c < 阈值 → tag 为空（「未分组」，宁可不分，不错分——CLS-004 哲学在组维度的延续）；TagRule 命中永远赢（CLS-012）
+- **Status**: green
+- **Tests**: `cls_013_model_tag_confidence`

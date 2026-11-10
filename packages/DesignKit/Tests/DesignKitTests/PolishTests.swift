@@ -18,13 +18,13 @@ struct PolishTests {
     func design_002_full_token_set() throws {
         // 形状与动效（§4/§6）
         #expect(DesignTokens.radiusWindow == 14)
-        #expect(DesignTokens.radiusCard == 7)
-        #expect(DesignTokens.radiusButton == 8)
-        #expect(DesignTokens.radiusSearch == 6)
-        #expect(DesignTokens.avatarSize == 22)
-        #expect(DesignTokens.readerAvatarSize == 36)
-        #expect(DesignTokens.readingMeasure == 520)
-        #expect(DesignTokens.rowHeight == 96)
+        #expect(DesignTokens.radiusCard == 8)
+        #expect(DesignTokens.radiusButton == 10)
+        #expect(DesignTokens.radiusSearch == 8)
+        #expect(DesignTokens.avatarSize == 26)
+        #expect(DesignTokens.readerAvatarSize == 26)
+        #expect(DesignTokens.readingMeasure == 600)
+        #expect(DesignTokens.rowHeight == 98)
         #expect(DesignTokens.Motion.micro == 0.12)
         #expect(DesignTokens.Motion.transition == 0.22)
         #expect(DesignTokens.Motion.classification == 0.32)
@@ -33,13 +33,13 @@ struct PolishTests {
         #expect(DesignTokens.Motion.readerOffset(reduceMotion: false) == 6)
         #expect(DesignTokens.Motion.readerOffset(reduceMotion: true) == 0)
 
-        // Slate Concept 浅色角色（§2）；双主题完整解析由 DESIGN-005 锁定
-        #expect(DesignTokens.brandBlueBorderHex == 0xC8E0FA)
-        #expect(DesignTokens.surfaceWashHex == 0xEDF1F6)
-        #expect(DesignTokens.borderHairlineHex == 0xE9EEF4)
+        // Inbox Reference 浅色角色（§2）；双主题完整解析由 DESIGN-005 锁定
+        #expect(DesignTokens.brandBlueBorderHex == 0xB8DDF3)
+        #expect(DesignTokens.surfaceWashHex == 0xF4F7F9)
+        #expect(DesignTokens.borderHairlineHex == 0xE8EEF2)
         #expect(DesignTokens.statusSuccessBgHex == 0xE7F5EC)
         #expect(DesignTokens.statusSuccessFgHex == 0x237A46)
-        #expect(DesignTokens.inkBodyHex == 0x283444)
+        #expect(DesignTokens.inkBodyHex == 0x2C3E4B)
 
         // 源码扫描：视图层禁止内联 Color(red:) 与 .font(.system(size:))（DesignTokens 除外）
         let violations = try Self.scanSources()
@@ -72,6 +72,18 @@ struct PolishTests {
             }
         }
         return violations
+    }
+
+    @Test("DESIGN-002 原图邮件表面与阴影参数")
+    func design_002_mail_elevation_spec() {
+        #expect(MailElevationSpec.headerRadius == 6 && MailElevationSpec.headerY == 3)
+        #expect(MailElevationSpec.rowRadius == 6 && MailElevationSpec.rowY == 3)
+        #expect(MailElevationSpec.selectedRadius == 14 && MailElevationSpec.selectedY == 4)
+        #expect(MailElevationSpec.paneRadius == 12 && MailElevationSpec.paneX == 4)
+        #expect(MailElevationSpec.headerOpacity == 0.06)
+        #expect(MailElevationSpec.rowOpacity == 0.06)
+        #expect(MailElevationSpec.selectedOpacity == 0.12)
+        #expect(MailElevationSpec.paneOpacity == 0.10)
     }
 
     // MARK: - DESIGN-003 多语言

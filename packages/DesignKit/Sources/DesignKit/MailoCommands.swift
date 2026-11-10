@@ -93,7 +93,7 @@ public struct MailSelectionBridge: Equatable, Sendable {
 /// App 壳挂载的命令面（JOURNEY-009）：MailoMac/MailoIOS 的 `.commands` 直接复用。
 /// 菜单项在打开时求值 disabled——root.active 按引用读取，demo/真实切换即时生效。
 public struct MailoCommandMenu: Commands {
-    let root: MailoRootModel
+    @ObservedObject var root: MailoRootModel
 
     public init(root: MailoRootModel) {
         self.root = root

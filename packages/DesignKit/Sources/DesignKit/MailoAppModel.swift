@@ -526,9 +526,7 @@ public final class MailoAppModel: ObservableObject {
             events.map { event in
                 let parsed = MimeParser.parse(event.raw)
                 let rawBody = event.raw
-                let from = EmailAddress.parse(event.fromAddress)?.address
-                    ?? EmailAddress.parse(parsed.from)?.address
-                    ?? parsed.from
+                let from = event.fromAddress?.isEmpty == false ? event.fromAddress : parsed.from
                 let row = MailRow(
                     stableId: event.stableMessageID.value,
                     account: "primary", folder: "INBOX", uid: event.uid,
@@ -550,7 +548,7 @@ public final class MailoAppModel: ObservableObject {
         }.value
 
         var rows: [MailRow] = []
-        var newFrozen: [(StableMessageID, Bucket, String)] = []
+        var newFrozen: [(StableMessageID, Bucket, String, MailTag?)] = []
         for (row, stable, signal, alreadyFrozen) in prepared {
             rows.append(row)
             guard !alreadyFrozen else { continue } // 冻结幂等（CLS-005）
@@ -563,17 +561,21 @@ public final class MailoAppModel: ObservableObject {
                 decision = ClassificationPipeline.applyModel(
                     verdict, guess: ModelGuess(bucket: .screener, confidence: 0.3)) // 待 MlKit 真模型接入
             }
+            // 组判定（CLS-012/013）：TagRule 命中直达；模型组建议待 MlKit 真模型接入
+            let tag = ClassificationPipeline.applyTag(ruleHit: pipeline.decideTag(signal), guess: nil)
             switch decision {
             case .bucket(let bucket, let reason):
-                newFrozen.append((stable, bucket, "\(reason)"))
+                newFrozen.append((stable, bucket, "\(reason)", tag))
             case .screener:
-                newFrozen.append((stable, .screener, "belowThreshold"))
+                newFrozen.append((stable, .screener, "belowThreshold", tag))
             }
         }
         // 批量写（单事务）
         try store.upsertBatch(rows)
-        try store.freezeBatch(newFrozen.map { ClassificationRow(stableId: $0.0.value, bucket: $0.1, reason: $0.2) })
-        for (stable, bucket, _) in newFrozen {
+        try store.freezeBatch(newFrozen.map {
+            ClassificationRow(stableId: $0.0.value, bucket: $0.1, reason: $0.2, tag: $0.3)
+        })
+        for (stable, bucket, _, _) in newFrozen {
             pipeline.frozen[stable] = bucket
         }
     }
@@ -595,6 +597,8 @@ public protocol MlGuessProviding: Sendable {
         public var textBody: String?
         public var htmlBody: String?
         public var attachmentNames: [String]
+        /// 真实 MIME 附件数据（DESIGN-006）：图片缩略图与文件类型占位的唯一来源。
+        public var attachments: [MimePart]
         public var flags: [String]
         /// 邮件自身的归类桶（徽标/头像语义色用这个，而非当前列表桶）
         public var bucket: Bucket?
@@ -620,13 +624,14 @@ public protocol MlGuessProviding: Sendable {
         guard row.raw != nil else {
             return MailDetail(stableId: row.stableId, subject: row.subject, fromAddress: row.fromAddress,
                               date: row.date, textBody: nil, htmlBody: nil,
-                              attachmentNames: [], flags: row.flagList, bucket: bucket)
+                              attachmentNames: [], attachments: [], flags: row.flagList, bucket: bucket)
         }
         let parsed = parsed ?? parseDetailBytes([UInt8](row.raw!))
         return MailDetail(stableId: row.stableId, subject: row.subject ?? parsed.subject,
                           fromAddress: row.fromAddress ?? parsed.from, date: row.date ?? parsed.date,
                           textBody: parsed.textBody, htmlBody: parsed.htmlBody,
                           attachmentNames: parsed.attachments.compactMap(\.filename),
+                          attachments: parsed.attachments,
                           flags: row.flagList, bucket: bucket)
     }
 
@@ -637,7 +642,7 @@ public protocol MlGuessProviding: Sendable {
             return .failed(L10n.t("reader.missing"))
         }
         var parsedBody: ParsedEmail?
-        if row.raw == nil, let currentRunner = runner {
+        if row.raw?.isEmpty != false, let currentRunner = runner {
             var body: [UInt8]?
             // 独立通道优先（JOURNEY-023）：正文拉取不与同步连接的命令锁竞争（回填批/轮询不阻塞阅读）
             if bodyChannel == nil, let factory = bodyTransportFactory {
@@ -691,6 +696,9 @@ public protocol MlGuessProviding: Sendable {
             }
         } else if row.raw == nil {
         }
+        guard let raw = row.raw, !raw.isEmpty else {
+            return .failed(L10n.t("reader.bodyUnavailable"))
+        }
         let ownBucket = try? store.classificationBucket(stableId: row.stableId)
         return await Task.detached(priority: .userInitiated) {
             .loaded(Self.makeDetail(from: row, parsed: parsedBody, bucket: ownBucket))
@@ -702,7 +710,7 @@ public protocol MlGuessProviding: Sendable {
         guard let raw = row.raw else {
             return MailDetail(stableId: row.stableId, subject: row.subject, fromAddress: row.fromAddress,
                               date: row.date, textBody: nil, htmlBody: nil,
-                              attachmentNames: [], flags: row.flagList, bucket: ownBucket)
+                              attachmentNames: [], attachments: [], flags: row.flagList, bucket: ownBucket)
         }
         let parsed = MimeParser.parse([UInt8](raw))
         return MailDetail(
@@ -713,6 +721,7 @@ public protocol MlGuessProviding: Sendable {
             textBody: parsed.textBody,
             htmlBody: parsed.htmlBody,
             attachmentNames: parsed.attachments.compactMap(\.filename),
+                          attachments: parsed.attachments,
             flags: row.flagList,
             bucket: ownBucket)
     }
@@ -731,7 +740,7 @@ public protocol MlGuessProviding: Sendable {
         guard let raw = row.raw else {
             return MailDetail(stableId: stableId, subject: row.subject, fromAddress: row.fromAddress,
                               date: row.date, textBody: nil, htmlBody: nil,
-                              attachmentNames: [], flags: row.flagList, bucket: ownBucket)
+                              attachmentNames: [], attachments: [], flags: row.flagList, bucket: ownBucket)
         }
         let parsed = MimeParser.parse([UInt8](raw))
         return MailDetail(
@@ -742,6 +751,7 @@ public protocol MlGuessProviding: Sendable {
             textBody: parsed.textBody,
             htmlBody: parsed.htmlBody,
             attachmentNames: parsed.attachments.compactMap(\.filename),
+                          attachments: parsed.attachments,
             flags: row.flagList,
             bucket: ownBucket)
     }
@@ -749,11 +759,22 @@ public protocol MlGuessProviding: Sendable {
     /// 桶计数（load 后刷新，供侧栏徽章）。
     public private(set) var bucketCounts: [String: Int] = [:]
 
+    /// 桶内组计数（JOURNEY-026；key = bucket rawValue，值按计数倒序，未分组不计入）。
+    @Published public private(set) var tagCounts: [String: [TagCount]] = [:]
+
+    /// 当前组过滤（JOURNEY-026）：.all = 整桶；点组行切换。
+    @Published public private(set) var tagFilter: TagFilter = .all
+
     /// Screener 待定数（STORE-006 计数的单一来源；决策/Block 后自动消减）。
     public var screenerCount: Int { bucketCounts[Bucket.screener.rawValue] ?? 0 }
 
     public func refreshCounts() {
         bucketCounts = (try? store.bucketCounts()) ?? [:]
+        var tags: [String: [TagCount]] = [:]
+        for bucket in Bucket.allCases where bucket.isTagNavigable {
+            tags[bucket.rawValue] = (try? store.tagCounts(bucket: bucket)) ?? []
+        }
+        tagCounts = tags
     }
 
     // MARK: - 阅读与桶动作（JOURNEY-012/013/017 · CLS-011）
@@ -912,7 +933,9 @@ public protocol MlGuessProviding: Sendable {
     }
 
     private func refreeze(stableId: String, to bucket: Bucket, reason: String) throws {
-        try store.freeze(ClassificationRow(stableId: stableId, bucket: bucket, reason: reason))
+        // 组与桶正交（CLS-012）：桶迁移不改组——save 是整行替换，先取回再写。
+        let tag = try store.classificationTag(stableId: stableId)
+        try store.freeze(ClassificationRow(stableId: stableId, bucket: bucket, reason: reason, tag: tag))
         if let existing = pipeline.frozen.first(where: { $0.key.value == stableId })?.key {
             pipeline.frozen[existing] = bucket
         }
@@ -1058,12 +1081,47 @@ public protocol MlGuessProviding: Sendable {
 
     public func load(bucket: Bucket) throws {
         selectedBucket = bucket
+        tagFilter = .all // 点桶行回整桶：清除组过滤（JOURNEY-026）
         entries = try store.entries(bucket: bucket)
         refreshCounts()
+    }
+
+    /// 组过滤加载（JOURNEY-026）：点组行 → 桶+组视图；TagFilter 语义见 STORE-013。
+    public func load(bucket: Bucket, tag: TagFilter) throws {
+        selectedBucket = bucket
+        tagFilter = tag
+        entries = try store.entries(bucket: bucket, tag: tag)
+        refreshCounts()
+    }
+
+    /// 手动归组（JOURNEY-026 / CLS-012）：senderExact→组 显式规则（LWW 同键替换）+
+    /// 该发件人在该桶内全部邮件即刻改组 + 计数刷新。
+    public func assignTag(stableId: String, tag: MailTag) throws {
+        guard let row = try store.mail(stableId: stableId) else { return }
+        let bucket = try store.classificationBucket(stableId: stableId) ?? selectedBucket
+        if let from = row.fromAddress {
+            let rule = TagRule.assignment(senderAddress: from, tag: tag,
+                                          deviceId: deviceId,
+                                          ts: Int64(Date().timeIntervalSince1970 * 1000))
+            pipeline.tagRules.removeAll { $0.matcher.key == rule.matcher.key } // LWW 同键替换
+            pipeline.tagRules.append(rule)
+            try store.setTag(senderAddress: from, bucket: bucket, tag: tag)
+        } else {
+            try store.setTag(stableId: stableId, tag: tag)
+        }
+        if bucket == selectedBucket {
+            try load(bucket: selectedBucket, tag: tagFilter)
+        } else {
+            refreshCounts()
+        }
     }
 }
 
 public extension MailoAppModel {
+    /// Demo 阶段切换只开放给模块内装配器（JOURNEY-010），不扩大 public setter。
+    @MainActor
+    internal func activateDemoPhase() { phase = .demo }
+
     /// Demo 装配：进程内假服务器，App"先看看"入口与 JOURNEY-001。
     @MainActor
     static func bootstrapDemo(store: MirrorKit.MirrorStore? = nil) async -> MailoAppModel {
@@ -1083,7 +1141,18 @@ public extension MailoAppModel {
                                         smtpHost: "demo.local", username: "demo@local",
                                         secretRef: "demo")
         try? await model.attach(account: demoAccount, transport: server)
-        model.phase = .demo
+        // Demo 桶内组（JOURNEY-026）：feed/paperTrail 各归一组，演示组导航
+        if let entries = try? model.store.entries(bucket: .feed) {
+            if let netflix = entries.first(where: { $0.fromAddress?.contains("netflix") == true }) {
+                try? model.assignTag(stableId: netflix.stableId, tag: MailTag("视频"))
+            }
+        }
+        if let entries = try? model.store.entries(bucket: .paperTrail) {
+            if let amzn = entries.first(where: { $0.fromAddress?.contains("amzn") == true }) {
+                try? model.assignTag(stableId: amzn.stableId, tag: MailTag("购物"))
+            }
+        }
+        model.activateDemoPhase()
         return model
     }
 }

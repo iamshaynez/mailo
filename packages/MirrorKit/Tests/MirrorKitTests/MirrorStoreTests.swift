@@ -129,17 +129,17 @@ struct MigrationContractTests {
     @Test("STORE-009 迁移契约锁定")
     func store_009_migration_contract() throws {
         // 与登记表（MIGRATIONS.md + releasedMigrations）完全一致
-        let expected = ["v1", "v2-sync-state", "v3-meta"]
+        let expected = ["v1", "v2-sync-state", "v3-meta", "v4-tags"]
         #expect(MirrorStore.releasedMigrations == expected)
 
         // 新库：全部应用，顺序一致
         let store = try MirrorStore()
         #expect(store.appliedMigrations == expected)
-        #expect(store.schemaVersion == 3)
+        #expect(store.schemaVersion == 4)
 
         // 版本绑定：recordAppVersion 后诊断可读
         store.recordAppVersion("0.1.0")
-        #expect(store.schemaDiagnostics() == "db schema v3 · app 0.1.0")
+        #expect(store.schemaDiagnostics() == "db schema v4 · app 0.1.0")
 
         // 存量库（文件）二次打开幂等：清单不变
         let path = FileManager.default.temporaryDirectory

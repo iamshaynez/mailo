@@ -38,17 +38,38 @@ public struct MailRow: Codable, Equatable, Sendable, FetchableRecord, Persistabl
 }
 
 /// 分类冻结行（基线 D8：结果冻结幂等的持久化形态）。
+/// tag 为桶内子分组（CLS-012/013，v4-tags 列）：冻结只锁桶，tag 可随后续归组改写。
 public struct ClassificationRow: Codable, Equatable, Sendable, FetchableRecord, PersistableRecord {
     public static let databaseTableName = "classification"
 
     public var stableId: String
     public var bucket: String
     public var reason: String
+    public var tag: String?
 
-    public init(stableId: String, bucket: Bucket, reason: String) {
+    public init(stableId: String, bucket: Bucket, reason: String, tag: MailTag? = nil) {
         self.stableId = stableId
         self.bucket = bucket.rawValue
         self.reason = reason
+        self.tag = tag?.name
+    }
+}
+
+/// 组过滤（STORE-013）：all 整桶 / tagged(T) 只看组 / untagged 只看未分组。
+public enum TagFilter: Hashable, Sendable {
+    case all
+    case tagged(MailTag)
+    case untagged
+}
+
+/// 组计数行（STORE-013）：侧栏组列表的数据源。
+public struct TagCount: Equatable, Sendable {
+    public var tag: MailTag
+    public var count: Int
+
+    public init(tag: MailTag, count: Int) {
+        self.tag = tag
+        self.count = count
     }
 }
 
@@ -91,7 +112,7 @@ public final class MirrorStore: @unchecked Sendable {
 
     /// 项目标准（STORE-009 / MIGRATIONS.md）：每版本一个迁移、自动执行、
     /// **已合入的迁移永不修改，只允许新增**；本清单与登记表必须同步维护。
-    static let releasedMigrations = ["v1", "v2-sync-state", "v3-meta"]
+    static let releasedMigrations = ["v1", "v2-sync-state", "v3-meta", "v4-tags"]
 
     static func makeMigrator() -> DatabaseMigrator {
         var migrator = DatabaseMigrator()
@@ -164,6 +185,10 @@ public final class MirrorStore: @unchecked Sendable {
                 t.column("key", .text).notNull()
                 t.column("value", .text).notNull()
             }
+        }
+        // v4：桶内子分组（STORE-013）——classification 加可空 tag 列，只加不改。
+        migrator.registerMigration("v4-tags") { db in
+            try db.execute(sql: "ALTER TABLE classification ADD COLUMN tag TEXT")
         }
         return migrator
     }
@@ -296,6 +321,69 @@ public final class MirrorStore: @unchecked Sendable {
         }
     }
 
+    /// 组过滤视图（STORE-013）：TagFilter 语义——all 整桶 / tagged 只看组 / untagged 只看未分组。
+    /// 排序与 limit 语义同 entries(bucket:)。
+    public func entries(bucket: Bucket, tag: TagFilter, limit: Int = 200) throws -> [BucketEntry] {
+        try dbQueue.read { db in
+            let condition: String
+            let arguments: [DatabaseValueConvertible]
+            switch tag {
+            case .all:
+                condition = ""
+                arguments = [bucket.rawValue, limit]
+            case .tagged(let mailTag):
+                condition = " AND c.tag = ?"
+                arguments = [bucket.rawValue, mailTag.name, limit]
+            case .untagged:
+                condition = " AND (c.tag IS NULL OR c.tag = '')"
+                arguments = [bucket.rawValue, limit]
+            }
+            let sql = """
+            SELECT m.stableId, m.subject, m.fromAddress, m.snippet, m.date, m.flags, c.bucket
+            FROM mail m JOIN classification c ON c.stableId = m.stableId
+            WHERE c.bucket = ?\(condition)
+            ORDER BY m.date DESC LIMIT ?
+            """
+            return try BucketEntry.fetchAll(db, sql: sql, arguments: StatementArguments(arguments))
+        }
+    }
+
+    /// 组计数（STORE-013）：组名+计数，按计数倒序；未分组不计入；空组不出现。
+    public func tagCounts(bucket: Bucket) throws -> [TagCount] {
+        try dbQueue.read { db in
+            let rows = try Row.fetchAll(db, sql: """
+                SELECT tag, COUNT(*) AS n FROM classification
+                WHERE bucket = ? AND tag IS NOT NULL AND tag != ''
+                GROUP BY tag ORDER BY n DESC, tag ASC
+                """, arguments: [bucket.rawValue])
+            return rows.compactMap { row in
+                guard let name: String = row["tag"] else { return nil }
+                return TagCount(tag: MailTag(name), count: row["n"] ?? 0)
+            }
+        }
+    }
+
+    /// 单封改组（STORE-013）：幂等；tag=nil 清组；不影响 bucket/reason/冻结。
+    public func setTag(stableId: String, tag: MailTag?) throws {
+        try dbQueue.write { db in
+            try db.execute(sql: "UPDATE classification SET tag = ? WHERE stableId = ?",
+                           arguments: [tag?.name, stableId])
+        }
+    }
+
+    /// 发件人批量改组（STORE-013 / CLS-012）：该发件人在该桶内全部邮件一次归组。
+    public func setTag(senderAddress: String, bucket: Bucket, tag: MailTag?) throws {
+        try dbQueue.write { db in
+            try db.execute(sql: """
+                UPDATE classification SET tag = ?
+                WHERE stableId IN (
+                    SELECT m.stableId FROM mail m JOIN classification c ON c.stableId = m.stableId
+                    WHERE c.bucket = ? AND m.fromAddress = ?
+                )
+                """, arguments: [tag?.name, bucket.rawValue, senderAddress.normalized])
+        }
+    }
+
     /// 子串搜索（STORE-003）：≥3 字符走 FTS5 trigram；更短的查询 trigram 无法成组，LIKE 兜底。
     public func search(_ query: String, limit: Int = 50) throws -> [MailRow] {
         try dbQueue.read { db in
@@ -319,6 +407,17 @@ public final class MirrorStore: @unchecked Sendable {
         try dbQueue.read { db in
             try String.fetchOne(db, sql: "SELECT bucket FROM classification WHERE stableId = ?",
                                 arguments: [stableId]).flatMap(Bucket.init(rawValue:))
+        }
+    }
+
+    /// 邮件当前组（阅读窗格归组入口回显，STORE-013）。
+    public func classificationTag(stableId: String) throws -> MailTag? {
+        try dbQueue.read { db in
+            try String.fetchOne(
+                db,
+                sql: "SELECT tag FROM classification WHERE stableId = ? AND tag IS NOT NULL AND tag != ''",
+                arguments: [stableId]
+            ).map { MailTag($0) }
         }
     }
 
