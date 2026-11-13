@@ -2,6 +2,34 @@ import CoreKit
 import MirrorKit
 import SwiftUI
 
+/// DESIGN-008：侧栏行的共享几何；测试与视图必须使用同一组数值。
+enum SidebarRowLayout {
+    static let horizontalPadding: CGFloat = 6
+    static let itemSpacing: CGFloat = 10
+    static let iconWidth: CGFloat = 12
+    static let trailingIconWidth: CGFloat = 8
+    static let groupIndent: CGFloat = 26
+    static let regularHeight: CGFloat = 34
+    static let compactHeight: CGFloat = 28
+
+    static func requiredWidth(titleWidth: CGFloat, countWidth: CGFloat,
+                              hasIcon: Bool, hasTrailingIcon: Bool, indent: Bool) -> CGFloat {
+        var itemCount = 1 // 标题使用弹性 frame，不再额外加入 Spacer 间距
+        var width = horizontalPadding * 2 + titleWidth + countWidth
+        if hasIcon {
+            itemCount += 1
+            width += iconWidth
+        }
+        if countWidth > 0 { itemCount += 1 }
+        if hasTrailingIcon {
+            itemCount += 1
+            width += trailingIconWidth
+        }
+        if indent { width += groupIndent }
+        return width + CGFloat(itemCount - 1) * itemSpacing
+    }
+}
+
 /// 侧栏 v2（JOURNEY-025/026）：构成由 SidebarIA 纯模型提供，本视图零分叉渲染。
 /// Screener 置顶（门卫）→ Imbox/Feed/Paper Trail（可展开桶内组）→ Set Aside；
 /// 底部动作组。零假项——不再有任何无动作槽位。
@@ -13,9 +41,9 @@ struct SidebarView: View {
     @State private var expandedBuckets: Set<Bucket> = []
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// 侧栏构成（JOURNEY-025）：唯一权威是 SidebarIA.items。
-    private var entries: [SidebarIA.Entry] {
-        SidebarIA.items(
+    /// 侧栏分组（JOURNEY-025）：构成唯一权威是 SidebarIA；弹性留白只位于导航与动作之间。
+    private var sections: SidebarSections {
+        SidebarIA.sections(
             bucketCounts: model.bucketCounts,
             isDemo: root.demo != nil,
             canCompose: model.canCompose,
@@ -37,11 +65,15 @@ struct SidebarView: View {
                 .padding(.top, 20)
                 .padding(.bottom, 16)
 
-            ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
+            ForEach(Array(sections.navigation.enumerated()), id: \.offset) { _, entry in
                 row(for: entry)
             }
 
             Spacer(minLength: 0)
+
+            ForEach(Array(sections.actions.enumerated()), id: \.offset) { _, entry in
+                row(for: entry)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(DesignTokens.surfaceSidebar)
@@ -161,7 +193,7 @@ private struct SidebarButton: View {
 
 /// 34pt 全宽导航行；选中态是矩形表面与左缘 3pt accent，不使用胶囊选框。
 /// 组行（indent+compact）：缩进一级、micro 字号、无图标（JOURNEY-026）。
-private struct SidebarRow: View {
+struct SidebarRow: View {
     let title: String
     let icon: String?
     var count = 0
@@ -173,36 +205,35 @@ private struct SidebarRow: View {
     var compact = false
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: SidebarRowLayout.itemSpacing) {
             if let icon {
                 Image(systemName: icon)
                     .font(DesignTokens.Typo.iconSmall)
-                    .frame(width: 16)
-            } else if indent {
-                Color.clear.frame(width: 16) // 组行缩进占位（对齐桶行图标位）
+                    .fixedSize()
+                    .frame(width: SidebarRowLayout.iconWidth)
             }
             Text(title)
                 .font(compact ? DesignTokens.Typo.micro : DesignTokens.Typo.navItem)
                 .lineLimit(1)
                 .truncationMode(.tail)
-            Spacer(minLength: 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
             if count > 0 {
                 Text("\(count)")
                     .font(DesignTokens.Typo.micro)
                     .foregroundColor(DesignTokens.accent)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(DesignTokens.accent.opacity(0.12)))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             if let trailingIcon {
                 Image(systemName: trailingIcon)
                     .font(DesignTokens.Typo.iconTiny)
-                    .frame(width: 12)
+                    .fixedSize()
+                    .frame(width: SidebarRowLayout.trailingIconWidth)
             }
         }
         .foregroundColor(foreground)
-        .padding(.leading, indent ? DesignTokens.spacingPanel + 26 : DesignTokens.spacingPanel)
-        .padding(.trailing, DesignTokens.spacingPanel)
+        .padding(.leading, SidebarRowLayout.horizontalPadding + (indent ? SidebarRowLayout.groupIndent : 0))
+        .padding(.trailing, SidebarRowLayout.horizontalPadding)
         .frame(maxWidth: .infinity, minHeight: rowHeight, maxHeight: rowHeight, alignment: .leading)
         .background {
             if selected {
@@ -220,7 +251,9 @@ private struct SidebarRow: View {
         .contentShape(Rectangle())
     }
 
-    private var rowHeight: CGFloat { compact ? 28 : 34 }
+    private var rowHeight: CGFloat {
+        compact ? SidebarRowLayout.compactHeight : SidebarRowLayout.regularHeight
+    }
 
     private var foreground: Color {
         if selected { return DesignTokens.sidebarInk }

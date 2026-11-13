@@ -53,6 +53,26 @@ struct SidebarIATests {
         #expect(plain.contains(.compose(enabled: false)))
     }
 
+    @Test("JOURNEY-025 底部动作与导航分组，供视图在两者之间插入弹性留白")
+    func journey_025_sidebar_actions_stay_at_bottom() {
+        let arguments = (bucketCounts: ["screener": 626, "setAside": 1],
+                         isDemo: true, canCompose: true, isSyncCapable: true, showsSettings: true)
+        let sections = SidebarIA.sections(
+            bucketCounts: arguments.bucketCounts, isDemo: arguments.isDemo,
+            canCompose: arguments.canCompose, isSyncCapable: arguments.isSyncCapable,
+            showsSettings: arguments.showsSettings)
+        let flat = SidebarIA.items(
+            bucketCounts: arguments.bucketCounts, isDemo: arguments.isDemo,
+            canCompose: arguments.canCompose, isSyncCapable: arguments.isSyncCapable,
+            showsSettings: arguments.showsSettings)
+
+        #expect(sections.navigation + sections.actions == flat)
+        #expect(sections.navigation.last == .bucket(.setAside, count: 1, expandable: false))
+        #expect(sections.actions == [
+            .compose(enabled: true), .settings, .syncNow(enabled: true), .exitDemo,
+        ])
+    }
+
     @Test("JOURNEY-025 零假项：假导航键与无动作槽位从代码与文案中清除")
     func journey_025_no_fake_nav_items() throws {
         let sources = URL(fileURLWithPath: #filePath)

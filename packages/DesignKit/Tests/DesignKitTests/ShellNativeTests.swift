@@ -71,7 +71,7 @@ struct ShellNativeTests {
         #if os(macOS)
         let model = await MailoAppModel.bootstrapReferenceDemo()
         let stableID = try #require(model.entries.first(where: { $0.subject?.contains("Visual Design") == true })?.stableId)
-        for (width, height) in [(1280, 820), (960, 600)] {
+        for (width, height) in [(898, 640), (960, 600), (1280, 820)] {
             let host = NSHostingView(rootView: MailoShell(model: model, initialSelection: stableID)
                 .environment(\.colorScheme, .light))
             host.appearance = NSAppearance(named: .aqua)
