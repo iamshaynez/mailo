@@ -239,7 +239,7 @@
 - **Then** 结构为：**Screener 置顶第一项**（门卫心智，含待定计数）→ 分隔 → Imbox / Feed / Paper Trail（三桶，可展开组列表）→ 分隔 → Set Aside；底部为写邮件（保留 canCompose 门控）与设置（iOS）/立即同步/退出 Demo（仅 demo 时）
 - **And** **零假项**：聊天/空间/通话/星标/稍后/已发送/草稿/标签槽/More 菜单一律移除（侧栏构成由纯模型 `SidebarIA` 提供，测试锁定：每一项都有真实动作或真实计数）；分段筛选（All/New/Previously seen，JOURNEY-018 语义不变）移至列表头漏斗菜单；导航桶顺序与 Bucket.navBuckets 一致（blocked 永不出现）
 - **Status**: green
-- **Tests**: `journey_025_sidebar_ia_v2`, `journey_025_no_fake_nav_items`
+- **Tests**: `journey_025_sidebar_ia_v2`, `journey_025_no_fake_nav_items`, `journey_025_sidebar_actions_stay_at_bottom`
 
 ## JOURNEY-026 桶内组导航与手动归组
 - **Given** 桶 B 内邮件已带组（模型自动或既有手动），侧栏 B 行可展开
@@ -248,3 +248,11 @@
 - **And** 手动归组（阅读窗格入口，与 JOURNEY-017 手动纠正并列）：选既有组或输入新组名 → 生成 senderExact→组 TagRule（CLS-012）、该发件人在 B 内全部邮件即刻改组、侧栏组计数即时刷新；桶计数与组计数在同步/纠正/删除后随 bucketCounts 一并刷新
 - **Status**: green
 - **Tests**: `journey_026_tag_navigation_filter`, `journey_026_manual_assign_tag`
+
+## DESIGN-008 参考宽度侧栏可读性（v1.0）
+- **Given** regular 三栏窗口为 898/960/1280（侧栏 139/149/198），Screener=626、Feed=14、Paper Trail=29，且 Feed/Paper Trail 展开含 Untagged
+- **When** 渲染侧栏导航与底部动作区
+- **Then** 标准导航标题、计数和展开箭头在 139pt 参考侧栏内单行完整呈现；计数与图标不换行、不压缩，普通/组行高保持 34/28；仅用户自定义长组名允许尾部省略
+- **And** Compose / Settings（iOS）/ Sync Now / Exit Demo 位于导航后的弹性留白下方；三栏比例及选中态尺寸不变
+- **Status**: green
+- **Tests**: `design_008_sidebar_reference_rows_fit`, `design_008_sidebar_accessories_never_wrap`, `journey_025_sidebar_actions_stay_at_bottom`

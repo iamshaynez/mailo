@@ -47,3 +47,38 @@ public enum SidebarIA {
         return items
     }
 }
+
+/// JOURNEY-025：导航与底部动作的视图分组；弹性留白只插在两者之间。
+struct SidebarSections {
+    let navigation: [SidebarIA.Entry]
+    let actions: [SidebarIA.Entry]
+}
+
+extension SidebarIA {
+    static func sections(
+        bucketCounts: [String: Int],
+        isDemo: Bool,
+        canCompose: Bool,
+        isSyncCapable: Bool,
+        showsSettings: Bool
+    ) -> SidebarSections {
+        let entries = items(
+            bucketCounts: bucketCounts, isDemo: isDemo, canCompose: canCompose,
+            isSyncCapable: isSyncCapable, showsSettings: showsSettings
+        )
+        return SidebarSections(
+            navigation: entries.filter {
+                switch $0 {
+                case .bucket, .separator: true
+                case .compose, .settings, .syncNow, .exitDemo: false
+                }
+            },
+            actions: entries.filter {
+                switch $0 {
+                case .bucket, .separator: false
+                case .compose, .settings, .syncNow, .exitDemo: true
+                }
+            }
+        )
+    }
+}
